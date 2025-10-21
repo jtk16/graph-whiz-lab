@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
@@ -24,17 +24,31 @@ interface Expression {
 }
 
 const Index = () => {
-  const [expressions, setExpressions] = useState<Expression[]>([
-    { id: "1", latex: "y=x^2", normalized: "x^2", color: GRAPH_COLORS[0], typeInfo: { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number } },
-    { id: "2", latex: "y=\\sin x", normalized: "sin(x)", color: GRAPH_COLORS[1], typeInfo: { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number } },
-  ]);
-  const [activeId, setActiveId] = useState<string | null>("1");
+  // Load expressions from localStorage or start with empty array
+  const [expressions, setExpressions] = useState<Expression[]>(() => {
+    const saved = localStorage.getItem('graph-expressions');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+  
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [viewport, setViewport] = useState({
     xMin: -10,
     xMax: 10,
     yMin: -10,
     yMax: 10,
   });
+
+  // Persist expressions to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('graph-expressions', JSON.stringify(expressions));
+  }, [expressions]);
 
   const addExpression = () => {
     const newId = Date.now().toString();
@@ -57,10 +71,16 @@ const Index = () => {
   };
 
   const removeExpression = (id: string) => {
-    setExpressions(expressions.filter((expr) => expr.id !== id));
+    const newExpressions = expressions.filter((expr) => expr.id !== id);
+    setExpressions(newExpressions);
     if (activeId === id) {
-      setActiveId(expressions[0]?.id || null);
+      setActiveId(newExpressions[0]?.id || null);
     }
+  };
+
+  const clearAllExpressions = () => {
+    setExpressions([]);
+    setActiveId(null);
   };
 
   const handleZoomIn = () => {
@@ -110,6 +130,7 @@ const Index = () => {
           onAddExpression={addExpression}
           onUpdateExpression={updateExpression}
           onRemoveExpression={removeExpression}
+          onClearAll={clearAllExpressions}
           onSetActive={setActiveId}
         />
         <TypeTable expressions={expressions} />
