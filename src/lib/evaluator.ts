@@ -55,7 +55,11 @@ export function evaluateExpression(expr: string, x: number): number {
   const parts = expr.split('=');
   const rhs = parts.length > 1 ? parts[1].trim() : parts[0].trim();
   
-  const { parseExpression } = require('./parser');
-  const ast = parseExpression(rhs);
+  // Dynamic import is async, so we need to import at the top level
+  // This will be handled by importing parseExpression in the component
+  throw new Error('Use parseAndEvaluate instead');
+}
+
+export function parseAndEvaluate(rhs: string, x: number, ast: ASTNode): number {
   return evaluate(ast, { x });
 }

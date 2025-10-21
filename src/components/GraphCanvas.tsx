@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { evaluateExpression } from "@/lib/evaluator";
+import { parseExpression } from "@/lib/parser";
+import { parseAndEvaluate } from "@/lib/evaluator";
 
 interface Expression {
   id: string;
@@ -9,16 +10,20 @@ interface Expression {
 
 interface GraphCanvasProps {
   expressions: Expression[];
+  viewport: {
+    xMin: number;
+    xMax: number;
+    yMin: number;
+    yMax: number;
+  };
+  onViewportChange: (viewport: GraphCanvasProps['viewport']) => void;
 }
 
-export const GraphCanvas = ({ expressions }: GraphCanvasProps) => {
+export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [viewport, setViewport] = useState({
-    xMin: -10,
-    xMax: 10,
-    yMin: -10,
-    yMax: 10,
-  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragStartViewport, setDragStartViewport] = useState(viewport);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -124,22 +129,43 @@ export const GraphCanvas = ({ expressions }: GraphCanvasProps) => {
     vp: typeof viewport,
     expr: Expression
   ) => {
+    // Parse the expression once
+    const parts = expr.value.split('=');
+    const rhs = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+    
+    if (!rhs) return;
+    
+    let ast;
+    try {
+      ast = parseExpression(rhs);
+    } catch (e) {
+      console.warn('Parse error:', e);
+      return;
+    }
+
     ctx.strokeStyle = expr.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.beginPath();
 
     const xRange = vp.xMax - vp.xMin;
-    const step = xRange / width;
     let started = false;
+    let lastY: number | null = null;
 
     for (let px = 0; px < width; px++) {
       const x = vp.xMin + (px / width) * xRange;
       
       try {
-        const y = evaluateExpression(expr.value, x);
+        const y = parseAndEvaluate(rhs, x, ast);
         
-        if (isFinite(y) && y >= vp.yMin && y <= vp.yMax) {
+        if (isFinite(y)) {
           const py = mapY(y, height, vp);
+          
+          // Check for discontinuities
+          if (lastY !== null && Math.abs(y - lastY) > (vp.yMax - vp.yMin) * 0.5) {
+            started = false;
+          }
           
           if (!started) {
             ctx.moveTo(px, py);
@@ -147,11 +173,15 @@ export const GraphCanvas = ({ expressions }: GraphCanvasProps) => {
           } else {
             ctx.lineTo(px, py);
           }
+          
+          lastY = y;
         } else {
           started = false;
+          lastY = null;
         }
       } catch (e) {
         started = false;
+        lastY = null;
       }
     }
 
@@ -177,11 +207,68 @@ export const GraphCanvas = ({ expressions }: GraphCanvasProps) => {
     return 5 * magnitude;
   };
 
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragStartViewport(viewport);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+
+    const xRange = dragStartViewport.xMax - dragStartViewport.xMin;
+    const yRange = dragStartViewport.yMax - dragStartViewport.yMin;
+
+    const xShift = (-dx / rect.width) * xRange;
+    const yShift = (dy / rect.height) * yRange;
+
+    onViewportChange({
+      xMin: dragStartViewport.xMin + xShift,
+      xMax: dragStartViewport.xMax + xShift,
+      yMin: dragStartViewport.yMin + yShift,
+      yMax: dragStartViewport.yMax + yShift,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    
+    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const xRange = viewport.xMax - viewport.xMin;
+    const yRange = viewport.yMax - viewport.yMin;
+    
+    const xCenter = (viewport.xMin + viewport.xMax) / 2;
+    const yCenter = (viewport.yMin + viewport.yMax) / 2;
+    
+    const newXRange = xRange * zoomFactor;
+    const newYRange = yRange * zoomFactor;
+    
+    onViewportChange({
+      xMin: xCenter - newXRange / 2,
+      xMax: xCenter + newXRange / 2,
+      yMin: yCenter - newYRange / 2,
+      yMax: yCenter + newYRange / 2,
+    });
+  };
+
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-full"
+      className="w-full h-full cursor-move"
       style={{ display: "block" }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
     />
   );
 };

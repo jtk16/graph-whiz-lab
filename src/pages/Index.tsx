@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
+import { GraphControls } from "@/components/GraphControls";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -20,8 +21,15 @@ interface Expression {
 const Index = () => {
   const [expressions, setExpressions] = useState<Expression[]>([
     { id: "1", value: "y = x^2", color: GRAPH_COLORS[0] },
+    { id: "2", value: "y = sin(x)", color: GRAPH_COLORS[1] },
   ]);
   const [activeId, setActiveId] = useState<string | null>("1");
+  const [viewport, setViewport] = useState({
+    xMin: -10,
+    xMax: 10,
+    yMin: -10,
+    yMax: 10,
+  });
 
   const addExpression = () => {
     const newId = Date.now().toString();
@@ -48,6 +56,43 @@ const Index = () => {
     }
   };
 
+  const handleZoomIn = () => {
+    const xCenter = (viewport.xMin + viewport.xMax) / 2;
+    const yCenter = (viewport.yMin + viewport.yMax) / 2;
+    const xRange = (viewport.xMax - viewport.xMin) / 2;
+    const yRange = (viewport.yMax - viewport.yMin) / 2;
+
+    setViewport({
+      xMin: xCenter - xRange / 2,
+      xMax: xCenter + xRange / 2,
+      yMin: yCenter - yRange / 2,
+      yMax: yCenter + yRange / 2,
+    });
+  };
+
+  const handleZoomOut = () => {
+    const xCenter = (viewport.xMin + viewport.xMax) / 2;
+    const yCenter = (viewport.yMin + viewport.yMax) / 2;
+    const xRange = (viewport.xMax - viewport.xMin) * 2;
+    const yRange = (viewport.yMax - viewport.yMin) * 2;
+
+    setViewport({
+      xMin: xCenter - xRange / 2,
+      xMax: xCenter + xRange / 2,
+      yMin: yCenter - yRange / 2,
+      yMax: yCenter + yRange / 2,
+    });
+  };
+
+  const handleResetView = () => {
+    setViewport({
+      xMin: -10,
+      xMax: 10,
+      yMin: -10,
+      yMax: 10,
+    });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Expression Sidebar */}
@@ -63,8 +108,17 @@ const Index = () => {
       </div>
 
       {/* Graph Canvas */}
-      <div className="flex-1 bg-canvas-bg">
-        <GraphCanvas expressions={expressions} />
+      <div className="flex-1 bg-canvas-bg relative">
+        <GraphCanvas 
+          expressions={expressions}
+          viewport={viewport}
+          onViewportChange={setViewport}
+        />
+        <GraphControls
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onResetView={handleResetView}
+        />
       </div>
     </div>
   );
