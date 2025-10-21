@@ -36,8 +36,8 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
     const lhs = parts[0].trim();
     const rhs = parts[1].trim();
 
-    // Function definition: f(x) = ...
-    const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9]*)\(([a-zA-Z][a-zA-Z0-9]*)\)$/);
+    // Function definition: f(x) = ... or f_1(x) = ...
+    const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)$/);
     if (funcMatch) {
       const funcName = funcMatch[1];
       const paramName = funcMatch[2];
@@ -56,8 +56,8 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       return;
     }
 
-    // Variable definition: a = ...
-    const varMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9]*)$/);
+    // Variable definition: a = ... or a_1 = ...
+    const varMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)$/);
     if (varMatch) {
       const varName = varMatch[1];
       
