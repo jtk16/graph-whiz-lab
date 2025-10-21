@@ -84,6 +84,7 @@ export function evaluate(
       
       // Special handling for piecewise(cond1, val1, cond2, val2, ..., default)
       if (node.name === 'piecewise' && node.args && node.args.length >= 3) {
+        console.log('Evaluating piecewise with', node.args.length, 'arguments');
         // Must have odd number of args: pairs of (condition, value) + default
         if (node.args.length % 2 === 0) {
           throw new Error('piecewise() requires odd number of arguments: condition, value pairs, then default');
@@ -92,18 +93,23 @@ export function evaluate(
         // Evaluate conditions in order with short-circuit
         for (let i = 0; i < node.args.length - 1; i += 2) {
           const condition = evaluate(node.args[i], variables, context);
+          console.log(`  Condition ${i/2}:`, condition);
           if (!isNumber(condition)) {
             throw new Error('piecewise() conditions must evaluate to numbers');
           }
           
           // Non-zero means true - return this value
           if (condition.value !== 0) {
-            return evaluate(node.args[i + 1], variables, context);
+            const result = evaluate(node.args[i + 1], variables, context);
+            console.log(`  Condition true, returning:`, result);
+            return result;
           }
         }
         
         // No condition matched, return default (last argument)
-        return evaluate(node.args[node.args.length - 1], variables, context);
+        const defaultResult = evaluate(node.args[node.args.length - 1], variables, context);
+        console.log('  No condition matched, returning default:', defaultResult);
+        return defaultResult;
       }
       
       // Check if it's a user-defined function

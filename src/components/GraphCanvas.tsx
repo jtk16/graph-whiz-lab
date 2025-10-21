@@ -367,8 +367,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       
       try {
         const y = parseAndEvaluate(rhs, x, ast, context);
-        if (sampleCount < 3) {
-          console.log('Sample point: x=', x, 'y=', y);
+        if (sampleCount < 5 && rhs.includes('u')) {
+          console.log(`📊 Plotting ${rhs}: x=${x}, y=${y}`);
           sampleCount++;
         }
         
