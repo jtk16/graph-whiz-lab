@@ -15,6 +15,18 @@ const GRAPH_COLORS = [
   "hsl(var(--graph-4))",
   "hsl(var(--graph-5))",
   "hsl(var(--graph-6))",
+  "hsl(220, 90%, 56%)",  // Bright Blue
+  "hsl(340, 82%, 52%)",  // Pink
+  "hsl(280, 80%, 60%)",  // Purple
+  "hsl(160, 84%, 39%)",  // Teal
+  "hsl(25, 95%, 53%)",   // Orange
+  "hsl(48, 96%, 53%)",   // Yellow
+  "hsl(142, 76%, 36%)",  // Green
+  "hsl(0, 84%, 60%)",    // Red
+  "hsl(200, 98%, 39%)",  // Cyan
+  "hsl(262, 83%, 58%)",  // Violet
+  "hsl(32, 98%, 56%)",   // Amber
+  "hsl(173, 80%, 40%)",  // Emerald
 ];
 
 interface ExpressionInputProps {
@@ -120,11 +132,11 @@ export const ExpressionInput = ({
       className={`group flex items-center gap-2 p-3 rounded-lg transition-all relative border ${
         isActive 
           ? "bg-expression-active border-primary/50 shadow-sm" 
-          : "hover:bg-expression-hover border-transparent"
+          : "hover:bg-expression-hover border-border/50"
       }`}
     >
-      {/* Index Number */}
-      <div className="text-xs font-semibold text-muted-foreground w-5 flex-shrink-0 select-none">
+      {/* Index Badge */}
+      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
         {index}
       </div>
 
@@ -132,16 +144,18 @@ export const ExpressionInput = ({
       <Popover>
         <PopoverTrigger asChild>
           <button
-            className="w-4 h-4 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary/50 transition-all"
-            style={{ backgroundColor: color }}
+            className="w-7 h-7 rounded-lg flex-shrink-0 cursor-pointer border-2 transition-all hover:scale-105 active:scale-95 shadow-sm"
+            style={{ backgroundColor: color, borderColor: color }}
           />
         </PopoverTrigger>
         <PopoverContent className="w-auto p-3" align="start">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-6 gap-2">
             {GRAPH_COLORS.map((c) => (
               <button
                 key={c}
-                className="w-8 h-8 rounded-full hover:ring-2 hover:ring-offset-2 hover:ring-primary/50 transition-all"
+                className={`w-8 h-8 rounded-lg border-2 transition-all hover:scale-110 active:scale-95 ${
+                  c === color ? 'border-foreground ring-2 ring-primary/50' : 'border-border/50'
+                }`}
                 style={{ backgroundColor: c }}
                 onClick={() => onColorChange(c)}
               />
@@ -163,7 +177,7 @@ export const ExpressionInput = ({
 
       {/* Scalar Value Display */}
       {scalarValue && (
-        <div className="absolute bottom-1 right-10 text-xs font-mono text-muted-foreground bg-background/90 px-1.5 py-0.5 rounded backdrop-blur-sm">
+        <div className="absolute bottom-1 right-10 text-xs font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
           = {scalarValue}
         </div>
       )}

@@ -57,7 +57,7 @@ export const ExpressionList = ({
         </Button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
         {expressions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
             <p>No expressions yet</p>

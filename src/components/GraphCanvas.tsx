@@ -26,7 +26,28 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragStartViewport, setDragStartViewport] = useState(viewport);
-  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; screenX: number; screenY: number } | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; screenX: number; screenY: number; expr: Expression } | null>(null);
+  const [parsedExpressions, setParsedExpressions] = useState<Map<string, any>>(new Map());
+
+  // Parse and cache expressions
+  useEffect(() => {
+    const context = buildDefinitionContext(expressions);
+    const newParsed = new Map();
+    
+    expressions.forEach((expr) => {
+      const normalized = expr.normalized.trim();
+      if (!normalized || normalized.includes('=')) return;
+      
+      try {
+        const ast = parseExpression(normalized, context);
+        newParsed.set(expr.id, ast);
+      } catch (e) {
+        // Skip invalid expressions
+      }
+    });
+    
+    setParsedExpressions(newParsed);
+  }, [expressions]);
 
   useEffect(() => {
     // Build definition context from all expressions
@@ -83,7 +104,18 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         console.error('Error drawing expression:', normalized, e);
       }
     });
-  }, [expressions, viewport]);
+
+    // Draw hovered point indicator
+    if (hoveredPoint) {
+      ctx.beginPath();
+      ctx.arc(hoveredPoint.screenX, hoveredPoint.screenY, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = hoveredPoint.expr.color;
+      ctx.fill();
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }, [expressions, viewport, hoveredPoint]);
 
   const drawGrid = (
     ctx: CanvasRenderingContext2D,
@@ -390,22 +422,11 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       }
     }
     
-    // Check if clicking near a plotted point
-    const clickedPoint = findNearestPoint(canvasX, canvasY, rect.width, rect.height);
-    
-    if (clickedPoint) {
-      setHoveredPoint({
-        x: clickedPoint.x,
-        y: clickedPoint.y,
-        screenX: e.clientX,
-        screenY: e.clientY
-      });
-    } else {
-      setHoveredPoint(null);
-      setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-      setDragStartViewport(viewport);
-    }
+    // Normal dragging - clear any hover and start drag
+    setHoveredPoint(null);
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragStartViewport(viewport);
   };
 
   const [scalingAxis, setScalingAxis] = useState<{ axis: 'x' | 'y'; startPos: number; startViewport: typeof viewport } | null>(null);
@@ -416,15 +437,17 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
 
   const findNearestPoint = (canvasX: number, canvasY: number, width: number, height: number) => {
     const context = buildDefinitionContext(expressions);
-    const threshold = 10; // pixels
-    let nearest: { x: number; y: number; distance: number } | null = null;
+    const threshold = 15; // pixels
+    let nearest: { x: number; y: number; expr: Expression; distance: number; screenX: number; screenY: number } | null = null;
 
     for (const expr of expressions) {
       const normalized = expr.normalized.trim();
       if (!normalized || normalized.includes('=')) continue;
 
+      const ast = parsedExpressions.get(expr.id);
+      if (!ast) continue;
+
       try {
-        const ast = parseExpression(normalized, context);
         const mathX = viewport.xMin + (canvasX / width) * (viewport.xMax - viewport.xMin);
         const y = parseAndEvaluate(normalized, mathX, ast, context);
 
@@ -433,7 +456,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
           const distance = Math.abs(py - canvasY);
 
           if (distance < threshold && (!nearest || distance < nearest.distance)) {
-            nearest = { x: mathX, y, distance };
+            nearest = { x: mathX, y, expr, distance, screenX: canvasX, screenY: py };
           }
         }
       } catch (e) {
@@ -445,6 +468,13 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+
     if (scalingAxis) {
       const { axis, startPos, startViewport } = scalingAxis;
       
@@ -478,24 +508,40 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       return;
     }
     
-    if (!isDragging || !canvasRef.current) return;
+    if (isDragging) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
+      const xRange = dragStartViewport.xMax - dragStartViewport.xMin;
+      const yRange = dragStartViewport.yMax - dragStartViewport.yMin;
 
-    const xRange = dragStartViewport.xMax - dragStartViewport.xMin;
-    const yRange = dragStartViewport.yMax - dragStartViewport.yMin;
+      const xShift = (-dx / rect.width) * xRange;
+      const yShift = (dy / rect.height) * yRange;
 
-    const xShift = (-dx / rect.width) * xRange;
-    const yShift = (dy / rect.height) * yRange;
+      onViewportChange({
+        xMin: dragStartViewport.xMin + xShift,
+        xMax: dragStartViewport.xMax + xShift,
+        yMin: dragStartViewport.yMin + yShift,
+        yMax: dragStartViewport.yMax + yShift,
+      });
+      return;
+    }
 
-    onViewportChange({
-      xMin: dragStartViewport.xMin + xShift,
-      xMax: dragStartViewport.xMax + xShift,
-      yMin: dragStartViewport.yMin + yShift,
-      yMax: dragStartViewport.yMax + yShift,
-    });
+    // Real-time hover tracking
+    if (!isDragging && !scalingAxis) {
+      const nearestPoint = findNearestPoint(canvasX, canvasY, rect.width, rect.height);
+      if (nearestPoint) {
+        setHoveredPoint({
+          x: nearestPoint.x,
+          y: nearestPoint.y,
+          screenX: nearestPoint.screenX,
+          screenY: nearestPoint.screenY,
+          expr: nearestPoint.expr
+        });
+      } else {
+        setHoveredPoint(null);
+      }
+    }
   };
 
   const handleMouseUp = () => {
@@ -538,14 +584,23 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       />
       {hoveredPoint && (
         <div
-          className="absolute bg-popover border border-border rounded-md shadow-lg px-3 py-2 text-sm pointer-events-none z-10"
+          className="absolute bg-background/95 border border-border text-foreground px-3 py-2 rounded-lg text-sm pointer-events-none shadow-lg backdrop-blur-sm z-10"
           style={{
-            left: hoveredPoint.screenX + 10,
-            top: hoveredPoint.screenY - 30,
+            left: hoveredPoint.screenX + 15,
+            top: hoveredPoint.screenY - 50,
           }}
         >
-          <div className="font-mono">
-            ({hoveredPoint.x.toFixed(3)}, {hoveredPoint.y.toFixed(3)})
+          <div className="flex items-center gap-2 mb-1">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: hoveredPoint.expr.color }}
+            />
+            <span className="font-medium text-xs opacity-70">
+              {hoveredPoint.expr.latex || hoveredPoint.expr.normalized}
+            </span>
+          </div>
+          <div className="font-mono font-semibold">
+            ({hoveredPoint.x.toFixed(4)}, {hoveredPoint.y.toFixed(4)})
           </div>
         </div>
       )}

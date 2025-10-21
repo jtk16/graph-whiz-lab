@@ -26,44 +26,29 @@ export function TypeTable({ expressions }: TypeTableProps) {
   }
 
   return (
-    <Card className="mt-4">
-      <CardHeader>
-        <CardTitle className="text-sm">Type Information</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[60px]"></TableHead>
-              <TableHead>Expression</TableHead>
-              <TableHead className="text-right">Type</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {expressions.map((expr) => (
-              <TableRow key={expr.id}>
-                <TableCell>
-                  <div 
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: expr.color }}
-                  />
-                </TableCell>
-                <TableCell className="font-mono text-sm">
-                  {expr.normalized || expr.latex}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Badge 
-                    variant="outline" 
-                    className={getTypeColor(expr.typeInfo.type)}
-                  >
-                    {getTypeLabel(expr.typeInfo)}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className="w-full bg-muted/30">
+      <div className="px-4 py-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">Type Information</h3>
+        <div className="space-y-1.5">
+          {expressions.map((expr) => (
+            <div key={expr.id} className="flex items-center gap-3 text-sm py-1">
+              <div 
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                style={{ backgroundColor: expr.color }}
+              />
+              <div className="font-mono text-xs text-muted-foreground truncate flex-1 min-w-0">
+                {expr.normalized || expr.latex}
+              </div>
+              <Badge 
+                variant="outline" 
+                className={`text-xs flex-shrink-0 ${getTypeColor(expr.typeInfo.type)}`}
+              >
+                {getTypeLabel(expr.typeInfo)}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
