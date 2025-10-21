@@ -35,8 +35,9 @@ export function normalizeExpression(latex: string): string {
   // Exponents: x^{2} → x^2
   normalized = normalized.replace(/\^?\{([^}]+)\}/g, '^$1');
   
-  // Subscripts (for now, just remove them - can be enhanced later)
-  normalized = normalized.replace(/_\{([^}]+)\}/g, '');
+  // Subscripts: f_{1} → f_1, f_a → f_a
+  normalized = normalized.replace(/_\{([^}]+)\}/g, '_$1');
+  // Already handles single-char subscripts like f_1
   
   // Common LaTeX commands to remove
   normalized = normalized.replace(/\\left/g, '');

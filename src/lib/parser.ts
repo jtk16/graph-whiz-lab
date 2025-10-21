@@ -108,7 +108,7 @@ class Parser {
 
   private parseIdentifier(): ASTNode {
     let name = '';
-    while (this.isLetter(this.peek()) || this.isDigit(this.peek())) {
+    while (this.isLetter(this.peek()) || this.isDigit(this.peek()) || this.peek() === '_') {
       name += this.consume();
     }
 
