@@ -66,7 +66,7 @@ export function TypeTable({
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
-      const newHeight = Math.max(200, Math.min(800, startHeight - deltaY)); // Inverted deltaY
+      const newHeight = Math.max(40, Math.min(800, startHeight - deltaY)); // Inverted deltaY
       setPanelHeight(newHeight);
     };
     
