@@ -2,7 +2,7 @@
 
 import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
-import { RuntimeValue, createNumber, createFunction, kindToMathType, isNumber, createBoolean } from './value';
+import { RuntimeValue, createNumber, createFunction, kindToMathType, isNumber, isBoolean, createBoolean } from './value';
 import { getOperator } from './operators';
 import { getCallable, evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
@@ -94,12 +94,19 @@ export function evaluate(
         for (let i = 0; i < node.args.length - 1; i += 2) {
           const condition = evaluate(node.args[i], variables, context);
           console.log(`  Condition ${i/2}:`, condition);
-          if (!isNumber(condition)) {
-            throw new Error('piecewise() conditions must evaluate to numbers');
+          
+          // Accept both numbers (0=false, non-zero=true) and booleans
+          let conditionIsTrue = false;
+          if (isNumber(condition)) {
+            conditionIsTrue = condition.value !== 0;
+          } else if (isBoolean(condition)) {
+            conditionIsTrue = condition.value;
+          } else {
+            throw new Error('piecewise() conditions must evaluate to numbers or booleans');
           }
           
-          // Non-zero means true - return this value
-          if (condition.value !== 0) {
+          // If condition is true, return this value
+          if (conditionIsTrue) {
             const result = evaluate(node.args[i + 1], variables, context);
             console.log(`  Condition true, returning:`, result);
             return result;
