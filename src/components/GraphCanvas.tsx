@@ -174,38 +174,57 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     const yRange = vp.yMax - vp.yMin;
     const tickSpacing = calculateGridSpacing(Math.max(xRange, yRange));
     
-    ctx.fillStyle = `hsl(var(--foreground))`;
-    ctx.font = '11px sans-serif';
+    // Use a contrasting color for labels
+    const computedStyle = getComputedStyle(canvasRef.current!);
+    const foreground = computedStyle.getPropertyValue('--foreground').trim();
+    
+    ctx.fillStyle = `hsl(${foreground})`;
+    ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+    
+    const tickSize = 8;
+
+    // X-axis ticks and labels
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-
-    const tickSize = 6;
-
-    // X-axis ticks
+    
     for (let x = Math.ceil(vp.xMin / tickSpacing) * tickSpacing; x <= vp.xMax; x += tickSpacing) {
       if (Math.abs(x) < tickSpacing * 0.01) continue; // Skip zero
       
       const px = mapX(x, width, vp);
       
       // Draw tick mark
-      ctx.strokeStyle = `hsl(var(--axis-line))`;
+      ctx.strokeStyle = `hsl(${foreground})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(px, xAxisY - tickSize);
       ctx.lineTo(px, xAxisY + tickSize);
       ctx.stroke();
       
-      // Draw label
+      // Draw label with background for visibility
       const label = formatTickLabel(x);
-      const labelY = xAxisY + tickSize + 4;
+      const labelY = xAxisY + tickSize + 6;
       
-      // Ensure label is visible
-      if (labelY < height - 15) {
+      if (labelY >= 0 && labelY < height - 5) {
+        // Draw background
+        ctx.save();
+        const metrics = ctx.measureText(label);
+        const padding = 3;
+        ctx.fillStyle = `hsl(var(--canvas-bg))`;
+        ctx.fillRect(
+          px - metrics.width / 2 - padding,
+          labelY - padding,
+          metrics.width + padding * 2,
+          14 + padding * 2
+        );
+        ctx.restore();
+        
+        // Draw text
+        ctx.fillStyle = `hsl(${foreground})`;
         ctx.fillText(label, px, labelY);
       }
     }
 
-    // Y-axis ticks
+    // Y-axis ticks and labels
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     
@@ -215,19 +234,33 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const py = mapY(y, height, vp);
       
       // Draw tick mark
-      ctx.strokeStyle = `hsl(var(--axis-line))`;
+      ctx.strokeStyle = `hsl(${foreground})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(yAxisX - tickSize, py);
-      ctx.lineTo(yAxisX + tickSize, py);
+      ctx.moveTo(yAxisX + tickSize, py);
       ctx.stroke();
       
-      // Draw label
+      // Draw label with background for visibility
       const label = formatTickLabel(y);
-      const labelX = yAxisX - tickSize - 4;
+      const labelX = yAxisX - tickSize - 6;
       
-      // Ensure label is visible
-      if (labelX > 5) {
+      if (labelX >= 0 && labelX < width - 5) {
+        // Draw background
+        ctx.save();
+        const metrics = ctx.measureText(label);
+        const padding = 3;
+        ctx.fillStyle = `hsl(var(--canvas-bg))`;
+        ctx.fillRect(
+          labelX - metrics.width - padding,
+          py - 7 - padding,
+          metrics.width + padding * 2,
+          14 + padding * 2
+        );
+        ctx.restore();
+        
+        // Draw text
+        ctx.fillStyle = `hsl(${foreground})`;
         ctx.fillText(label, labelX, py);
       }
     }
@@ -334,6 +367,29 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     const canvasX = e.clientX - rect.left;
     const canvasY = e.clientY - rect.top;
     
+    // Check for shift-click on axes for axis-specific scaling
+    if (e.shiftKey) {
+      const yAxisX = Math.max(0, Math.min(rect.width, mapX(0, rect.width, viewport)));
+      const xAxisY = Math.max(0, Math.min(rect.height, mapY(0, rect.height, viewport)));
+      
+      const distToYAxis = Math.abs(canvasX - yAxisX);
+      const distToXAxis = Math.abs(canvasY - xAxisY);
+      
+      const threshold = 20; // pixels
+      
+      if (distToYAxis < threshold && distToYAxis < distToXAxis) {
+        // Clicked near Y-axis - scale Y only
+        setIsDragging(false);
+        startAxisScaling('y', e.clientY);
+        return;
+      } else if (distToXAxis < threshold) {
+        // Clicked near X-axis - scale X only
+        setIsDragging(false);
+        startAxisScaling('x', e.clientX);
+        return;
+      }
+    }
+    
     // Check if clicking near a plotted point
     const clickedPoint = findNearestPoint(canvasX, canvasY, rect.width, rect.height);
     
@@ -350,6 +406,12 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       setDragStart({ x: e.clientX, y: e.clientY });
       setDragStartViewport(viewport);
     }
+  };
+
+  const [scalingAxis, setScalingAxis] = useState<{ axis: 'x' | 'y'; startPos: number; startViewport: typeof viewport } | null>(null);
+
+  const startAxisScaling = (axis: 'x' | 'y', startPos: number) => {
+    setScalingAxis({ axis, startPos, startViewport: viewport });
   };
 
   const findNearestPoint = (canvasX: number, canvasY: number, width: number, height: number) => {
@@ -383,6 +445,39 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (scalingAxis) {
+      const { axis, startPos, startViewport } = scalingAxis;
+      
+      if (axis === 'y') {
+        // Vertical drag - scale Y axis
+        const dy = e.clientY - startPos;
+        const scaleFactor = Math.exp(dy / 100); // Exponential scaling
+        
+        const yCenter = (startViewport.yMin + startViewport.yMax) / 2;
+        const yRange = (startViewport.yMax - startViewport.yMin) * scaleFactor;
+        
+        onViewportChange({
+          ...viewport,
+          yMin: yCenter - yRange / 2,
+          yMax: yCenter + yRange / 2,
+        });
+      } else {
+        // Horizontal drag - scale X axis
+        const dx = e.clientX - startPos;
+        const scaleFactor = Math.exp(dx / 100);
+        
+        const xCenter = (startViewport.xMin + startViewport.xMax) / 2;
+        const xRange = (startViewport.xMax - startViewport.xMin) * scaleFactor;
+        
+        onViewportChange({
+          ...viewport,
+          xMin: xCenter - xRange / 2,
+          xMax: xCenter + xRange / 2,
+        });
+      }
+      return;
+    }
+    
     if (!isDragging || !canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
@@ -405,6 +500,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setScalingAxis(null);
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -432,8 +528,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     <>
       <canvas
         ref={canvasRef}
-        className="w-full h-full cursor-move"
-        style={{ display: "block" }}
+        className="w-full h-full"
+        style={{ display: "block", cursor: scalingAxis ? (scalingAxis.axis === 'x' ? 'ew-resize' : 'ns-resize') : (isDragging ? 'grabbing' : 'grab') }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
