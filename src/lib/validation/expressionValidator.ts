@@ -50,18 +50,23 @@ export function validateExpression(
   for (const match of matches) {
     const identifier = match[1];
     
+    console.log(`  Checking identifier: '${identifier}'`);
+    
     // Skip local parameters (function arguments)
     if (localParameters.has(identifier)) {
+      console.log(`    ✓ Skipped (local parameter)`);
       continue;
     }
     
     // Skip built-in functions and reserved names
     if (BUILTIN_FUNCTIONS.has(identifier) || RESERVED_NAMES.includes(identifier)) {
+      console.log(`    ✓ Skipped (builtin/reserved)`);
       continue;
     }
     
     // Skip constants
     if (identifier in CONSTANTS) {
+      console.log(`    ✓ Skipped (constant)`);
       continue;
     }
     
@@ -69,7 +74,12 @@ export function validateExpression(
     const existsAsVariable = identifier in context.variables;
     const existsAsFunction = identifier in context.functions;
     
+    console.log(`    Variable? ${existsAsVariable}, Function? ${existsAsFunction}`);
+    console.log(`    Available functions:`, Object.keys(context.functions));
+    console.log(`    Available variables:`, Object.keys(context.variables));
+    
     if (!existsAsVariable && !existsAsFunction) {
+      console.log(`    ❌ UNDEFINED`);
       const suggestions = getSuggestions(identifier, context);
       errors.push({
         type: 'undefined_identifier',
@@ -77,6 +87,8 @@ export function validateExpression(
         identifier,
         suggestions,
       });
+    } else {
+      console.log(`    ✓ Valid`);
     }
   }
   

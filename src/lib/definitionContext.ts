@@ -30,6 +30,9 @@ export function getIdentifierType(
 }
 
 export function buildDefinitionContext(expressions: Array<{ normalized: string }>): DefinitionContext {
+  console.log('=== buildDefinitionContext START ===');
+  console.log('Input expressions:', expressions.map(e => e.normalized));
+  
   const context: DefinitionContext = {
     variables: { ...CONSTANTS },
     functions: {},
@@ -44,10 +47,13 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
   // Track which identifiers are being processed to detect cycles
   const processing = new Set<string>();
 
-  expressions.forEach(expr => {
+  expressions.forEach((expr, idx) => {
     const normalized = expr.normalized.trim();
-    console.log('buildDefinitionContext: checking expression:', normalized);
-    if (!normalized || !normalized.includes('=')) return;
+    console.log(`[${idx}] Processing expression:`, normalized);
+    if (!normalized || !normalized.includes('=')) {
+      console.log(`[${idx}] Skipped: ${!normalized ? 'empty' : 'no equals sign'}`);
+      return;
+    }
 
     const parts = normalized.split('=');
     if (parts.length !== 2) return;
@@ -58,26 +64,29 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
     // Function definition: f(x) = ... or f_1(x,y) = ... (multi-parameter)
     const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)\(([^)]+)\)$/);
-    console.log('buildDefinitionContext: funcMatch=', funcMatch);
+    console.log(`[${idx}] funcMatch result:`, funcMatch);
     if (funcMatch) {
       const funcName = funcMatch[1];
       const paramsStr = funcMatch[2];
       const params = paramsStr.split(',').map(p => p.trim());
       
+      console.log(`[${idx}] Function detected: ${funcName}, params:`, params);
+      
       if (RESERVED_NAMES.includes(funcName)) {
-        console.warn(`Cannot define function with reserved name: ${funcName}`);
+        console.warn(`[${idx}] ❌ Cannot define function with reserved name: ${funcName}`);
         return;
       }
 
       // Check for circular dependency
       if (processing.has(funcName)) {
-        console.error(`Circular dependency detected for function: ${funcName}`);
+        console.error(`[${idx}] ❌ Circular dependency detected for function: ${funcName}`);
         return;
       }
 
       processing.add(funcName);
 
       try {
+        console.log(`[${idx}] Parsing function body:`, rhs);
         const body = parseExpression(rhs, context);
         context.functions[funcName] = { name: funcName, params, body };
         
@@ -85,9 +94,10 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         const typeInfo = inferType(normalized, normalized);
         context.types[funcName] = typeInfo;
         
-        console.log('buildDefinitionContext: added function', funcName, 'with params', params);
+        console.log(`[${idx}] ✅ Successfully added function '${funcName}' with params`, params);
+        console.log(`[${idx}] Current functions in context:`, Object.keys(context.functions));
       } catch (e) {
-        console.error('buildDefinitionContext: failed to parse function body:', e);
+        console.error(`[${idx}] ❌ Failed to parse function body:`, e);
       } finally {
         processing.delete(funcName);
       }
@@ -96,17 +106,20 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
     // Variable definition: a = ... or a_1 = ...
     const varMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)$/);
+    console.log(`[${idx}] varMatch result:`, varMatch);
     if (varMatch) {
       const varName = varMatch[1];
       
+      console.log(`[${idx}] Variable detected: ${varName}`);
+      
       if (RESERVED_NAMES.includes(varName)) {
-        console.warn(`Cannot define variable with reserved name: ${varName}`);
+        console.warn(`[${idx}] ❌ Cannot define variable with reserved name: ${varName}`);
         return;
       }
 
       // Check for circular dependency
       if (processing.has(varName)) {
-        console.error(`Circular dependency detected for variable: ${varName}`);
+        console.error(`[${idx}] ❌ Circular dependency detected for variable: ${varName}`);
         return;
       }
 
@@ -120,14 +133,22 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         if (isFinite(value)) {
           context.variables[varName] = value;
           context.types[varName] = { type: MathType.Number };
+          console.log(`[${idx}] ✅ Added variable ${varName} = ${value}`);
         }
       } catch (e) {
-        // Skip invalid variable definitions
+        console.log(`[${idx}] ⚠️  Skipped variable ${varName}: ${e}`);
       } finally {
         processing.delete(varName);
       }
+    } else {
+      console.log(`[${idx}] ⚠️  No match for function or variable pattern`);
     }
   });
+
+  console.log('=== buildDefinitionContext RESULT ===');
+  console.log('Functions:', Object.keys(context.functions));
+  console.log('Variables:', Object.keys(context.variables));
+  console.log('=====================================');
 
   return context;
 }

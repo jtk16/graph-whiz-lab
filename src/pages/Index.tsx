@@ -116,13 +116,25 @@ const Index = () => {
           return { ...expr, errors: [] };
         }
         
+        console.log(`\n🔍 Validating expression: ${expr.normalized}`);
+        console.log('Toolkit definitions count:', toolkitDefinitions.length);
+        console.log('Toolkit normalized expressions:', toolkitDefinitions.map(td => td.normalized));
+        
         // Build context with toolkit definitions FIRST (precedence)
         const allContextExpressions = [
           ...toolkitDefinitions.map(td => ({ normalized: td.normalized })),
           ...updated.filter(e => e.id !== expr.id)
         ];
+        
+        console.log('Building context with expressions:', allContextExpressions.map(e => e.normalized));
         const context = buildDefinitionContext(allContextExpressions);
+        
+        console.log('Context after build - Functions:', Object.keys(context.functions));
+        console.log('Context after build - Variables:', Object.keys(context.variables));
+        
         const errors = validateExpression(expr.normalized, context, expr.id);
+        
+        console.log('Validation errors:', errors);
         
         // Check for circular dependencies
         const cycle = detectCircularDependency(expr.normalized, updated, expr.id);
