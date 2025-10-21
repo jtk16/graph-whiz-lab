@@ -14,13 +14,23 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/^y\s*=\s*/, '');
   
   // Convert LaTeX functions to shorthand
-  // Trig functions: \sin x → sin(x)
+  // Trig functions with space: \sin x → sin(x)
   normalized = normalized.replace(/\\sin\s+([a-zA-Z0-9])/g, 'sin($1)');
   normalized = normalized.replace(/\\cos\s+([a-zA-Z0-9])/g, 'cos($1)');
   normalized = normalized.replace(/\\tan\s+([a-zA-Z0-9])/g, 'tan($1)');
   
+  // Trig functions with parentheses or directly: \sin(x) → sin(x), \cos → cos
+  normalized = normalized.replace(/\\sin/g, 'sin');
+  normalized = normalized.replace(/\\cos/g, 'cos');
+  normalized = normalized.replace(/\\tan/g, 'tan');
+  normalized = normalized.replace(/\\ln/g, 'ln');
+  normalized = normalized.replace(/\\log/g, 'log');
+  normalized = normalized.replace(/\\exp/g, 'exp');
+  normalized = normalized.replace(/\\abs/g, 'abs');
+  
   // Square root: \sqrt{x} → sqrt(x)
   normalized = normalized.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
+  normalized = normalized.replace(/\\sqrt/g, 'sqrt');
   
   // Fractions: \frac{a}{b} → (a)/(b)
   normalized = normalized.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
