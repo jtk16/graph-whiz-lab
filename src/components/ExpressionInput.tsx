@@ -1,19 +1,31 @@
 import { MathInput } from "@/components/MathInput";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { parseExpression } from "@/lib/parser";
 import { buildDefinitionContext } from "@/lib/definitionContext";
 import { evaluateToNumber } from "@/lib/runtime/evaluator";
 import { MathType, TypeInfo } from "@/lib/types";
 import "@/components/MathInput.css";
 
+const GRAPH_COLORS = [
+  "hsl(var(--graph-1))",
+  "hsl(var(--graph-2))",
+  "hsl(var(--graph-3))",
+  "hsl(var(--graph-4))",
+  "hsl(var(--graph-5))",
+  "hsl(var(--graph-6))",
+];
+
 interface ExpressionInputProps {
   id: string;
+  index: number;
   value: string;
   normalized: string;
   typeInfo: TypeInfo;
   color: string;
   onChange: (value: string) => void;
+  onColorChange: (color: string) => void;
   onRemove: () => void;
   isActive: boolean;
   onFocus: () => void;
@@ -22,11 +34,13 @@ interface ExpressionInputProps {
 
 export const ExpressionInput = ({
   id,
+  index,
   value,
   normalized,
   typeInfo,
   color,
   onChange,
+  onColorChange,
   onRemove,
   isActive,
   onFocus,
@@ -103,31 +117,63 @@ export const ExpressionInput = ({
 
   return (
     <div
-      className={`group flex items-center gap-2 p-2 rounded-lg transition-colors relative ${
-        isActive ? "bg-expression-active" : "hover:bg-expression-hover"
+      className={`group flex items-center gap-2 p-3 rounded-lg transition-all relative border ${
+        isActive 
+          ? "bg-expression-active border-primary/50 shadow-sm" 
+          : "hover:bg-expression-hover border-transparent"
       }`}
     >
-      <div
-        className="w-3 h-3 rounded-full flex-shrink-0"
-        style={{ backgroundColor: color }}
-      />
-      <MathInput
-        value={value}
-        onChange={onChange}
-        onFocus={onFocus}
-        placeholder="y = x^2"
-        className="flex-1"
-      />
+      {/* Index Number */}
+      <div className="text-xs font-semibold text-muted-foreground w-5 flex-shrink-0 select-none">
+        {index}
+      </div>
+
+      {/* Color Picker */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className="w-4 h-4 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary/50 transition-all"
+            style={{ backgroundColor: color }}
+          />
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-3" align="start">
+          <div className="grid grid-cols-3 gap-2">
+            {GRAPH_COLORS.map((c) => (
+              <button
+                key={c}
+                className="w-8 h-8 rounded-full hover:ring-2 hover:ring-offset-2 hover:ring-primary/50 transition-all"
+                style={{ backgroundColor: c }}
+                onClick={() => onColorChange(c)}
+              />
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Math Input */}
+      <div className="flex-1 min-w-0">
+        <MathInput
+          value={value}
+          onChange={onChange}
+          onFocus={onFocus}
+          placeholder="y = x^2"
+          className="w-full"
+        />
+      </div>
+
+      {/* Scalar Value Display */}
       {scalarValue && (
-        <div className="absolute bottom-1 right-10 text-xs font-mono text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded">
+        <div className="absolute bottom-1 right-10 text-xs font-mono text-muted-foreground bg-background/90 px-1.5 py-0.5 rounded backdrop-blur-sm">
           = {scalarValue}
         </div>
       )}
+
+      {/* Remove Button */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onRemove}
-        className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+        className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 flex-shrink-0"
       >
         <X className="h-4 w-4" />
       </Button>

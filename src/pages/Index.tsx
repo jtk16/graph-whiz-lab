@@ -5,6 +5,9 @@ import { GraphControls } from "@/components/GraphControls";
 import { TypeTable } from "@/components/TypeTable";
 import { normalizeExpression } from "@/lib/normalizeExpression";
 import { inferType, TypeInfo, MathType } from "@/lib/types";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -38,6 +41,7 @@ const Index = () => {
   });
   
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [viewport, setViewport] = useState({
     xMin: -10,
     xMax: 10,
@@ -66,6 +70,14 @@ const Index = () => {
     setExpressions(
       expressions.map((expr) =>
         expr.id === id ? { ...expr, latex, normalized, typeInfo } : expr
+      )
+    );
+  };
+
+  const updateExpressionColor = (id: string, color: string) => {
+    setExpressions(
+      expressions.map((expr) =>
+        expr.id === id ? { ...expr, color } : expr
       )
     );
   };
@@ -121,34 +133,58 @@ const Index = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Expression Sidebar */}
-      <div className="w-80 border-r border-border flex-shrink-0 overflow-y-auto">
-        <ExpressionList
-          expressions={expressions}
-          activeId={activeId}
-          onAddExpression={addExpression}
-          onUpdateExpression={updateExpression}
-          onRemoveExpression={removeExpression}
-          onClearAll={clearAllExpressions}
-          onSetActive={setActiveId}
-        />
-        <TypeTable expressions={expressions} />
-      </div>
+    <div className="flex h-screen overflow-hidden relative">
+      <ResizablePanelGroup direction="horizontal">
+        {/* Expression Sidebar - Collapsible & Resizable */}
+        {!isPanelCollapsed && (
+          <>
+            <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
+              <div className="h-full border-r border-border flex flex-col overflow-hidden">
+                <ExpressionList
+                  expressions={expressions}
+                  activeId={activeId}
+                  onAddExpression={addExpression}
+                  onUpdateExpression={updateExpression}
+                  onUpdateColor={updateExpressionColor}
+                  onRemoveExpression={removeExpression}
+                  onClearAll={clearAllExpressions}
+                  onSetActive={setActiveId}
+                />
+                <div className="border-t border-border">
+                  <TypeTable expressions={expressions} />
+                </div>
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+          </>
+        )}
 
-      {/* Graph Canvas */}
-      <div className="flex-1 bg-canvas-bg relative">
-        <GraphCanvas 
-          expressions={expressions}
-          viewport={viewport}
-          onViewportChange={setViewport}
-        />
-        <GraphControls
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onResetView={handleResetView}
-        />
-      </div>
+        {/* Graph Canvas */}
+        <ResizablePanel>
+          <div className="h-full bg-canvas-bg relative">
+            <GraphCanvas 
+              expressions={expressions}
+              viewport={viewport}
+              onViewportChange={setViewport}
+            />
+            <GraphControls
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onResetView={handleResetView}
+            />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+
+      {/* Collapse/Expand Toggle */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+        className="absolute top-4 left-4 z-10 h-8 w-8"
+      >
+        {isPanelCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+      </Button>
     </div>
   );
 };

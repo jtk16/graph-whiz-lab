@@ -15,6 +15,7 @@ interface ExpressionListProps {
   activeId: string | null;
   onAddExpression: () => void;
   onUpdateExpression: (id: string, latex: string) => void;
+  onUpdateColor: (id: string, color: string) => void;
   onRemoveExpression: (id: string) => void;
   onClearAll: () => void;
   onSetActive: (id: string) => void;
@@ -25,6 +26,7 @@ export const ExpressionList = ({
   activeId,
   onAddExpression,
   onUpdateExpression,
+  onUpdateColor,
   onRemoveExpression,
   onClearAll,
   onSetActive,
@@ -56,22 +58,24 @@ export const ExpressionList = ({
         </Button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-hide">
         {expressions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
             <p>No expressions yet</p>
             <p className="text-xs mt-1">Click "Add Expression" to start</p>
           </div>
         ) : (
-          expressions.map((expr) => (
+          expressions.map((expr, index) => (
             <ExpressionInput
               key={expr.id}
               id={expr.id}
+              index={index + 1}
               value={expr.latex}
               normalized={expr.normalized}
               typeInfo={expr.typeInfo}
               color={expr.color}
               onChange={(latex) => onUpdateExpression(expr.id, latex)}
+              onColorChange={(color) => onUpdateColor(expr.id, color)}
               onRemove={() => onRemoveExpression(expr.id)}
               isActive={expr.id === activeId}
               onFocus={() => onSetActive(expr.id)}
