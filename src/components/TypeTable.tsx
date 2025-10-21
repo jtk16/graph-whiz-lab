@@ -108,58 +108,60 @@ export function TypeTable({
         </div>
 
         {/* Scrollable Content */}
-        <ScrollArea className="max-h-96">
-          {!hasAnyResults ? <div className="text-xs text-muted-foreground italic py-4 text-center">
-              No matching expressions
-            </div> : <Accordion type="multiple" defaultValue={["user-expressions"]} className="w-full">
-              {/* User Expressions Section */}
-              {hasExpressions && <AccordionItem value="user-expressions" className="border-b">
-                  <AccordionTrigger className="text-sm font-medium hover:no-underline py-2">
-                    <div className="flex items-center gap-2 w-full">
-                      <span>Your Expressions</span>
-                      <Badge variant="secondary" className="ml-auto mr-2 bg-primary/10 text-primary border-primary/20">
-                        {filteredUserExpressions.length}
-                        {searchQuery && expressions.length !== filteredUserExpressions.length && ` / ${expressions.length}`}
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-1.5 pb-2">
-                      {filteredUserExpressions.length === 0 ? <div className="text-xs text-muted-foreground italic py-2">
-                          No matching expressions
-                        </div> : filteredUserExpressions.map(expr => <ExpressionRow key={expr.id} id={expr.id} normalized={expr.normalized || expr.latex} color={expr.color} badge={{
-                  label: getTypeLabel(expr.typeInfo),
-                  className: getTypeColor(expr.typeInfo.type)
-                }} />)}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>}
-
-              {/* Toolkit Sections */}
-              {Object.entries(filteredToolkits).map(([source, defs]) => {
-            const totalCount = groupedToolkits[source]?.length || 0;
-            const filteredCount = defs.length;
-            return <AccordionItem key={source} value={source} className="border-b">
+        <ScrollArea className="h-96">
+          <div className="pr-4">
+            {!hasAnyResults ? <div className="text-xs text-muted-foreground italic py-4 text-center">
+                No matching expressions
+              </div> : <Accordion type="multiple" defaultValue={["user-expressions"]} className="w-full">
+                {/* User Expressions Section */}
+                {hasExpressions && <AccordionItem value="user-expressions" className="border-b">
                     <AccordionTrigger className="text-sm font-medium hover:no-underline py-2">
                       <div className="flex items-center gap-2 w-full">
-                        <span>{source}</span>
-                        <Badge variant="outline" className="ml-auto mr-2 text-muted-foreground">
-                          {filteredCount}
-                          {searchQuery && totalCount !== filteredCount && ` / ${totalCount}`}
+                        <span>Your Expressions</span>
+                        <Badge variant="secondary" className="ml-auto mr-2 bg-primary/10 text-primary border-primary/20">
+                          {filteredUserExpressions.length}
+                          {searchQuery && expressions.length !== filteredUserExpressions.length && ` / ${expressions.length}`}
                         </Badge>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-1.5 pb-2">
-                        {defs.map(def => <ExpressionRow key={def.id} id={def.id} normalized={def.normalized} badge={{
-                    label: def.category,
-                    className: "bg-primary/10 text-primary border-primary/20"
+                        {filteredUserExpressions.length === 0 ? <div className="text-xs text-muted-foreground italic py-2">
+                            No matching expressions
+                          </div> : filteredUserExpressions.map(expr => <ExpressionRow key={expr.id} id={expr.id} normalized={expr.normalized || expr.latex} color={expr.color} badge={{
+                    label: getTypeLabel(expr.typeInfo),
+                    className: getTypeColor(expr.typeInfo.type)
                   }} />)}
                       </div>
                     </AccordionContent>
-                  </AccordionItem>;
-          })}
-            </Accordion>}
+                  </AccordionItem>}
+
+                {/* Toolkit Sections */}
+                {Object.entries(filteredToolkits).map(([source, defs]) => {
+              const totalCount = groupedToolkits[source]?.length || 0;
+              const filteredCount = defs.length;
+              return <AccordionItem key={source} value={source} className="border-b">
+                      <AccordionTrigger className="text-sm font-medium hover:no-underline py-2">
+                        <div className="flex items-center gap-2 w-full">
+                          <span>{source}</span>
+                          <Badge variant="outline" className="ml-auto mr-2 text-muted-foreground">
+                            {filteredCount}
+                            {searchQuery && totalCount !== filteredCount && ` / ${totalCount}`}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-1.5 pb-2">
+                          {defs.map(def => <ExpressionRow key={def.id} id={def.id} normalized={def.normalized} badge={{
+                      label: def.category,
+                      className: "bg-primary/10 text-primary border-primary/20"
+                    }} />)}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>;
+            })}
+              </Accordion>}
+          </div>
         </ScrollArea>
       </div>
     </div>;
