@@ -13,9 +13,9 @@ export const signalProcessingToolkit: Toolkit = {
       category: 'function'
     },
     {
-      latex: '\\delta(t)',
-      normalized: 'delta(t)=0',
-      description: 'Dirac delta (impulse) function - graphical representation',
+      latex: '\\delta(t) = \\begin{cases} 10 & |t| < 0.05 \\\\ 0 & \\text{otherwise} \\end{cases}',
+      normalized: 'delta(t)=if(abs(t)<0.05,10,0)',
+      description: 'Dirac delta (impulse) function - unit area approximation',
       category: 'function'
     },
     {
