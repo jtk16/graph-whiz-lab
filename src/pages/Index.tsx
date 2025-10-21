@@ -111,7 +111,7 @@ const Index = () => {
       );
       
       // Validate and check for errors
-      return updated.map((expr) => {
+      return updated.map((expr, index) => {
         if (!expr.normalized.trim()) {
           return { ...expr, errors: [] };
         }
@@ -120,10 +120,11 @@ const Index = () => {
         console.log('Toolkit definitions count:', toolkitDefinitions.length);
         console.log('Toolkit normalized expressions:', toolkitDefinitions.map(td => td.normalized));
         
-        // Build context with toolkit definitions FIRST (precedence)
+        // Build context with toolkit definitions FIRST, then ALL expressions up to and including current
+        // This allows expressions to reference earlier definitions in order
         const allContextExpressions = [
           ...toolkitDefinitions.map(td => ({ normalized: td.normalized })),
-          ...updated.filter(e => e.id !== expr.id)
+          ...updated.slice(0, index + 1).map(e => ({ normalized: e.normalized }))
         ];
         
         console.log('Building context with expressions:', allContextExpressions.map(e => e.normalized));
@@ -132,7 +133,7 @@ const Index = () => {
         console.log('Context after build - Functions:', Object.keys(context.functions));
         console.log('Context after build - Variables:', Object.keys(context.variables));
         
-        const errors = validateExpression(expr.normalized, context, expr.id);
+        const errors = validateExpression(expr.normalized, context, expr.id, index);
         
         console.log('Validation errors:', errors);
         

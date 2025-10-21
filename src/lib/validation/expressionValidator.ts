@@ -15,7 +15,8 @@ export interface ValidationError {
 export function validateExpression(
   normalized: string,
   context: DefinitionContext,
-  currentId?: string
+  currentId?: string,
+  currentIndex?: number
 ): ValidationError[] {
   const errors: ValidationError[] = [];
   
@@ -23,14 +24,21 @@ export function validateExpression(
     return errors;
   }
 
-  // For definitions, only validate the RHS
+  // For definitions, only validate the RHS and extract the LHS identifier
   let expressionToValidate = normalized;
+  let lhsIdentifier: string | undefined;
   const localParameters = new Set<string>();
   
   if (normalized.includes('=')) {
     const parts = normalized.split('=');
     if (parts.length === 2) {
       expressionToValidate = parts[1].trim(); // Only validate RHS
+      
+      // Extract LHS identifier (function name or variable name)
+      const lhsMatch = parts[0].match(/^([a-zA-Z][a-zA-Z0-9_]*)/);
+      if (lhsMatch) {
+        lhsIdentifier = lhsMatch[1];
+      }
       
       // Extract function parameters if this is a function definition
       // e.g., f(t,x) = ... should extract [t, x]
@@ -51,6 +59,12 @@ export function validateExpression(
     const identifier = match[1];
     
     console.log(`  Checking identifier: '${identifier}'`);
+    
+    // Skip the LHS identifier (the thing being defined)
+    if (lhsIdentifier && identifier === lhsIdentifier) {
+      console.log(`    ✓ Skipped (LHS identifier being defined)`);
+      continue;
+    }
     
     // Skip local parameters (function arguments)
     if (localParameters.has(identifier)) {
