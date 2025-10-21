@@ -1,6 +1,7 @@
 // Manages cross-expression definitions and reserved variables
 
 import { ASTNode, parseExpression } from './parser';
+import { MathType, TypeInfo, inferType } from './types';
 
 export const RESERVED_NAMES = ['x', 'y', 'pi', 'e'];
 
@@ -18,12 +19,26 @@ export interface FunctionDefinition {
 export interface DefinitionContext {
   variables: Record<string, number>;
   functions: Record<string, FunctionDefinition>;
+  types: Record<string, import('./types').TypeInfo>; // Track type of each identifier
+}
+
+export function getIdentifierType(
+  name: string,
+  context?: DefinitionContext
+): import('./types').TypeInfo | undefined {
+  return context?.types?.[name];
 }
 
 export function buildDefinitionContext(expressions: Array<{ normalized: string }>): DefinitionContext {
   const context: DefinitionContext = {
     variables: { ...CONSTANTS },
     functions: {},
+    types: {
+      pi: { type: MathType.Number },
+      e: { type: MathType.Number },
+      x: { type: MathType.Number },
+      y: { type: MathType.Number },
+    },
   };
 
   expressions.forEach(expr => {
@@ -51,8 +66,13 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       }
 
       try {
-        const body = parseExpression(rhs);
+        const body = parseExpression(rhs, context);
         context.functions[funcName] = { name: funcName, paramName, body };
+        
+        // Infer function type
+        const typeInfo = inferType(normalized, normalized);
+        context.types[funcName] = typeInfo;
+        
         console.log('buildDefinitionContext: added function', funcName, 'with param', paramName);
       } catch (e) {
         console.error('buildDefinitionContext: failed to parse function body:', e);
@@ -72,11 +92,12 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
       // Only allow constant definitions (no variables in RHS)
       try {
-        const ast = parseExpression(rhs);
+        const ast = parseExpression(rhs, context);
         // Try to evaluate as constant (no variables except constants)
         const value = evaluateConstant(ast, { ...CONSTANTS });
         if (isFinite(value)) {
           context.variables[varName] = value;
+          context.types[varName] = { type: MathType.Number };
         }
       } catch (e) {
         // Skip invalid variable definitions

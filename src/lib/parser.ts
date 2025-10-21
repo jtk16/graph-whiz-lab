@@ -1,6 +1,9 @@
 // Basic math expression parser for MVP
 // Supports: numbers, variables, basic operators, trig functions
 
+import { DefinitionContext } from './definitionContext';
+import { canCall, BUILTIN_FUNCTIONS } from './runtime/callables';
+
 export interface ASTNode {
   type: 'number' | 'variable' | 'binary' | 'unary' | 'call';
   value?: number | string;
@@ -11,15 +14,17 @@ export interface ASTNode {
   args?: ASTNode[];
 }
 
-const FUNCTIONS = ['sin', 'cos', 'tan', 'sqrt', 'abs', 'exp', 'ln', 'log'];
+const FUNCTIONS = Array.from(BUILTIN_FUNCTIONS);
 
 class Parser {
   private input: string;
   private pos: number;
+  private context?: DefinitionContext;
 
-  constructor(input: string) {
+  constructor(input: string, context?: DefinitionContext) {
     this.input = input.replace(/\s+/g, '');
     this.pos = 0;
+    this.context = context;
   }
 
   parse(): ASTNode {
@@ -45,10 +50,22 @@ class Parser {
   private parseMulDiv(): ASTNode {
     let left = this.parsePower();
 
-    while (this.peek() === '*' || this.peek() === '/') {
-      const operator = this.consume();
-      const right = this.parsePower();
-      left = { type: 'binary', operator, left, right };
+    while (true) {
+      const ch = this.peek();
+      
+      if (ch === '*' || ch === '/') {
+        const operator = this.consume();
+        const right = this.parsePower();
+        left = { type: 'binary', operator, left, right };
+      }
+      // Implicit multiplication: variable followed by '('
+      else if (ch === '(' && left.type === 'variable') {
+        const right = this.parsePower(); // This will parse the parenthetical
+        left = { type: 'binary', operator: '*', left, right };
+      }
+      else {
+        break;
+      }
     }
 
     return left;
@@ -112,21 +129,28 @@ class Parser {
       name += this.consume();
     }
 
-    // Check if it's a function call (any identifier followed by parentheses)
+    // Check if it's a function call (identifier followed by parentheses)
     if (this.peek() === '(') {
-      this.consume(); // '('
-      const args: ASTNode[] = [];
-      
-      if (this.peek() !== ')') {
-        args.push(this.parseExpression());
-        while (this.peek() === ',') {
-          this.consume();
+      // Decide: callable or implicit multiplication?
+      if (canCall(name, this.context)) {
+        // Parse as function call
+        this.consume(); // '('
+        const args: ASTNode[] = [];
+        
+        if (this.peek() !== ')') {
           args.push(this.parseExpression());
+          while (this.peek() === ',') {
+            this.consume();
+            args.push(this.parseExpression());
+          }
         }
+        
+        this.expect(')');
+        return { type: 'call', name, args };
+      } else {
+        // Non-callable type: return variable, let parseMulDiv handle '(' as multiplication
+        return { type: 'variable', value: name };
       }
-      
-      this.expect(')');
-      return { type: 'call', name, args };
     }
 
     // Built-in function without parentheses (e.g., sin x)
@@ -162,7 +186,7 @@ class Parser {
   }
 }
 
-export function parseExpression(input: string): ASTNode {
-  const parser = new Parser(input);
+export function parseExpression(input: string, context?: DefinitionContext): ASTNode {
+  const parser = new Parser(input, context);
   return parser.parse();
 }

@@ -158,7 +158,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     
     let ast;
     try {
-      ast = parseExpression(rhs);
+      ast = parseExpression(rhs, context);
       console.log('Parsed AST for', rhs, ':', ast);
     } catch (e) {
       console.warn('Parse error:', e);
