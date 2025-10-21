@@ -141,15 +141,15 @@ export function TypeTable({
               </div> : <Accordion type="multiple" defaultValue={["user-expressions"]} className="w-full">
               {/* User Expressions Section */}
               {hasExpressions && <AccordionItem value="user-expressions" className="border-b">
-                  <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 [&[data-state=open]>svg]:rotate-180">
-                    <div className="flex items-center gap-2 w-full">
-                      <span>Your Expressions</span>
-                      <Badge variant="secondary" className="ml-auto mr-2 bg-primary/10 text-primary border-primary/20">
-                        {filteredUserExpressions.length}
-                        {searchQuery && expressions.length !== filteredUserExpressions.length && ` / ${expressions.length}`}
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-2">
+              <div className="flex items-center gap-2 w-full">
+                <span>Your Expressions</span>
+                <Badge variant="secondary" className="mr-2 bg-primary/10 text-primary border-primary/20">
+                  {filteredUserExpressions.length}
+                  {searchQuery && expressions.length !== filteredUserExpressions.length && ` / ${expressions.length}`}
+                </Badge>
+              </div>
+            </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-1.5 pb-2">
                       {filteredUserExpressions.length === 0 ? <div className="text-xs text-muted-foreground italic py-2">
@@ -167,15 +167,15 @@ export function TypeTable({
               const totalCount = groupedToolkits[source]?.length || 0;
               const filteredCount = defs.length;
             return <AccordionItem key={source} value={source} className="border-b">
-                    <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 [&[data-state=open]>svg]:rotate-180">
-                      <div className="flex items-center gap-2 w-full">
-                        <span>{source}</span>
-                        <Badge variant="outline" className="ml-auto mr-2 text-muted-foreground">
-                          {filteredCount}
-                          {searchQuery && totalCount !== filteredCount && ` / ${totalCount}`}
-                        </Badge>
-                      </div>
-                    </AccordionTrigger>
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-2">
+              <div className="flex items-center gap-2 w-full">
+                <span>{source}</span>
+                <Badge variant="outline" className="mr-2 text-muted-foreground">
+                  {filteredCount}
+                  {searchQuery && totalCount !== filteredCount && ` / ${totalCount}`}
+                </Badge>
+              </div>
+            </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-1.5 pb-2">
                         {defs.map(def => <ExpressionRow key={def.id} id={def.id} normalized={def.normalized} badge={{
@@ -194,9 +194,10 @@ export function TypeTable({
       {/* Resize Handle */}
       <div 
         onMouseDown={handleMouseDown}
-        className={`h-2 w-full cursor-ns-resize hover:bg-primary/20 transition-colors flex items-center justify-center group ${isDragging ? 'bg-primary/30' : ''}`}
+        className={`h-3 w-full cursor-ns-resize hover:bg-primary/20 active:bg-primary/30 transition-colors flex items-center justify-center group ${isDragging ? 'bg-primary/30' : 'bg-muted/40'}`}
+        style={{ touchAction: 'none' }}
       >
-        <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+        <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
       </div>
     </div>;
 }
