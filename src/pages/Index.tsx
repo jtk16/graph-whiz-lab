@@ -5,6 +5,8 @@ import { GraphControls } from "@/components/GraphControls";
 import { TypeTable } from "@/components/TypeTable";
 import { normalizeExpression } from "@/lib/normalizeExpression";
 import { inferType, TypeInfo, MathType } from "@/lib/types";
+import { buildDefinitionContext } from "@/lib/definitionContext";
+import { validateExpression, detectCircularDependency } from "@/lib/validation/expressionValidator";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -87,9 +89,6 @@ const Index = () => {
       );
       
       // Validate and check for errors
-      const { validateExpression, detectCircularDependency } = require('@/lib/validation/expressionValidator');
-      const { buildDefinitionContext } = require('@/lib/definitionContext');
-      
       return updated.map((expr) => {
         if (!expr.normalized.trim()) {
           return { ...expr, errors: [] };
