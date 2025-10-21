@@ -25,10 +25,21 @@ export function validateExpression(
 
   // For definitions, only validate the RHS
   let expressionToValidate = normalized;
+  const localParameters = new Set<string>();
+  
   if (normalized.includes('=')) {
     const parts = normalized.split('=');
     if (parts.length === 2) {
       expressionToValidate = parts[1].trim(); // Only validate RHS
+      
+      // Extract function parameters if this is a function definition
+      // e.g., f(t,x) = ... should extract [t, x]
+      const funcDefMatch = parts[0].match(/^[a-zA-Z][a-zA-Z0-9_]*\(([^)]+)\)/);
+      if (funcDefMatch) {
+        const paramsStr = funcDefMatch[1];
+        const params = paramsStr.split(',').map(p => p.trim());
+        params.forEach(p => localParameters.add(p));
+      }
     }
   }
 
@@ -38,6 +49,11 @@ export function validateExpression(
   
   for (const match of matches) {
     const identifier = match[1];
+    
+    // Skip local parameters (function arguments)
+    if (localParameters.has(identifier)) {
+      continue;
+    }
     
     // Skip built-in functions and reserved names
     if (BUILTIN_FUNCTIONS.has(identifier) || RESERVED_NAMES.includes(identifier)) {
