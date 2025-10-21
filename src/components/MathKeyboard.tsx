@@ -35,7 +35,7 @@ export function MathKeyboard({ onInsert }: MathKeyboardProps) {
   };
 
   return (
-    <Card className="border-t">
+    <Card className="bg-background/95 backdrop-blur-sm shadow-lg">
       <div className="p-4">
         {/* Search Bar */}
         <div className="relative mb-4">

@@ -64,12 +64,11 @@ export const KEYBOARD_ITEMS: KeyboardItem[] = [
 
   // Conditional Functions
   { id: 'if', latex: 'if(#?,#?,#?)', normalized: 'if', description: 'If-then-else', category: KeyboardCategory.Conditional, insertTemplate: 'if(#0,#1,#2)', example: 'if(x>0,1,-1)' },
-  { id: 'piecewise', latex: '\\begin{cases}#?\\end{cases}', normalized: 'piecewise', description: 'Piecewise function', category: KeyboardCategory.Conditional, insertTemplate: '\\begin{cases}#0 & #1 \\\\ #2\\end{cases}', example: 'piecewise(x>0,1,-1)' },
+  { id: 'piecewise', latex: '\\begin{cases}#?\\end{cases}', normalized: 'piecewise', description: 'Piecewise function', category: KeyboardCategory.Conditional, insertTemplate: 'piecewise(#0,#1,#2)', example: 'piecewise(x>0,1,-1)' },
 
   // Signal Processing
   { id: 'fft', latex: 'fft(#?)', normalized: 'fft', description: 'Fast Fourier Transform', category: KeyboardCategory.Signal, insertTemplate: 'fft(#0)', example: 'fft([1,2,3,4])' },
   { id: 'ifft', latex: 'ifft(#?)', normalized: 'ifft', description: 'Inverse FFT', category: KeyboardCategory.Signal, insertTemplate: 'ifft(#0)', example: 'ifft(fft([1,2,3,4]))' },
-  { id: 'convolve', latex: 'convolve(#?,#?)', normalized: 'convolve', description: 'Convolution', category: KeyboardCategory.Signal, insertTemplate: 'convolve(#0,#1)', example: 'convolve([1,2],[3,4])' },
   { id: 'magnitude', latex: 'magnitude(#?)', normalized: 'magnitude', description: 'FFT magnitude', category: KeyboardCategory.Signal, insertTemplate: 'magnitude(#0)', example: 'magnitude(fft([1,2,3]))' },
   { id: 'phase', latex: 'phase(#?)', normalized: 'phase', description: 'FFT phase', category: KeyboardCategory.Signal, insertTemplate: 'phase(#0)', example: 'phase(fft([1,2,3]))' },
   { id: 'sq', latex: 'sq(#?)', normalized: 'sq', description: 'Square wave', category: KeyboardCategory.Signal, insertTemplate: 'sq(#0)', example: 'sq(t)' },
@@ -78,9 +77,6 @@ export const KEYBOARD_ITEMS: KeyboardItem[] = [
 
   // Calculus
   { id: 'D', latex: 'D(#?)', normalized: 'D', description: 'Derivative operator', category: KeyboardCategory.Calculus, insertTemplate: 'D(#0)', example: 'D(f)' },
-  { id: 'integrate', latex: '\\int_{#?}^{#?}#?', normalized: 'integrate', description: 'Definite integral', category: KeyboardCategory.Calculus, insertTemplate: '\\int_{#0}^{#1}#2', example: 'integrate(f,0,1)' },
-  { id: 'gradient', latex: '\\nabla(#?)', normalized: 'gradient', description: 'Gradient', category: KeyboardCategory.Calculus, insertTemplate: '\\nabla(#0)', example: 'gradient(f)' },
-  { id: 'partial', latex: '\\frac{\\partial}{\\partial #?}', normalized: 'partial', description: 'Partial derivative', category: KeyboardCategory.Calculus, insertTemplate: '\\frac{\\partial}{\\partial #0}', example: 'partial(f,x)' },
 
   // Constants
   { id: 'pi', latex: '\\pi', normalized: 'pi', description: 'Pi (3.14159...)', category: KeyboardCategory.Constants },

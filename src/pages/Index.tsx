@@ -381,17 +381,17 @@ const Index = () => {
               >
                 <Keyboard className="h-5 w-5" />
               </Button>
+
+              {/* Math Keyboard - Overlay on graph, centered at bottom */}
+              {isKeyboardVisible && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-4xl z-20">
+                  <MathKeyboard onInsert={handleKeyboardInsert} />
+                </div>
+              )}
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
-
-      {/* Math Keyboard - Bottom of screen */}
-      {isKeyboardVisible && (
-        <div className="border-t">
-          <MathKeyboard onInsert={handleKeyboardInsert} />
-        </div>
-      )}
     </div>
   );
 };
