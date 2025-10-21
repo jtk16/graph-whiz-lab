@@ -74,8 +74,8 @@ const Index = () => {
   const updateExpression = (id: string, latex: string) => {
     const normalized = normalizeExpression(latex);
     const typeInfo = inferType(latex, normalized);
-    setExpressions(
-      expressions.map((expr) =>
+    setExpressions((prev) =>
+      prev.map((expr) =>
         expr.id === id ? { ...expr, latex, normalized, typeInfo } : expr
       )
     );

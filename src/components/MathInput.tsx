@@ -16,8 +16,54 @@ export const MathInput = ({
   placeholder = "y = x^2",
   className = "",
 }: MathInputProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const mathFieldRef = useRef<MathfieldElement | null>(null);
 
+  // Create MathfieldElement once and clean up on unmount
+  useEffect(() => {
+    if (!containerRef.current || mathFieldRef.current) return;
+
+    const mf = new MathfieldElement({
+      defaultMode: "math",
+      smartFence: true,
+      smartSuperscript: true,
+      inlineShortcuts: {
+        sqrt: "\\sqrt{#0}",
+        int: "\\int",
+        pi: "\\pi",
+        theta: "\\theta",
+        alpha: "\\alpha",
+        beta: "\\beta",
+        gamma: "\\gamma",
+        sin: "\\sin",
+        cos: "\\cos",
+        tan: "\\tan",
+        ln: "\\ln",
+        log: "\\log",
+      },
+    });
+
+    mf.value = value;
+    
+    const handleInput = () => onChange(mf.value);
+    const handleFocus = () => onFocus?.();
+    
+    mf.addEventListener("input", handleInput);
+    if (onFocus) mf.addEventListener("focus", handleFocus);
+
+    containerRef.current.appendChild(mf);
+    mathFieldRef.current = mf;
+
+    // Cleanup function
+    return () => {
+      mf.removeEventListener("input", handleInput);
+      if (onFocus) mf.removeEventListener("focus", handleFocus);
+      if (containerRef.current?.contains(mf)) {
+        containerRef.current.removeChild(mf);
+      }
+      mathFieldRef.current = null;
+    };
+  }, []); // Empty deps - create once
 
   // Update value when prop changes
   useEffect(() => {
@@ -26,34 +72,5 @@ export const MathInput = ({
     }
   }, [value]);
 
-  return <div className={className} ref={(el) => {
-    if (el && !mathFieldRef.current) {
-      const mf = new MathfieldElement({
-        defaultMode: "math",
-        smartFence: true,
-        smartSuperscript: true,
-        inlineShortcuts: {
-          sqrt: "\\sqrt{#0}",
-          int: "\\int",
-          pi: "\\pi",
-          theta: "\\theta",
-          alpha: "\\alpha",
-          beta: "\\beta",
-          gamma: "\\gamma",
-          sin: "\\sin",
-          cos: "\\cos",
-          tan: "\\tan",
-          ln: "\\ln",
-          log: "\\log",
-        },
-      });
-      
-      mf.value = value;
-      mf.addEventListener("input", () => onChange(mf.value));
-      if (onFocus) mf.addEventListener("focus", onFocus);
-      
-      el.appendChild(mf);
-      mathFieldRef.current = mf;
-    }
-  }} />;
+  return <div className={className} ref={containerRef} />;
 };
