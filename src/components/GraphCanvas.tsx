@@ -60,14 +60,18 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     // Draw axes
     drawAxes(ctx, rect.width, rect.height, viewport, axisLine);
 
-    // Draw expressions
+    // Draw expressions (skip definitions)
     expressions.forEach((expr) => {
-      if (expr.normalized.trim()) {
-        try {
-          drawExpression(ctx, rect.width, rect.height, viewport, expr, context);
-        } catch (e) {
-          // Silently ignore parsing errors for now
-        }
+      const normalized = expr.normalized.trim();
+      if (!normalized) return;
+      
+      // Skip function definitions (f(x) = ...) and variable definitions (a = ...)
+      if (normalized.includes('=')) return;
+      
+      try {
+        drawExpression(ctx, rect.width, rect.height, viewport, expr, context);
+      } catch (e) {
+        console.error('Error drawing expression:', e);
       }
     });
   }, [expressions, viewport]);
