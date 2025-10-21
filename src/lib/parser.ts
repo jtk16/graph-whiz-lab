@@ -112,8 +112,8 @@ class Parser {
       name += this.consume();
     }
 
-    // Check if it's a function
-    if (FUNCTIONS.includes(name) && this.peek() === '(') {
+    // Check if it's a function call (any identifier followed by parentheses)
+    if (this.peek() === '(') {
       this.consume(); // '('
       const args: ASTNode[] = [];
       
@@ -129,7 +129,7 @@ class Parser {
       return { type: 'call', name, args };
     }
 
-    // Function without parentheses (e.g., sin x)
+    // Built-in function without parentheses (e.g., sin x)
     if (FUNCTIONS.includes(name)) {
       const arg = this.parsePrimary();
       return { type: 'call', name, args: [arg] };
