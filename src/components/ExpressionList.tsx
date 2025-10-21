@@ -7,6 +7,7 @@ interface Expression {
   latex: string;
   normalized: string;
   color: string;
+  typeInfo: import('@/lib/types').TypeInfo;
 }
 
 interface ExpressionListProps {
@@ -67,11 +68,14 @@ export const ExpressionList = ({
               key={expr.id}
               id={expr.id}
               value={expr.latex}
+              normalized={expr.normalized}
+              typeInfo={expr.typeInfo}
               color={expr.color}
               onChange={(latex) => onUpdateExpression(expr.id, latex)}
               onRemove={() => onRemoveExpression(expr.id)}
               isActive={expr.id === activeId}
               onFocus={() => onSetActive(expr.id)}
+              allExpressions={expressions}
             />
           ))
         )}
