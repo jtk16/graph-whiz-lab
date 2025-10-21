@@ -250,7 +250,13 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Header onImportToolkit={handleImportToolkit} />
+      <Header 
+        toolkitDefinitions={toolkitDefinitions}
+        onImportToolkit={handleImportToolkit}
+        onUpdateDefinition={updateToolkitDefinition}
+        onRemoveDefinition={removeToolkitDefinition}
+        onClearAll={clearToolkitDefinitions}
+      />
       
       <div className="flex-1 flex overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
@@ -271,14 +277,6 @@ const Index = () => {
                     </Button>
                   </div>
                   <div className="flex-1 overflow-hidden flex flex-col">
-                    {/* Toolkit Definitions Panel */}
-                    <ToolkitDefinitionsPanel
-                      definitions={toolkitDefinitions}
-                      onUpdate={updateToolkitDefinition}
-                      onRemove={removeToolkitDefinition}
-                      onClearAll={clearToolkitDefinitions}
-                    />
-                    
                     {/* User Expressions List */}
                     <ExpressionList
                       expressions={expressions}
@@ -291,7 +289,10 @@ const Index = () => {
                       onSetActive={setActiveId}
                     />
                     <div className="border-t border-border">
-                      <TypeTable expressions={expressions} />
+                      <TypeTable 
+                        expressions={expressions} 
+                        toolkitDefinitions={toolkitDefinitions}
+                      />
                     </div>
                   </div>
                 </div>
@@ -316,7 +317,18 @@ const Index = () => {
               )}
 
               <GraphCanvas 
-                expressions={expressions}
+                expressions={[
+                  // Toolkit definitions first (precedence)
+                  ...toolkitDefinitions.map(td => ({
+                    id: td.id,
+                    latex: td.latex,
+                    normalized: td.normalized,
+                    color: 'hsl(var(--muted-foreground))',
+                    typeInfo: td as any,
+                  })),
+                  // Then user expressions
+                  ...expressions
+                ]}
                 viewport={viewport}
                 onViewportChange={setViewport}
               />

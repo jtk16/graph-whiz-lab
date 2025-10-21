@@ -24,11 +24,17 @@ export function ToolkitDefinitionsPanel({
   onClearAll,
 }: ToolkitDefinitionsPanelProps) {
   if (definitions.length === 0) {
-    return null;
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <Badge className="h-12 w-12 mb-4 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">No toolkit definitions imported yet.</p>
+        <p className="text-xs text-muted-foreground mt-1">Import a toolkit to get started.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col h-1/2 border-b">
+    <div className="flex flex-col h-full">
       <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Badge className="h-4 w-4" />
