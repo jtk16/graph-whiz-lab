@@ -66,7 +66,7 @@ export function TypeTable({
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
-      const newHeight = Math.max(200, Math.min(800, startHeight + deltaY));
+      const newHeight = Math.max(200, Math.min(800, startHeight - deltaY)); // Inverted deltaY
       setPanelHeight(newHeight);
     };
     
@@ -122,6 +122,15 @@ export function TypeTable({
   }, [groupedToolkits, searchQuery]);
   const hasAnyResults = filteredUserExpressions.length > 0 || Object.keys(filteredToolkits).length > 0;
   return <div className="w-full bg-muted/30 relative">
+      {/* Resize Handle */}
+      <div 
+        onMouseDown={handleMouseDown}
+        className={`h-3 w-full cursor-ns-resize hover:bg-primary/20 active:bg-primary/30 transition-colors flex items-center justify-center group ${isDragging ? 'bg-primary/30' : 'bg-muted/40'}`}
+        style={{ touchAction: 'none' }}
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+      </div>
+      
       <div className="px-4 py-3">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">
           Type Information
@@ -189,15 +198,6 @@ export function TypeTable({
             </Accordion>}
           </div>
         </ScrollArea>
-      </div>
-      
-      {/* Resize Handle */}
-      <div 
-        onMouseDown={handleMouseDown}
-        className={`h-3 w-full cursor-ns-resize hover:bg-primary/20 active:bg-primary/30 transition-colors flex items-center justify-center group ${isDragging ? 'bg-primary/30' : 'bg-muted/40'}`}
-        style={{ touchAction: 'none' }}
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
       </div>
     </div>;
 }
