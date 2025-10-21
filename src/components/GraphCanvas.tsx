@@ -159,6 +159,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     let ast;
     try {
       ast = parseExpression(rhs);
+      console.log('Parsed AST for', rhs, ':', ast);
     } catch (e) {
       console.warn('Parse error:', e);
       return;
@@ -173,12 +174,17 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     const xRange = vp.xMax - vp.xMin;
     let started = false;
     let lastY: number | null = null;
+    let sampleCount = 0;
 
     for (let px = 0; px < width; px++) {
       const x = vp.xMin + (px / width) * xRange;
       
       try {
         const y = parseAndEvaluate(rhs, x, ast, context);
+        if (sampleCount < 3) {
+          console.log('Sample point: x=', x, 'y=', y);
+          sampleCount++;
+        }
         
         if (isFinite(y)) {
           const py = mapY(y, height, vp);
