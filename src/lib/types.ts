@@ -22,6 +22,8 @@ export interface TypeInfo {
 }
 
 export function inferType(expr: string, normalized: string): TypeInfo {
+  console.log('[inferType] expr:', expr, 'normalized:', normalized);
+  
   // Handle definitions (e.g., f(x) = x^2)
   if (normalized.includes('=') && !normalized.includes('==')) {
     const parts = normalized.split('=');
@@ -30,23 +32,30 @@ export function inferType(expr: string, normalized: string): TypeInfo {
     // Function definition
     if (lhs.includes('(')) {
       const codomainType = inferReturnType(parts[1].trim());
-      return {
+      const result = {
         type: MathType.Function,
         domain: MathType.Number,
         codomain: codomainType
       };
+      console.log('[inferType] Function definition result:', result);
+      return result;
     }
     
     // Variable definition
-    return inferExpressionType(parts[1].trim());
+    const result = inferExpressionType(parts[1].trim());
+    console.log('[inferType] Variable definition result:', result);
+    return result;
   }
   
   // Boolean expressions (relations)
   if (normalized.match(/<|>|<=|>=|==|!=/)) {
+    console.log('[inferType] Boolean expression');
     return { type: MathType.Boolean };
   }
   
-  return inferExpressionType(normalized);
+  const result = inferExpressionType(normalized);
+  console.log('[inferType] Expression result:', result);
+  return result;
 }
 
 function inferReturnType(expr: string): MathType {
@@ -86,12 +95,14 @@ function inferExpressionType(expr: string): TypeInfo {
   
   // Pure number literal (includes decimals and negatives)
   if (expr.match(/^-?\d+(\.\d+)?$/)) {
+    console.log('[inferExpressionType] Pure number match for:', expr);
     return { type: MathType.Number };
   }
   
   // Arithmetic expression with only numbers and operators (no variables)
   // This catches things like "7+8", "2*3", "10/2", etc.
   if (expr.match(/^[\d\+\-\*\/\^\(\)\.\s]+$/)) {
+    console.log('[inferExpressionType] Arithmetic expression match for:', expr);
     return { type: MathType.Number };
   }
   
