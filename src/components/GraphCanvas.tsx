@@ -29,7 +29,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; screenX: number; screenY: number; expr: Expression } | null>(null);
   const [parsedExpressions, setParsedExpressions] = useState<Map<string, any>>(new Map());
 
-  // Parse and cache expressions
+  // Parse and cache expressions - build context once
   useEffect(() => {
     const context = buildDefinitionContext(expressions);
     const newParsed = new Map();
@@ -42,7 +42,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         const ast = parseExpression(normalized, context);
         newParsed.set(expr.id, ast);
       } catch (e) {
-        // Skip invalid expressions
+        console.error('Error parsing expression:', normalized, e);
       }
     });
     
@@ -50,7 +50,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   }, [expressions]);
 
   useEffect(() => {
-    // Build definition context from all expressions
+    // Reuse the parsed context
     const context = buildDefinitionContext(expressions);
     console.log('Definition context:', context);
     const canvas = canvasRef.current;
@@ -454,6 +454,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   };
 
   const findNearestPoint = (canvasX: number, canvasY: number, width: number, height: number) => {
+    // Build context once for all expressions
     const context = buildDefinitionContext(expressions);
     const threshold = 15; // pixels
     let nearest: { x: number; y: number; expr: Expression; distance: number; screenX: number; screenY: number } | null = null;

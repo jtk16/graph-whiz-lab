@@ -42,6 +42,12 @@ interface ExpressionInputProps {
   isActive: boolean;
   onFocus: () => void;
   allExpressions: Array<{ normalized: string }>;
+  errors?: Array<{
+    type: string;
+    message: string;
+    identifier?: string;
+    suggestions?: string[];
+  }>;
 }
 
 export const ExpressionInput = ({
@@ -57,7 +63,9 @@ export const ExpressionInput = ({
   isActive,
   onFocus,
   allExpressions,
+  errors = [],
 }: ExpressionInputProps) => {
+  const hasErrors = errors.length > 0;
   // Calculate scalar value if applicable
   const getScalarValue = (): string | null => {
     if (!normalized) return null;
@@ -130,9 +138,11 @@ export const ExpressionInput = ({
   return (
     <div
       className={`group flex items-center gap-2 p-3 rounded-lg transition-all relative border ${
-        isActive 
-          ? "bg-expression-active border-primary/50 shadow-sm" 
-          : "hover:bg-expression-hover border-border/50"
+        hasErrors
+          ? "bg-destructive/5 border-destructive/50"
+          : isActive 
+            ? "bg-expression-active border-primary/50 shadow-sm" 
+            : "hover:bg-expression-hover border-border/50"
       }`}
     >
       {/* Index Badge */}
@@ -175,8 +185,20 @@ export const ExpressionInput = ({
         />
       </div>
 
+      {/* Error Display */}
+      {hasErrors && (
+        <div className="absolute -bottom-6 left-12 text-xs text-destructive flex items-center gap-1">
+          <span>⚠️ {errors[0].message}</span>
+          {errors[0].suggestions && errors[0].suggestions.length > 0 && (
+            <span className="text-muted-foreground">
+              (did you mean {errors[0].suggestions.slice(0, 2).join(' or ')}?)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Scalar Value Display */}
-      {scalarValue && (
+      {scalarValue && !hasErrors && (
         <div className="absolute bottom-1 right-10 text-xs font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
           = {scalarValue}
         </div>

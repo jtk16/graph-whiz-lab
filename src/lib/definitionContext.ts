@@ -41,6 +41,9 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
     },
   };
 
+  // Track which identifiers are being processed to detect cycles
+  const processing = new Set<string>();
+
   expressions.forEach(expr => {
     const normalized = expr.normalized.trim();
     console.log('buildDefinitionContext: checking expression:', normalized);
@@ -66,6 +69,14 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         return;
       }
 
+      // Check for circular dependency
+      if (processing.has(funcName)) {
+        console.error(`Circular dependency detected for function: ${funcName}`);
+        return;
+      }
+
+      processing.add(funcName);
+
       try {
         const body = parseExpression(rhs, context);
         context.functions[funcName] = { name: funcName, params, body };
@@ -77,6 +88,8 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         console.log('buildDefinitionContext: added function', funcName, 'with params', params);
       } catch (e) {
         console.error('buildDefinitionContext: failed to parse function body:', e);
+      } finally {
+        processing.delete(funcName);
       }
       return;
     }
@@ -91,17 +104,27 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         return;
       }
 
+      // Check for circular dependency
+      if (processing.has(varName)) {
+        console.error(`Circular dependency detected for variable: ${varName}`);
+        return;
+      }
+
+      processing.add(varName);
+
       // Only allow constant definitions (no variables in RHS)
       try {
         const ast = parseExpression(rhs, context);
         // Try to evaluate as constant (no variables except constants)
-        const value = evaluateConstant(ast, { ...CONSTANTS });
+        const value = evaluateConstant(ast, { ...CONSTANTS, ...context.variables });
         if (isFinite(value)) {
           context.variables[varName] = value;
           context.types[varName] = { type: MathType.Number };
         }
       } catch (e) {
         // Skip invalid variable definitions
+      } finally {
+        processing.delete(varName);
       }
     }
   });

@@ -24,6 +24,12 @@ interface Expression {
   normalized: string;
   color: string;
   typeInfo: TypeInfo;
+  errors?: Array<{
+    type: string;
+    message: string;
+    identifier?: string;
+    suggestions?: string[];
+  }>;
 }
 
 const Index = () => {
@@ -74,11 +80,37 @@ const Index = () => {
   const updateExpression = (id: string, latex: string) => {
     const normalized = normalizeExpression(latex);
     const typeInfo = inferType(latex, normalized);
-    setExpressions((prev) =>
-      prev.map((expr) =>
+    
+    setExpressions((prev) => {
+      const updated = prev.map((expr) =>
         expr.id === id ? { ...expr, latex, normalized, typeInfo } : expr
-      )
-    );
+      );
+      
+      // Validate and check for errors
+      const { validateExpression, detectCircularDependency } = require('@/lib/validation/expressionValidator');
+      const { buildDefinitionContext } = require('@/lib/definitionContext');
+      
+      return updated.map((expr) => {
+        if (!expr.normalized.trim()) {
+          return { ...expr, errors: [] };
+        }
+        
+        const context = buildDefinitionContext(updated.filter(e => e.id !== expr.id));
+        const errors = validateExpression(expr.normalized, context, expr.id);
+        
+        // Check for circular dependencies
+        const cycle = detectCircularDependency(expr.normalized, updated, expr.id);
+        if (cycle) {
+          errors.push({
+            type: 'circular_dependency',
+            message: 'Circular dependency detected',
+            identifier: cycle,
+          });
+        }
+        
+        return { ...expr, errors };
+      });
+    });
   };
 
   const updateExpressionColor = (id: string, color: string) => {

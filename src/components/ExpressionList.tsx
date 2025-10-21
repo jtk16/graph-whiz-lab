@@ -8,6 +8,12 @@ interface Expression {
   normalized: string;
   color: string;
   typeInfo: import('@/lib/types').TypeInfo;
+  errors?: Array<{
+    type: string;
+    message: string;
+    identifier?: string;
+    suggestions?: string[];
+  }>;
 }
 
 interface ExpressionListProps {
@@ -79,6 +85,7 @@ export const ExpressionList = ({
               isActive={expr.id === activeId}
               onFocus={() => onSetActive(expr.id)}
               allExpressions={expressions}
+              errors={expr.errors}
             />
           ))
         )}
