@@ -93,6 +93,27 @@ function inferExpressionType(expr: string): TypeInfo {
     return { type: MathType.List };
   }
   
+  // IMPORTANT: Check for variables BEFORE checking for pure numbers
+  // This ensures cos(x) is typed as Function, not Number
+  
+  // Check if expression contains x or y variables
+  const hasX = /\bx\b/.test(expr);
+  const hasY = /\by\b/.test(expr);
+  
+  if (hasX && hasY) {
+    // Implicit relation like x^2 + y^2 - both variables present
+    return { type: MathType.Boolean };
+  }
+  
+  if (hasX || hasY) {
+    // Expression with x or y is a function
+    return {
+      type: MathType.Function,
+      domain: MathType.Number,
+      codomain: MathType.Number
+    };
+  }
+  
   // Pure number literal (includes decimals and negatives)
   if (expr.match(/^-?\d+(\.\d+)?$/)) {
     console.log('[inferExpressionType] Pure number match for:', expr);
@@ -132,7 +153,7 @@ function inferExpressionType(expr: string): TypeInfo {
     return { type: MathType.Number };
   }
   
-  // Contains variables (x, y, etc.) - likely a function expression
+  // Contains other variables - likely a function expression
   if (expr.match(/[a-z]/i) && !expr.match(/^(pi|e|true|false)$/)) {
     return { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number };
   }
