@@ -23,6 +23,7 @@ export const BUILTIN_FUNCTIONS = new Set([
   'floor', 'ceil', 'round',
   'min', 'max',
   'compose', 'D', // Higher-order functions
+  'if', 'piecewise', // Conditional functions
 ]);
 
 // Check if an identifier can be called (either built-in or user-defined function)

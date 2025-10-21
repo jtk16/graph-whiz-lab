@@ -8,7 +8,7 @@ export const signalProcessingToolkit: Toolkit = {
   expressions: [
     {
       latex: 'u(t) = \\begin{cases} 0 & t < 0 \\\\ 1 & t \\geq 0 \\end{cases}',
-      normalized: 'u(t)=if(t<0,0,1)',
+      normalized: 'u(t)=piecewise(t<0,0,1)',
       description: 'Unit step (Heaviside) function',
       category: 'function'
     },

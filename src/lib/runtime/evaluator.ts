@@ -82,6 +82,30 @@ export function evaluate(
         throw new Error('if() condition must evaluate to a number');
       }
       
+      // Special handling for piecewise(cond1, val1, cond2, val2, ..., default)
+      if (node.name === 'piecewise' && node.args && node.args.length >= 3) {
+        // Must have odd number of args: pairs of (condition, value) + default
+        if (node.args.length % 2 === 0) {
+          throw new Error('piecewise() requires odd number of arguments: condition, value pairs, then default');
+        }
+        
+        // Evaluate conditions in order with short-circuit
+        for (let i = 0; i < node.args.length - 1; i += 2) {
+          const condition = evaluate(node.args[i], variables, context);
+          if (!isNumber(condition)) {
+            throw new Error('piecewise() conditions must evaluate to numbers');
+          }
+          
+          // Non-zero means true - return this value
+          if (condition.value !== 0) {
+            return evaluate(node.args[i + 1], variables, context);
+          }
+        }
+        
+        // No condition matched, return default (last argument)
+        return evaluate(node.args[node.args.length - 1], variables, context);
+      }
+      
       // Check if it's a user-defined function
       if (context?.functions && node.name && node.name in context.functions) {
         const funcDef = context.functions[node.name];
