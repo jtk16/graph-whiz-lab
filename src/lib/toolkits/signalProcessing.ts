@@ -3,7 +3,7 @@ import { Toolkit } from './types';
 export const signalProcessingToolkit: Toolkit = {
   id: 'signal-processing',
   name: 'Signal Processing',
-  description: 'Common signal processing functions and operators',
+  description: 'Signal processing with complex numbers, FFT, and Euler\'s formula',
   icon: 'Radio',
   expressions: [
     {
@@ -74,6 +74,41 @@ export const signalProcessingToolkit: Toolkit = {
       normalized: 'sq(t)=piecewise(floor(t)-2*floor(floor(t)/2)==0,1,-1)',
       description: 'Square wave (period=2)',
       category: 'function',
+      dependencies: []
+    },
+    {
+      latex: 'i = \\sqrt{-1}',
+      normalized: 'i=i',
+      description: 'Imaginary unit (built-in constant)',
+      category: 'definition',
+      dependencies: []
+    },
+    {
+      latex: 'e_{c}(\\theta) = \\cos(\\theta) + i\\sin(\\theta)',
+      normalized: 'e_c(theta)=cos(theta)+i*sin(theta)',
+      description: 'Euler\'s formula - complex exponential',
+      category: 'function',
+      dependencies: []
+    },
+    {
+      latex: '\\text{polar}(r, \\theta) = r \\cdot e_{c}(\\theta)',
+      normalized: 'polar(r,theta)=r*e_c(theta)',
+      description: 'Create complex number from polar coordinates (r, angle)',
+      category: 'function',
+      dependencies: ['e_c']
+    },
+    {
+      latex: 'S = [1, 2, 3, 2, 1]',
+      normalized: 'S=[1,2,3,2,1]',
+      description: 'Example signal (list)',
+      category: 'definition',
+      dependencies: []
+    },
+    {
+      latex: 'H = [0.2, 0.3, 0.3, 0.2]',
+      normalized: 'H=[0.2,0.3,0.3,0.2]',
+      description: 'Example filter kernel',
+      category: 'definition',
       dependencies: []
     }
   ]

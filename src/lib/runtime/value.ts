@@ -5,6 +5,7 @@ import { MathType } from '../types';
 
 export type RuntimeValue = 
   | { kind: 'number'; value: number }
+  | { kind: 'complex'; real: number; imag: number }
   | { kind: 'boolean'; value: boolean }
   | { kind: 'point'; x: number; y: number }
   | { kind: 'list'; elements: RuntimeValue[]; elementType?: MathType }
@@ -34,6 +35,10 @@ export function createFunction(def: FunctionDefinition, boundParams?: Record<str
   return { kind: 'function', def, boundParams };
 }
 
+export function createComplex(real: number, imag: number): RuntimeValue {
+  return { kind: 'complex', real, imag };
+}
+
 // Type guards
 export function isNumber(value: RuntimeValue): value is { kind: 'number'; value: number } {
   return value.kind === 'number';
@@ -55,10 +60,15 @@ export function isFunction(value: RuntimeValue): value is { kind: 'function'; de
   return value.kind === 'function';
 }
 
+export function isComplex(value: RuntimeValue): value is { kind: 'complex'; real: number; imag: number } {
+  return value.kind === 'complex';
+}
+
 // Convert RuntimeValue kind to MathType
 export function kindToMathType(kind: string): MathType {
   switch (kind) {
     case 'number': return MathType.Number;
+    case 'complex': return MathType.Complex;
     case 'boolean': return MathType.Boolean;
     case 'point': return MathType.Point;
     case 'list': return MathType.List;

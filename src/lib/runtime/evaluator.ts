@@ -2,7 +2,7 @@
 
 import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
-import { RuntimeValue, createNumber, createFunction, kindToMathType, isNumber, isBoolean, createBoolean } from './value';
+import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean } from './value';
 import { getOperator } from './operators';
 import { getCallable, evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
@@ -28,6 +28,11 @@ export function evaluate(
       if (context?.variables && varName in context.variables) {
         return createNumber(context.variables[varName]);
       }
+      
+      // Check for built-in constants
+      if (varName === 'pi') return createNumber(Math.PI);
+      if (varName === 'e') return createNumber(Math.E);
+      if (varName === 'i') return createComplex(0, 1);
       
       // Check if it's a function definition
       if (context?.functions && varName in context.functions) {
@@ -59,6 +64,9 @@ export function evaluate(
       if (node.operator === '-') {
         if (operand.kind === 'number') {
           return createNumber(-operand.value);
+        }
+        if (operand.kind === 'complex') {
+          return createComplex(-operand.real, -operand.imag);
         }
         throw new Error(`Unary minus not supported for ${operand.kind}`);
       }

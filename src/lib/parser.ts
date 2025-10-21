@@ -168,6 +168,11 @@ class Parser {
       name += this.consume();
     }
 
+    // Handle imaginary unit 'i'
+    if (name === 'i') {
+      return { type: 'variable', value: 'i' };
+    }
+
     // Check if it's a function call (identifier followed by parentheses)
     if (this.peek() === '(') {
       // Decide: callable or implicit multiplication?

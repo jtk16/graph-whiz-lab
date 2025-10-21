@@ -1,7 +1,7 @@
 // Function call registry for built-in functions
 
 import { MathType } from '../types';
-import { RuntimeValue, createNumber, createBoolean, isList, isNumber, isPoint, isBoolean } from './value';
+import { RuntimeValue, createNumber, createBoolean, createComplex, isList, isNumber, isPoint, isBoolean, isComplex } from './value';
 
 type CallSignature = `${string}(${MathType})`;
 
@@ -163,6 +163,38 @@ registerCallable('length', MathType.Point, MathType.Number,
 // ============= CONDITIONAL/PIECEWISE FUNCTIONS =============
 // Note: These are special functions that need multi-argument support
 // They will be handled specially in the evaluator
+
+// ============= COMPLEX NUMBER FUNCTIONS =============
+
+// magnitude (absolute value) for Complex
+registerCallable('abs', MathType.Complex, MathType.Number, (arg) => {
+  if (!isComplex(arg)) throw new Error('abs expects Complex');
+  return createNumber(Math.sqrt(arg.real * arg.real + arg.imag * arg.imag));
+});
+
+// arg / phase
+registerCallable('arg', MathType.Complex, MathType.Number, (arg) => {
+  if (!isComplex(arg)) throw new Error('arg expects Complex');
+  return createNumber(Math.atan2(arg.imag, arg.real));
+});
+
+// real part
+registerCallable('real', MathType.Complex, MathType.Number, (arg) => {
+  if (!isComplex(arg)) throw new Error('real expects Complex');
+  return createNumber(arg.real);
+});
+
+// imaginary part
+registerCallable('imag', MathType.Complex, MathType.Number, (arg) => {
+  if (!isComplex(arg)) throw new Error('imag expects Complex');
+  return createNumber(arg.imag);
+});
+
+// complex conjugate
+registerCallable('conj', MathType.Complex, MathType.Complex, (arg) => {
+  if (!isComplex(arg)) throw new Error('conj expects Complex');
+  return createComplex(arg.real, -arg.imag);
+});
 
 // Export a helper for conditional evaluation
 export function evaluateConditional(

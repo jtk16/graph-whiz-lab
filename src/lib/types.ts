@@ -2,6 +2,7 @@
 
 export enum MathType {
   Number = 'Number',
+  Complex = 'Complex',
   Boolean = 'Boolean',
   Point = 'Point',
   List = 'List',
@@ -182,6 +183,8 @@ export function getTypeLabel(typeInfo: TypeInfo): string {
   switch (typeInfo.type) {
     case MathType.Number:
       return 'Number';
+    case MathType.Complex:
+      return 'Complex';
     case MathType.Boolean:
       return 'Boolean';
     case MathType.Point:
@@ -217,6 +220,8 @@ export function getTypeColor(type: MathType): string {
   switch (type) {
     case MathType.Number:
       return 'text-blue-500';
+    case MathType.Complex:
+      return 'text-cyan-600';
     case MathType.Boolean:
       return 'text-green-500';
     case MathType.Point:

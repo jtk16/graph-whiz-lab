@@ -1,7 +1,7 @@
 // Operator overloading registry
 
 import { MathType } from '../types';
-import { RuntimeValue, createNumber, createBoolean, createPoint, createList, isNumber, isPoint, isList } from './value';
+import { RuntimeValue, createNumber, createBoolean, createPoint, createList, createComplex, isNumber, isPoint, isList, isComplex } from './value';
 
 type OperatorSignature = `${MathType}_${string}_${MathType}`;
 
@@ -213,4 +213,84 @@ registerOperator(MathType.Boolean, '==', MathType.Boolean, MathType.Boolean,
   (l, r) => {
     if (l.kind !== 'boolean' || r.kind !== 'boolean') throw new Error('Type mismatch');
     return createBoolean(l.value === r.value);
+  });
+
+// ============= COMPLEX OPERATORS =============
+
+// Complex + Complex
+registerOperator(MathType.Complex, '+', MathType.Complex, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
+    return createComplex(l.real + r.real, l.imag + r.imag);
+  });
+
+// Complex - Complex
+registerOperator(MathType.Complex, '-', MathType.Complex, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
+    return createComplex(l.real - r.real, l.imag - r.imag);
+  });
+
+// Complex * Complex: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
+registerOperator(MathType.Complex, '*', MathType.Complex, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
+    return createComplex(
+      l.real * r.real - l.imag * r.imag,
+      l.real * r.imag + l.imag * r.real
+    );
+  });
+
+// Complex / Complex: (a+bi)/(c+di) = [(ac+bd) + (bc-ad)i] / (c²+d²)
+registerOperator(MathType.Complex, '/', MathType.Complex, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
+    const denom = r.real * r.real + r.imag * r.imag;
+    if (denom === 0) throw new Error('Division by zero');
+    return createComplex(
+      (l.real * r.real + l.imag * r.imag) / denom,
+      (l.imag * r.real - l.real * r.imag) / denom
+    );
+  });
+
+// Number * Complex (scalar multiplication)
+registerOperator(MathType.Number, '*', MathType.Complex, MathType.Complex,
+  (l, r) => {
+    if (!isNumber(l) || !isComplex(r)) throw new Error('Type mismatch');
+    return createComplex(l.value * r.real, l.value * r.imag);
+  });
+
+// Complex * Number (commutative)
+registerOperator(MathType.Complex, '*', MathType.Number, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isNumber(r)) throw new Error('Type mismatch');
+    return createComplex(l.real * r.value, l.imag * r.value);
+  });
+
+// Number + Complex
+registerOperator(MathType.Number, '+', MathType.Complex, MathType.Complex,
+  (l, r) => {
+    if (!isNumber(l) || !isComplex(r)) throw new Error('Type mismatch');
+    return createComplex(l.value + r.real, r.imag);
+  });
+
+// Complex + Number
+registerOperator(MathType.Complex, '+', MathType.Number, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isNumber(r)) throw new Error('Type mismatch');
+    return createComplex(l.real + r.value, l.imag);
+  });
+
+// Complex ^ Number (exponentiation via polar form)
+registerOperator(MathType.Complex, '^', MathType.Number, MathType.Complex,
+  (l, r) => {
+    if (!isComplex(l) || !isNumber(r)) throw new Error('Type mismatch');
+    const mag = Math.sqrt(l.real * l.real + l.imag * l.imag);
+    const arg = Math.atan2(l.imag, l.real);
+    const newMag = Math.pow(mag, r.value);
+    const newArg = arg * r.value;
+    return createComplex(
+      newMag * Math.cos(newArg),
+      newMag * Math.sin(newArg)
+    );
   });
