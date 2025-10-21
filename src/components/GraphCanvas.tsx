@@ -56,11 +56,14 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     ctx.fillStyle = `hsl(${canvasBg})`;
     ctx.fillRect(0, 0, rect.width, rect.height);
 
+    // Store foreground color for later use in tick labels
+    const foregroundColor = computedStyle.getPropertyValue('--foreground').trim();
+
     // Draw grid
-    drawGrid(ctx, rect.width, rect.height, viewport, gridLine);
+    drawGrid(ctx, rect.width, rect.height, viewport, gridLine, foregroundColor);
 
     // Draw axes
-    drawAxes(ctx, rect.width, rect.height, viewport, axisLine);
+    drawAxes(ctx, rect.width, rect.height, viewport, axisLine, canvasBg, foregroundColor);
 
     // Draw expressions (skip definitions)
     expressions.forEach((expr) => {
@@ -87,7 +90,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     width: number,
     height: number,
     vp: typeof viewport,
-    gridLineColor: string
+    gridLineColor: string,
+    foregroundColor: string
   ) => {
     ctx.strokeStyle = `hsl(${gridLineColor})`;
     ctx.lineWidth = 1;
@@ -120,7 +124,9 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     width: number,
     height: number,
     vp: typeof viewport,
-    axisLineColor: string
+    axisLineColor: string,
+    canvasBg: string,
+    foregroundColor: string
   ) => {
     ctx.strokeStyle = `hsl(${axisLineColor})`;
     ctx.lineWidth = 2;
@@ -141,7 +147,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     ctx.stroke();
 
     // Draw tick marks and labels
-    drawTickMarks(ctx, width, height, vp, yAxisX, xAxisY);
+    drawTickMarks(ctx, width, height, vp, yAxisX, xAxisY, canvasBg, foregroundColor);
   };
 
   const formatTickLabel = (value: number): string => {
@@ -168,7 +174,9 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     height: number,
     vp: typeof viewport,
     yAxisX: number,
-    xAxisY: number
+    xAxisY: number,
+    canvasBg: string,
+    foregroundColor: string
   ) => {
     const xRange = vp.xMax - vp.xMin;
     const yRange = vp.yMax - vp.yMin;
@@ -187,7 +195,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const px = mapX(x, width, vp);
       
       // Draw tick mark
-      ctx.strokeStyle = 'hsl(var(--foreground))';
+      ctx.strokeStyle = `hsl(${foregroundColor})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(px, xAxisY - tickSize);
@@ -203,7 +211,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         const padding = 4;
         
         // Draw semi-transparent background
-        ctx.fillStyle = 'hsla(var(--canvas-bg), 0.9)';
+        ctx.fillStyle = `hsl(${canvasBg} / 0.95)`;
         ctx.fillRect(
           px - metrics.width / 2 - padding,
           labelY - 2,
@@ -212,7 +220,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         );
         
         // Draw text
-        ctx.fillStyle = 'hsl(var(--foreground))';
+        ctx.fillStyle = `hsl(${foregroundColor})`;
         ctx.fillText(label, px, labelY);
       }
     }
@@ -227,7 +235,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const py = mapY(y, height, vp);
       
       // Draw tick mark
-      ctx.strokeStyle = 'hsl(var(--foreground))';
+      ctx.strokeStyle = `hsl(${foregroundColor})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(yAxisX - tickSize, py);
@@ -243,7 +251,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         const padding = 4;
         
         // Draw semi-transparent background
-        ctx.fillStyle = 'hsla(var(--canvas-bg), 0.9)';
+        ctx.fillStyle = `hsl(${canvasBg} / 0.95)`;
         ctx.fillRect(
           labelX - metrics.width - padding,
           py - 8,
@@ -252,7 +260,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         );
         
         // Draw text
-        ctx.fillStyle = 'hsl(var(--foreground))';
+        ctx.fillStyle = `hsl(${foregroundColor})`;
         ctx.fillText(label, labelX, py);
       }
     }
