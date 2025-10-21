@@ -16,13 +16,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { AVAILABLE_TOOLKITS, ToolkitExpression } from "@/lib/toolkits";
+import { AVAILABLE_TOOLKITS, ToolkitExpression, Toolkit } from "@/lib/toolkits";
 import { ToolkitDefinitionsPanel } from "./ToolkitDefinitionsPanel";
+import { ToolkitExpressionSelector } from "./ToolkitExpressionSelector";
 import * as LucideIcons from "lucide-react";
 
 interface HeaderProps {
   toolkitDefinitions: ToolkitExpression[];
-  onImportToolkit: (toolkitId: string) => void;
+  onImportToolkit: (toolkitId: string, selectedExpressions: Omit<ToolkitExpression, 'id' | 'source'>[]) => void;
   onUpdateDefinition: (id: string, latex: string) => void;
   onRemoveDefinition: (id: string) => void;
   onClearAll: () => void;
@@ -36,16 +37,27 @@ export function Header({
   onClearAll 
 }: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [selectedToolkit, setSelectedToolkit] = useState<Toolkit | null>(null);
   
-  const handleImport = (toolkitId: string) => {
-    onImportToolkit(toolkitId);
-    setIsDialogOpen(true);
+  const handleToolkitClick = (toolkit: Toolkit) => {
+    setSelectedToolkit(toolkit);
+    setIsSelectorOpen(true);
+  };
+  
+  const handleConfirmSelection = (selectedExpressions: Omit<ToolkitExpression, 'id' | 'source'>[]) => {
+    if (selectedToolkit) {
+      onImportToolkit(selectedToolkit.id, selectedExpressions);
+      setIsSelectorOpen(false);
+      setIsDialogOpen(true);
+    }
   };
 
   return (
     <header className="h-14 border-b bg-background flex items-center justify-between px-4 sticky top-0 z-10">
       <h1 className="text-xl font-semibold">Expression Grapher</h1>
       
+      {/* Toolkit Definitions Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -67,7 +79,7 @@ export function Header({
               return (
                 <DropdownMenuItem 
                   key={toolkit.id}
-                  onClick={() => handleImport(toolkit.id)}
+                  onClick={() => handleToolkitClick(toolkit)}
                   className="cursor-pointer"
                 >
                   {IconComponent && <IconComponent className="mr-2 h-4 w-4" />}
@@ -100,6 +112,20 @@ export function Header({
               onClearAll={onClearAll}
             />
           </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Toolkit Expression Selector Dialog */}
+      <Dialog open={isSelectorOpen} onOpenChange={setIsSelectorOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+          {selectedToolkit && (
+            <ToolkitExpressionSelector
+              toolkit={selectedToolkit}
+              importedExpressions={toolkitDefinitions}
+              onConfirm={handleConfirmSelection}
+              onCancel={() => setIsSelectorOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </header>

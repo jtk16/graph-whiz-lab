@@ -6,6 +6,7 @@ export interface ToolkitExpression {
   category: 'definition' | 'function' | 'operator';
   source: string; // which toolkit it came from
   isModified?: boolean; // true if user edited it
+  dependencies?: string[]; // function names this expression depends on
 }
 
 export interface Toolkit {

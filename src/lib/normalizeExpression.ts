@@ -13,6 +13,30 @@ export function normalizeExpression(latex: string): string {
   // Remove y = prefix if present (common in graphing)
   normalized = normalized.replace(/^y\s*=\s*/, '');
   
+  // Convert LaTeX piecewise notation to piecewise() function
+  // Pattern: \begin{cases} val1 & cond1 \\ val2 & cond2 \\ ... \\ default \end{cases}
+  const piecewiseMatch = normalized.match(/\\begin\{cases\}(.+?)\\end\{cases\}/s);
+  if (piecewiseMatch) {
+    const content = piecewiseMatch[1];
+    // Split by \\ and parse each line
+    const cases = content.split('\\\\').map(c => c.trim()).filter(c => c);
+    const args: string[] = [];
+    
+    for (const caseStr of cases) {
+      const parts = caseStr.split('&').map(p => p.trim());
+      if (parts.length === 2) {
+        // condition & value format -> add as (condition, value)
+        args.push(parts[1], parts[0]); // condition, value
+      } else if (parts.length === 1) {
+        // default value (no condition)
+        args.push(parts[0]);
+      }
+    }
+    
+    // Build piecewise(cond1, val1, cond2, val2, ..., default)
+    normalized = normalized.replace(piecewiseMatch[0], `piecewise(${args.join(',')})`);
+  }
+  
   // Convert LaTeX functions to shorthand
   // Trig functions with space: \sin x → sin(x)
   normalized = normalized.replace(/\\sin\s+([a-zA-Z0-9])/g, 'sin($1)');

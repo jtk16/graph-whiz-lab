@@ -198,22 +198,23 @@ const Index = () => {
   };
 
   // Toolkit management functions
-  const handleImportToolkit = (toolkitId: string) => {
+  const handleImportToolkit = (
+    toolkitId: string, 
+    selectedExpressions: Omit<ToolkitExpression, 'id' | 'source'>[]
+  ) => {
     const toolkit = getToolkitById(toolkitId);
     if (!toolkit) return;
     
-    // Check if toolkit is already imported
-    const alreadyImported = toolkitDefinitions.some(def => def.source === toolkitId);
-    if (alreadyImported) {
+    if (selectedExpressions.length === 0) {
       toast({
-        title: "Toolkit Already Imported",
-        description: `${toolkit.name} is already in use`,
+        title: "No Expressions Selected",
+        description: "Please select at least one expression to import",
         variant: "destructive",
       });
       return;
     }
     
-    const newDefinitions = toolkit.expressions.map(expr => ({
+    const newDefinitions = selectedExpressions.map(expr => ({
       ...expr,
       id: `toolkit-${toolkitId}-${Date.now()}-${Math.random()}`,
       source: toolkitId,
@@ -222,8 +223,8 @@ const Index = () => {
     setToolkitDefinitions(prev => [...prev, ...newDefinitions]);
     
     toast({
-      title: "Toolkit Imported",
-      description: `${toolkit.name} definitions added (${newDefinitions.length} items)`,
+      title: "Expressions Imported",
+      description: `Added ${newDefinitions.length} expression${newDefinitions.length > 1 ? 's' : ''} from ${toolkit.name}`,
     });
   };
 
