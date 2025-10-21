@@ -47,16 +47,29 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+        graph: {
+          1: "hsl(var(--graph-1))",
+          2: "hsl(var(--graph-2))",
+          3: "hsl(var(--graph-3))",
+          4: "hsl(var(--graph-4))",
+          5: "hsl(var(--graph-5))",
+          6: "hsl(var(--graph-6))",
         },
+        canvas: {
+          bg: "hsl(var(--canvas-bg))",
+        },
+        grid: {
+          line: "hsl(var(--grid-line))",
+          axis: "hsl(var(--axis-line))",
+        },
+        expression: {
+          bg: "hsl(var(--expression-bg))",
+          hover: "hsl(var(--expression-hover))",
+          active: "hsl(var(--expression-active))",
+        },
+      },
+      transitionProperty: {
+        smooth: "var(--transition-smooth)",
       },
       borderRadius: {
         lg: "var(--radius)",
