@@ -29,11 +29,11 @@ export function inferType(expr: string, normalized: string): TypeInfo {
     
     // Function definition
     if (lhs.includes('(')) {
-      const rhsType = inferExpressionType(parts[1].trim());
+      const codomainType = inferReturnType(parts[1].trim());
       return {
         type: MathType.Function,
         domain: MathType.Number,
-        codomain: rhsType.type
+        codomain: codomainType
       };
     }
     
@@ -47,6 +47,28 @@ export function inferType(expr: string, normalized: string): TypeInfo {
   }
   
   return inferExpressionType(normalized);
+}
+
+function inferReturnType(expr: string): MathType {
+  expr = expr.trim();
+  
+  // Point literal returns Point
+  if (expr.startsWith('(') && expr.includes(',') && !expr.includes(';')) {
+    return MathType.Point;
+  }
+  
+  // List literal returns List
+  if (expr.startsWith('[')) {
+    return MathType.List;
+  }
+  
+  // Boolean operations return Boolean
+  if (expr.match(/^(and|or|not)\(/)) {
+    return MathType.Boolean;
+  }
+  
+  // Everything else in a function body returns Number
+  return MathType.Number;
 }
 
 function inferExpressionType(expr: string): TypeInfo {
