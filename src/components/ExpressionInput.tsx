@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { parseExpression } from "@/lib/parser";
 import { buildDefinitionContext } from "@/lib/definitionContext";
-import { evaluateToNumber } from "@/lib/runtime/evaluator";
+import { evaluate } from "@/lib/runtime/evaluator";
+import { RuntimeValue } from "@/lib/runtime/value";
+import { hasUnboundVariables } from "@/lib/runtime/variableDetector";
 import { MathType, TypeInfo } from "@/lib/types";
 import "@/components/MathInput.css";
 
@@ -77,6 +79,24 @@ export const ExpressionInput = ({
       onSetActiveMathInput(mathInputRef.current);
     }
   }, [isActive, onSetActiveMathInput]);
+  // Format a RuntimeValue for display
+  const formatRuntimeValue = (val: RuntimeValue): string | null => {
+    if (val.kind === 'number') {
+      return formatNumber(val.value);
+    }
+    if (val.kind === 'complex') {
+      const { real, imag } = val;
+      // If imaginary part is negligible, just show real part
+      if (Math.abs(imag) < 1e-10) return formatNumber(real);
+      // If real part is negligible, just show imaginary part
+      if (Math.abs(real) < 1e-10) return formatNumber(imag) + 'i';
+      // Show both parts
+      const sign = imag >= 0 ? '+' : '';
+      return `${formatNumber(real)}${sign}${formatNumber(imag)}i`;
+    }
+    return null;
+  };
+
   // Calculate scalar value if applicable
   const getScalarValue = (): string | null => {
     if (!normalized) return null;
@@ -84,15 +104,8 @@ export const ExpressionInput = ({
     // Check if it's a variable definition (e.g., "s = 5 + 2")
     const isDefinition = normalized.includes('=') && !normalized.includes('==');
     
-    // Only show scalar for Number types that aren't function expressions
-    if (typeInfo.type !== MathType.Number) return null;
-    
-    // Don't show for function expressions (expressions with variables like x, y)
-    // But DO show for constants and simple arithmetic
-    const hasVariables = /[a-z]/i.test(normalized) && 
-                        !/(pi|e|sin|cos|tan|sqrt|abs|exp|ln|log|floor|ceil|round)/i.test(normalized);
-    
-    if (hasVariables && !isDefinition) return null;
+    // Only show scalar for Number or Complex types
+    if (typeInfo.type !== MathType.Number && typeInfo.type !== MathType.Complex) return null;
     
     try {
       const context = buildDefinitionContext(allExpressions);
@@ -103,27 +116,28 @@ export const ExpressionInput = ({
         if (parts.length === 2) {
           const rhs = parts[1].trim();
           const ast = parseExpression(rhs, context);
-          const result = evaluateToNumber(ast, 0, context);
-          if (isFinite(result)) {
-            return formatNumber(result);
-          }
+          
+          // Check if RHS has unbound variables
+          if (hasUnboundVariables(ast, context)) return null;
+          
+          const result = evaluate(ast, {}, context);
+          return formatRuntimeValue(result);
         }
         return null;
       }
       
       // For regular expressions, evaluate directly
       const ast = parseExpression(normalized, context);
-      const result = evaluateToNumber(ast, 0, context);
       
-      if (isFinite(result)) {
-        return formatNumber(result);
-      }
+      // Check if expression has unbound variables
+      if (hasUnboundVariables(ast, context)) return null;
+      
+      const result = evaluate(ast, {}, context);
+      return formatRuntimeValue(result);
     } catch (e) {
       // If evaluation fails, don't show a result
       return null;
     }
-    
-    return null;
   };
 
   const formatNumber = (num: number): string => {
