@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Toolkit, ToolkitExpression } from "@/lib/toolkits/types";
-import { MathfieldElement } from "mathlive";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ToolkitExpressionSelectorProps {
@@ -109,7 +107,7 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide p-4">
         <div className="space-y-3">
           {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);
@@ -169,7 +167,7 @@ export function ToolkitExpressionSelector({
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="p-4 border-t bg-muted/30 flex items-center justify-between gap-2">
         {hasSelection && autoImportDeps && (

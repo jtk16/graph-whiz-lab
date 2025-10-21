@@ -70,6 +70,15 @@ All colors MUST be HSL.
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .dark {
     --background: 222 47% 7%;
     --foreground: 210 40% 98%;
