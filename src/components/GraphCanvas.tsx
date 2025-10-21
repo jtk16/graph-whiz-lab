@@ -31,7 +31,16 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
 
   // Parse and cache expressions - build context once
   useEffect(() => {
-    const context = buildDefinitionContext(expressions);
+    console.log('🎨 GraphCanvas: Building context from expressions');
+    console.log('All expressions:', expressions.map(e => ({ id: e.id, normalized: e.normalized })));
+    
+    // Filter to only definitions (expressions with '=')
+    const definitions = expressions.filter(e => e.normalized.trim().includes('='));
+    console.log('Filtered definitions:', definitions.map(e => e.normalized));
+    
+    const context = buildDefinitionContext(definitions);
+    console.log('Context functions:', Object.keys(context.functions));
+    
     const newParsed = new Map();
     
     expressions.forEach((expr) => {
@@ -50,9 +59,10 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   }, [expressions]);
 
   useEffect(() => {
-    // Reuse the parsed context
-    const context = buildDefinitionContext(expressions);
-    console.log('Definition context:', context);
+    // Filter to only definitions when building context
+    const definitions = expressions.filter(e => e.normalized.trim().includes('='));
+    const context = buildDefinitionContext(definitions);
+    console.log('🖌️ GraphCanvas render - Context functions:', Object.keys(context.functions));
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -454,8 +464,9 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   };
 
   const findNearestPoint = (canvasX: number, canvasY: number, width: number, height: number) => {
-    // Build context once for all expressions
-    const context = buildDefinitionContext(expressions);
+    // Filter to only definitions when building context
+    const definitions = expressions.filter(e => e.normalized.trim().includes('='));
+    const context = buildDefinitionContext(definitions);
     const threshold = 15; // pixels
     let nearest: { x: number; y: number; expr: Expression; distance: number; screenX: number; screenY: number } | null = null;
 
