@@ -2,7 +2,9 @@ import { useState } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
+import { TypeTable } from "@/components/TypeTable";
 import { normalizeExpression } from "@/lib/normalizeExpression";
+import { inferType, TypeInfo, MathType } from "@/lib/types";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -18,12 +20,13 @@ interface Expression {
   latex: string;
   normalized: string;
   color: string;
+  typeInfo: TypeInfo;
 }
 
 const Index = () => {
   const [expressions, setExpressions] = useState<Expression[]>([
-    { id: "1", latex: "y=x^2", normalized: "x^2", color: GRAPH_COLORS[0] },
-    { id: "2", latex: "y=\\sin x", normalized: "sin(x)", color: GRAPH_COLORS[1] },
+    { id: "1", latex: "y=x^2", normalized: "x^2", color: GRAPH_COLORS[0], typeInfo: { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number } },
+    { id: "2", latex: "y=\\sin x", normalized: "sin(x)", color: GRAPH_COLORS[1], typeInfo: { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number } },
   ]);
   const [activeId, setActiveId] = useState<string | null>("1");
   const [viewport, setViewport] = useState({
@@ -38,16 +41,17 @@ const Index = () => {
     const colorIndex = expressions.length % GRAPH_COLORS.length;
     setExpressions([
       ...expressions,
-      { id: newId, latex: "", normalized: "", color: GRAPH_COLORS[colorIndex] },
+      { id: newId, latex: "", normalized: "", color: GRAPH_COLORS[colorIndex], typeInfo: { type: MathType.Unknown } },
     ]);
     setActiveId(newId);
   };
 
   const updateExpression = (id: string, latex: string) => {
     const normalized = normalizeExpression(latex);
+    const typeInfo = inferType(latex, normalized);
     setExpressions(
       expressions.map((expr) =>
-        expr.id === id ? { ...expr, latex, normalized } : expr
+        expr.id === id ? { ...expr, latex, normalized, typeInfo } : expr
       )
     );
   };
@@ -99,7 +103,7 @@ const Index = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Expression Sidebar */}
-      <div className="w-80 border-r border-border flex-shrink-0">
+      <div className="w-80 border-r border-border flex-shrink-0 overflow-y-auto">
         <ExpressionList
           expressions={expressions}
           activeId={activeId}
@@ -108,6 +112,7 @@ const Index = () => {
           onRemoveExpression={removeExpression}
           onSetActive={setActiveId}
         />
+        <TypeTable expressions={expressions} />
       </div>
 
       {/* Graph Canvas */}
