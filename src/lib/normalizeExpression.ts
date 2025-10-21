@@ -63,6 +63,8 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/(\d)([a-zA-Z])/g, '$1*$2');
   // Closing paren followed by opening paren
   normalized = normalized.replace(/\)(\()/g, ')*$1');
+  // Closing paren followed by letter (identifier or function): (x)y → (x)*y, (x-2)sqrt(x) → (x-2)*sqrt(x)
+  normalized = normalized.replace(/\)([a-zA-Z])/g, ')*$1');
   // Note: We DON'T handle letter(paren) → letter*(paren) because that's function call syntax
   // For multiplication, users should write c*(x) explicitly
   
