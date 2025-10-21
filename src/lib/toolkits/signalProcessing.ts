@@ -35,7 +35,7 @@ export const signalProcessingToolkit: Toolkit = {
       dependencies: ['u']
     },
     {
-      latex: '\\text{sinc}(t) = \\frac{\\sin(\\pi t)}{\\pi t}',
+      latex: '\\text{sinc}(t) = \\begin{cases} 1 & |t| < 0.001 \\\\ \\frac{\\sin(\\pi t)}{\\pi t} & \\text{otherwise} \\end{cases}',
       normalized: 'sinc(t)=if(abs(t)<0.001,1,sin(pi*t)/(pi*t))',
       description: 'Sinc function - normalized with removable singularity at t=0',
       category: 'function',

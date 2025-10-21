@@ -57,15 +57,25 @@ export function ToolkitExpressionSelector({
     // Auto-import dependencies if enabled
     if (autoImportDeps) {
       const neededDeps = new Set<string>();
+      const selectedIndices = new Set(selected);
+      
+      // Collect all dependencies from selected expressions
       expressionsToImport.forEach(expr => {
         expr.dependencies?.forEach(dep => neededDeps.add(dep));
       });
       
-      // Add missing dependencies
+      // Find and add missing dependencies from toolkit
       toolkit.expressions.forEach((expr, idx) => {
+        // Extract function name from LHS: "funcName(...) = ..."
         const funcName = expr.normalized.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(/)?.[1];
-        if (funcName && neededDeps.has(funcName) && !selected.has(idx)) {
+        
+        // If this function is needed and not already selected, add it
+        if (funcName && neededDeps.has(funcName) && !selectedIndices.has(idx)) {
           expressionsToImport.push(expr);
+          selectedIndices.add(idx);
+          
+          // Recursively add dependencies of dependencies
+          expr.dependencies?.forEach(dep => neededDeps.add(dep));
         }
       });
     }
@@ -83,6 +93,18 @@ export function ToolkitExpressionSelector({
 
   const selectedCount = selected.size;
   const hasSelection = selectedCount > 0;
+  
+  // Calculate dependencies that will be auto-imported
+  const getNeededDeps = (): string[] => {
+    if (!autoImportDeps || !hasSelection) return [];
+    const neededDeps = new Set<string>();
+    Array.from(selected).forEach(i => {
+      toolkit.expressions[i].dependencies?.forEach(dep => neededDeps.add(dep));
+    });
+    return Array.from(neededDeps);
+  };
+  
+  const neededDeps = getNeededDeps();
 
   return (
     <div className="flex flex-col h-full max-h-[85vh]">
@@ -185,14 +207,14 @@ export function ToolkitExpressionSelector({
       </div>
 
       <div className="p-4 border-t bg-muted/30 flex items-center justify-between gap-2 shrink-0">
-        {hasSelection && autoImportDeps && (
+        {hasSelection && autoImportDeps && neededDeps.length > 0 && (
           <Alert className="flex-1">
             <AlertDescription className="text-xs">
-              Dependencies will be automatically included
+              Auto-importing dependencies: {neededDeps.map(d => `${d}()`).join(', ')}
             </AlertDescription>
           </Alert>
         )}
-        {!hasSelection && (
+        {(!hasSelection || !autoImportDeps || neededDeps.length === 0) && (
           <div className="flex-1" />
         )}
         <div className="flex gap-2 shrink-0">
