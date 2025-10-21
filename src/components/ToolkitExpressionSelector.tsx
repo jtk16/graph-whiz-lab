@@ -54,6 +54,8 @@ export function ToolkitExpressionSelector({
       return editedLatex ? { ...expr, latex: editedLatex } : expr;
     });
     
+    console.log('[ToolkitSelector] Initial selection:', expressionsToImport.map(e => e.normalized));
+    
     // Auto-import dependencies if enabled
     if (autoImportDeps) {
       const neededDeps = new Set<string>();
@@ -61,29 +63,44 @@ export function ToolkitExpressionSelector({
       
       // Collect all dependencies from selected expressions
       expressionsToImport.forEach(expr => {
-        expr.dependencies?.forEach(dep => neededDeps.add(dep));
+        if (expr.dependencies && expr.dependencies.length > 0) {
+          console.log(`[ToolkitSelector] ${expr.normalized} needs:`, expr.dependencies);
+          expr.dependencies.forEach(dep => neededDeps.add(dep));
+        }
       });
+      
+      console.log('[ToolkitSelector] All needed deps:', Array.from(neededDeps));
       
       // Loop to resolve transitive dependencies
       let foundNewDeps = true;
+      let iteration = 0;
       while (foundNewDeps) {
         foundNewDeps = false;
+        iteration++;
+        console.log(`[ToolkitSelector] Iteration ${iteration}, checking for deps:`, Array.from(neededDeps));
         
         toolkit.expressions.forEach((expr, idx) => {
           // Extract function name from LHS: "funcName(...) = ..."
           const funcName = expr.normalized.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(/)?.[1];
+          console.log(`[ToolkitSelector]   Checking expr[${idx}]: ${expr.normalized}, funcName: ${funcName}`);
           
           // If this function is needed and not already selected, add it
           if (funcName && neededDeps.has(funcName) && !selectedIndices.has(idx)) {
+            console.log(`[ToolkitSelector]     -> Adding dependency: ${expr.normalized}`);
             expressionsToImport.push(expr);
             selectedIndices.add(idx);
             foundNewDeps = true;
             
             // Add dependencies of this newly added expression
-            expr.dependencies?.forEach(dep => neededDeps.add(dep));
+            expr.dependencies?.forEach(dep => {
+              console.log(`[ToolkitSelector]       -> Adding nested dep: ${dep}`);
+              neededDeps.add(dep);
+            });
           }
         });
       }
+      
+      console.log('[ToolkitSelector] Final expressions to import:', expressionsToImport.map(e => e.normalized));
     }
     
     onConfirm(expressionsToImport);

@@ -32,7 +32,46 @@ class Parser {
   }
 
   private parseExpression(): ASTNode {
-    return this.parseAddSub();
+    return this.parseComparison();
+  }
+
+  private parseComparison(): ASTNode {
+    let left = this.parseAddSub();
+
+    while (true) {
+      const ch = this.peek();
+      const next = this.input[this.pos + 1] || '';
+      
+      if (ch === '<' && next === '=') {
+        this.consume(); this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '<=', left, right };
+      } else if (ch === '>' && next === '=') {
+        this.consume(); this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '>=', left, right };
+      } else if (ch === '=' && next === '=') {
+        this.consume(); this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '==', left, right };
+      } else if (ch === '!' && next === '=') {
+        this.consume(); this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '!=', left, right };
+      } else if (ch === '<') {
+        this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '<', left, right };
+      } else if (ch === '>') {
+        this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '>', left, right };
+      } else {
+        break;
+      }
+    }
+
+    return left;
   }
 
   private parseAddSub(): ASTNode {
