@@ -4,7 +4,8 @@ import { parseAndEvaluate } from "@/lib/evaluator";
 
 interface Expression {
   id: string;
-  value: string;
+  latex: string;
+  normalized: string;
   color: string;
 }
 
@@ -58,7 +59,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
 
     // Draw expressions
     expressions.forEach((expr) => {
-      if (expr.value.trim()) {
+      if (expr.normalized.trim()) {
         try {
           drawExpression(ctx, rect.width, rect.height, viewport, expr);
         } catch (e) {
@@ -137,9 +138,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     vp: typeof viewport,
     expr: Expression
   ) => {
-    // Parse the expression once
-    const parts = expr.value.split('=');
-    const rhs = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+    // Use normalized expression (already has y= removed by normalizer)
+    const rhs = expr.normalized.trim();
     
     if (!rhs) return;
     

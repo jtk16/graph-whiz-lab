@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
+import { normalizeExpression } from "@/lib/normalizeExpression";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -14,14 +15,15 @@ const GRAPH_COLORS = [
 
 interface Expression {
   id: string;
-  value: string;
+  latex: string;
+  normalized: string;
   color: string;
 }
 
 const Index = () => {
   const [expressions, setExpressions] = useState<Expression[]>([
-    { id: "1", value: "y = x^2", color: GRAPH_COLORS[0] },
-    { id: "2", value: "y = sin(x)", color: GRAPH_COLORS[1] },
+    { id: "1", latex: "y=x^2", normalized: "x^2", color: GRAPH_COLORS[0] },
+    { id: "2", latex: "y=\\sin x", normalized: "sin(x)", color: GRAPH_COLORS[1] },
   ]);
   const [activeId, setActiveId] = useState<string | null>("1");
   const [viewport, setViewport] = useState({
@@ -36,15 +38,16 @@ const Index = () => {
     const colorIndex = expressions.length % GRAPH_COLORS.length;
     setExpressions([
       ...expressions,
-      { id: newId, value: "", color: GRAPH_COLORS[colorIndex] },
+      { id: newId, latex: "", normalized: "", color: GRAPH_COLORS[colorIndex] },
     ]);
     setActiveId(newId);
   };
 
-  const updateExpression = (id: string, value: string) => {
+  const updateExpression = (id: string, latex: string) => {
+    const normalized = normalizeExpression(latex);
     setExpressions(
       expressions.map((expr) =>
-        expr.id === id ? { ...expr, value } : expr
+        expr.id === id ? { ...expr, latex, normalized } : expr
       )
     );
   };

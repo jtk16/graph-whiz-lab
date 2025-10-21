@@ -1,6 +1,7 @@
-import { Input } from "@/components/ui/input";
+import { MathInput } from "@/components/MathInput";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import "@/components/MathInput.css";
 
 interface ExpressionInputProps {
   id: string;
@@ -31,12 +32,12 @@ export const ExpressionInput = ({
         className="w-3 h-3 rounded-full flex-shrink-0"
         style={{ backgroundColor: color }}
       />
-      <Input
+      <MathInput
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         onFocus={onFocus}
         placeholder="y = x^2"
-        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 font-mono"
+        className="flex-1"
       />
       <Button
         variant="ghost"

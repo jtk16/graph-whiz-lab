@@ -1,0 +1,36 @@
+/* MathLive styling to match our design system */
+
+math-field {
+  display: block;
+  width: 100%;
+  font-size: 16px;
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  padding: 0;
+  font-family: "Latin Modern Math", "Computer Modern", serif;
+}
+
+math-field:focus {
+  outline: none;
+}
+
+/* Style the cursor */
+math-field::part(cursor) {
+  border-color: hsl(var(--primary));
+}
+
+/* Style selection */
+math-field::part(selection) {
+  background-color: hsl(var(--primary) / 0.2);
+}
+
+/* Virtual keyboard button (hide for desktop experience) */
+math-field::part(virtual-keyboard-toggle) {
+  display: none;
+}
+
+/* Menu toggle */
+math-field::part(menu-toggle) {
+  display: none;
+}

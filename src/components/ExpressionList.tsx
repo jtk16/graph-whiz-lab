@@ -4,7 +4,8 @@ import { ExpressionInput } from "./ExpressionInput";
 
 interface Expression {
   id: string;
-  value: string;
+  latex: string;
+  normalized: string;
   color: string;
 }
 
@@ -12,7 +13,7 @@ interface ExpressionListProps {
   expressions: Expression[];
   activeId: string | null;
   onAddExpression: () => void;
-  onUpdateExpression: (id: string, value: string) => void;
+  onUpdateExpression: (id: string, latex: string) => void;
   onRemoveExpression: (id: string) => void;
   onSetActive: (id: string) => void;
 }
@@ -44,9 +45,9 @@ export const ExpressionList = ({
           <ExpressionInput
             key={expr.id}
             id={expr.id}
-            value={expr.value}
+            value={expr.latex}
             color={expr.color}
-            onChange={(value) => onUpdateExpression(expr.id, value)}
+            onChange={(latex) => onUpdateExpression(expr.id, latex)}
             onRemove={() => onRemoveExpression(expr.id)}
             isActive={expr.id === activeId}
             onFocus={() => onSetActive(expr.id)}
