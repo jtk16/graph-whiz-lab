@@ -16,7 +16,7 @@ export enum MathType {
 export interface TypeInfo {
   type: MathType;
   elementType?: MathType; // For lists
-  domain?: MathType; // For functions
+  domain?: MathType | MathType[]; // For functions (single type or tuple)
   codomain?: MathType; // For functions
   dimensions?: number; // For lists/points
 }
@@ -32,9 +32,25 @@ export function inferType(expr: string, normalized: string): TypeInfo {
     // Function definition
     if (lhs.includes('(')) {
       const codomainType = inferReturnType(parts[1].trim());
+      
+      // Extract parameters to determine domain
+      const paramsMatch = lhs.match(/\(([^)]+)\)/);
+      let domain: MathType | MathType[] = MathType.Number;
+      
+      if (paramsMatch) {
+        const params = paramsMatch[1].split(',').map(p => p.trim());
+        if (params.length > 1) {
+          // Multi-parameter function: (Number, Number, ...) → codomain
+          domain = params.map(() => MathType.Number);
+        } else {
+          // Single parameter: Number → codomain
+          domain = MathType.Number;
+        }
+      }
+      
       const result = {
         type: MathType.Function,
-        domain: MathType.Number,
+        domain,
         codomain: codomainType
       };
       console.log('[inferType] Function definition result:', result);
@@ -174,6 +190,13 @@ export function getTypeLabel(typeInfo: TypeInfo): string {
       return typeInfo.elementType ? `List<${typeInfo.elementType}>` : 'List';
     case MathType.Function:
       if (typeInfo.domain && typeInfo.codomain) {
+        // Handle tuple domain for multi-parameter functions
+        if (Array.isArray(typeInfo.domain)) {
+          const domainStr = typeInfo.domain
+            .map(d => getTypeLabel({ type: d }))
+            .join(', ');
+          return `(${domainStr}) → ${getTypeLabel({ type: typeInfo.codomain })}`;
+        }
         return `${getTypeLabel({ type: typeInfo.domain })} → ${getTypeLabel({ type: typeInfo.codomain })}`;
       }
       return 'Number → Number';

@@ -8,7 +8,7 @@ export type RuntimeValue =
   | { kind: 'boolean'; value: boolean }
   | { kind: 'point'; x: number; y: number }
   | { kind: 'list'; elements: RuntimeValue[]; elementType?: MathType }
-  | { kind: 'function'; def: FunctionDefinition }
+  | { kind: 'function'; def: FunctionDefinition; boundParams?: Record<string, number> }
   | { kind: 'polygon'; points: RuntimeValue[] }
   | { kind: 'distribution'; params: Record<string, number> }
   | { kind: 'action'; name: string; handler: () => void };
@@ -30,8 +30,8 @@ export function createList(elements: RuntimeValue[], elementType?: MathType): Ru
   return { kind: 'list', elements, elementType };
 }
 
-export function createFunction(def: FunctionDefinition): RuntimeValue {
-  return { kind: 'function', def };
+export function createFunction(def: FunctionDefinition, boundParams?: Record<string, number>): RuntimeValue {
+  return { kind: 'function', def, boundParams };
 }
 
 // Type guards
@@ -51,7 +51,7 @@ export function isList(value: RuntimeValue): value is { kind: 'list'; elements: 
   return value.kind === 'list';
 }
 
-export function isFunction(value: RuntimeValue): value is { kind: 'function'; def: FunctionDefinition } {
+export function isFunction(value: RuntimeValue): value is { kind: 'function'; def: FunctionDefinition; boundParams?: Record<string, number> } {
   return value.kind === 'function';
 }
 

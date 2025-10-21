@@ -21,7 +21,8 @@ export const BUILTIN_FUNCTIONS = new Set([
   'sqrt', 'abs', 'exp', 
   'ln', 'log',
   'floor', 'ceil', 'round',
-  'min', 'max'
+  'min', 'max',
+  'compose', 'D', // Higher-order functions
 ]);
 
 // Check if an identifier can be called (either built-in or user-defined function)

@@ -12,7 +12,7 @@ export const CONSTANTS: Record<string, number> = {
 
 export interface FunctionDefinition {
   name: string;
-  paramName: string;
+  params: string[]; // Support multiple parameters
   body: ASTNode;
 }
 
@@ -53,12 +53,13 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
     const rhs = parts[1].trim();
     console.log('buildDefinitionContext: lhs=', lhs, 'rhs=', rhs);
 
-    // Function definition: f(x) = ... or f_1(x) = ...
-    const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)$/);
+    // Function definition: f(x) = ... or f_1(x,y) = ... (multi-parameter)
+    const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)\(([^)]+)\)$/);
     console.log('buildDefinitionContext: funcMatch=', funcMatch);
     if (funcMatch) {
       const funcName = funcMatch[1];
-      const paramName = funcMatch[2];
+      const paramsStr = funcMatch[2];
+      const params = paramsStr.split(',').map(p => p.trim());
       
       if (RESERVED_NAMES.includes(funcName)) {
         console.warn(`Cannot define function with reserved name: ${funcName}`);
@@ -67,13 +68,13 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
       try {
         const body = parseExpression(rhs, context);
-        context.functions[funcName] = { name: funcName, paramName, body };
+        context.functions[funcName] = { name: funcName, params, body };
         
         // Infer function type
         const typeInfo = inferType(normalized, normalized);
         context.types[funcName] = typeInfo;
         
-        console.log('buildDefinitionContext: added function', funcName, 'with param', paramName);
+        console.log('buildDefinitionContext: added function', funcName, 'with params', params);
       } catch (e) {
         console.error('buildDefinitionContext: failed to parse function body:', e);
       }

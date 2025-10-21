@@ -11,7 +11,7 @@ interface Expression {
   typeInfo: {
     type: MathType;
     elementType?: MathType;
-    domain?: MathType;
+    domain?: MathType | MathType[];
     codomain?: MathType;
   };
 }

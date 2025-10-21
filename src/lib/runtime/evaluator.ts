@@ -5,6 +5,7 @@ import { DefinitionContext } from '../definitionContext';
 import { RuntimeValue, createNumber, createFunction, kindToMathType, isNumber } from './value';
 import { getOperator } from './operators';
 import { getCallable } from './functions';
+import './higherOrderFunctions'; // Initialize higher-order functions
 
 export function evaluate(
   node: ASTNode,
@@ -68,15 +69,50 @@ export function evaluate(
       // Check if it's a user-defined function
       if (context?.functions && node.name && node.name in context.functions) {
         const funcDef = context.functions[node.name];
-        if (node.args && node.args.length === 1) {
-          const argValue = evaluate(node.args[0], variables, context);
-          if (!isNumber(argValue)) {
-            throw new Error(`Function ${node.name} expects Number argument`);
-          }
-          // Evaluate function body with parameter bound to argument
-          return evaluate(funcDef.body, { [funcDef.paramName]: argValue.value }, context);
+        
+        if (!node.args) {
+          throw new Error(`Function ${node.name} requires arguments`);
         }
-        throw new Error(`Function ${node.name} expects 1 argument`);
+        
+        // Multi-parameter function support
+        if (node.args.length === funcDef.params.length) {
+          // Full application - all parameters provided
+          const argValues = node.args.map(arg => evaluate(arg, variables, context));
+          
+          // Check all arguments are numbers
+          const paramBindings: Record<string, number> = {};
+          funcDef.params.forEach((param, i) => {
+            if (!isNumber(argValues[i])) {
+              throw new Error(`Function ${node.name} expects Number arguments`);
+            }
+            paramBindings[param] = argValues[i].value;
+          });
+          
+          // Evaluate function body with all parameters bound
+          return evaluate(funcDef.body, paramBindings, context);
+        }
+        
+        // Partial application - fewer args than params
+        if (node.args.length < funcDef.params.length) {
+          const argValues = node.args.map(arg => evaluate(arg, variables, context));
+          
+          // Bind provided arguments
+          const boundParams: Record<string, number> = {};
+          for (let i = 0; i < node.args.length; i++) {
+            const argVal = argValues[i];
+            if (!isNumber(argVal)) {
+              throw new Error(`Function ${node.name} expects Number arguments`);
+            }
+            boundParams[funcDef.params[i]] = argVal.value;
+          }
+          
+          // Return a partially applied function
+          // For now, evaluate with bound params and remaining params from variables
+          const mergedVars = { ...boundParams, ...variables };
+          return evaluate(funcDef.body, mergedVars, context);
+        }
+        
+        throw new Error(`Function ${node.name} expects ${funcDef.params.length} argument(s), got ${node.args.length}`);
       }
       
       // Built-in function
