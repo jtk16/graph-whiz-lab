@@ -53,6 +53,13 @@ export function TypeTable({
   expressions,
   toolkitDefinitions = []
 }: TypeTableProps) {
+  // Early return BEFORE any hooks
+  const hasDefinitions = toolkitDefinitions.length > 0;
+  const hasExpressions = expressions.length > 0;
+  if (!hasDefinitions && !hasExpressions) {
+    return null;
+  }
+
   const [searchQuery, setSearchQuery] = useState("");
   const [panelHeight, setPanelHeight] = useState(384); // 96 * 4 = 384px
   const [isDragging, setIsDragging] = useState(false);
@@ -79,12 +86,6 @@ export function TypeTable({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
-
-  const hasDefinitions = toolkitDefinitions.length > 0;
-  const hasExpressions = expressions.length > 0;
-  if (!hasDefinitions && !hasExpressions) {
-    return null;
-  }
 
   // Group toolkit definitions by source
   const groupedToolkits = useMemo(() => {
