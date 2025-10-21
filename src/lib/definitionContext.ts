@@ -28,6 +28,7 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
   expressions.forEach(expr => {
     const normalized = expr.normalized.trim();
+    console.log('buildDefinitionContext: checking expression:', normalized);
     if (!normalized || !normalized.includes('=')) return;
 
     const parts = normalized.split('=');
@@ -35,9 +36,11 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
     const lhs = parts[0].trim();
     const rhs = parts[1].trim();
+    console.log('buildDefinitionContext: lhs=', lhs, 'rhs=', rhs);
 
     // Function definition: f(x) = ... or f_1(x) = ...
     const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)\(([a-zA-Z][a-zA-Z0-9_]*)\)$/);
+    console.log('buildDefinitionContext: funcMatch=', funcMatch);
     if (funcMatch) {
       const funcName = funcMatch[1];
       const paramName = funcMatch[2];
@@ -50,8 +53,9 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       try {
         const body = parseExpression(rhs);
         context.functions[funcName] = { name: funcName, paramName, body };
+        console.log('buildDefinitionContext: added function', funcName, 'with param', paramName);
       } catch (e) {
-        // Skip invalid function definitions
+        console.error('buildDefinitionContext: failed to parse function body:', e);
       }
       return;
     }
