@@ -1,21 +1,34 @@
 // Expression evaluator
 import { ASTNode } from './parser';
+import { DefinitionContext } from './definitionContext';
 
-export function evaluate(node: ASTNode, variables: Record<string, number>): number {
+export function evaluate(
+  node: ASTNode, 
+  variables: Record<string, number>,
+  context?: DefinitionContext
+): number {
   switch (node.type) {
     case 'number':
       return node.value as number;
 
     case 'variable':
       const varName = node.value as string;
+      
+      // Check local variables first (e.g., x, y)
       if (varName in variables) {
         return variables[varName];
       }
+      
+      // Check context variables (defined constants)
+      if (context?.variables && varName in context.variables) {
+        return context.variables[varName];
+      }
+      
       throw new Error(`Unknown variable: ${varName}`);
 
     case 'binary':
-      const left = evaluate(node.left!, variables);
-      const right = evaluate(node.right!, variables);
+      const left = evaluate(node.left!, variables, context);
+      const right = evaluate(node.right!, variables, context);
       
       switch (node.operator) {
         case '+': return left + right;
@@ -27,11 +40,21 @@ export function evaluate(node: ASTNode, variables: Record<string, number>): numb
       }
 
     case 'unary':
-      const operand = evaluate(node.right!, variables);
+      const operand = evaluate(node.right!, variables, context);
       return node.operator === '-' ? -operand : operand;
 
     case 'call':
-      const args = node.args!.map(arg => evaluate(arg, variables));
+      // Check if it's a user-defined function
+      if (context?.functions && node.name && node.name in context.functions) {
+        const funcDef = context.functions[node.name];
+        if (node.args && node.args.length === 1) {
+          const argValue = evaluate(node.args[0], variables, context);
+          return evaluate(funcDef.body, { [funcDef.paramName]: argValue }, context);
+        }
+        throw new Error(`Function ${node.name} expects 1 argument`);
+      }
+      
+      const args = node.args!.map(arg => evaluate(arg, variables, context));
       
       switch (node.name) {
         case 'sin': return Math.sin(args[0]);
@@ -60,6 +83,11 @@ export function evaluateExpression(expr: string, x: number): number {
   throw new Error('Use parseAndEvaluate instead');
 }
 
-export function parseAndEvaluate(rhs: string, x: number, ast: ASTNode): number {
-  return evaluate(ast, { x });
+export function parseAndEvaluate(
+  rhs: string, 
+  x: number, 
+  ast: ASTNode,
+  context?: DefinitionContext
+): number {
+  return evaluate(ast, { x }, context);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { parseExpression } from "@/lib/parser";
 import { parseAndEvaluate } from "@/lib/evaluator";
+import { buildDefinitionContext, DefinitionContext } from "@/lib/definitionContext";
 
 interface Expression {
   id: string;
@@ -27,6 +28,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   const [dragStartViewport, setDragStartViewport] = useState(viewport);
 
   useEffect(() => {
+    // Build definition context from all expressions
+    const context = buildDefinitionContext(expressions);
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -61,7 +64,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     expressions.forEach((expr) => {
       if (expr.normalized.trim()) {
         try {
-          drawExpression(ctx, rect.width, rect.height, viewport, expr);
+          drawExpression(ctx, rect.width, rect.height, viewport, expr, context);
         } catch (e) {
           // Silently ignore parsing errors for now
         }
@@ -136,7 +139,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     width: number,
     height: number,
     vp: typeof viewport,
-    expr: Expression
+    expr: Expression,
+    context: DefinitionContext
   ) => {
     // Use normalized expression (already has y= removed by normalizer)
     const rhs = expr.normalized.trim();
@@ -165,7 +169,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const x = vp.xMin + (px / width) * xRange;
       
       try {
-        const y = parseAndEvaluate(rhs, x, ast);
+        const y = parseAndEvaluate(rhs, x, ast, context);
         
         if (isFinite(y)) {
           const py = mapY(y, height, vp);
