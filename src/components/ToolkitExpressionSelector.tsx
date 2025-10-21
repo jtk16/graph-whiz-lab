@@ -64,20 +64,26 @@ export function ToolkitExpressionSelector({
         expr.dependencies?.forEach(dep => neededDeps.add(dep));
       });
       
-      // Find and add missing dependencies from toolkit
-      toolkit.expressions.forEach((expr, idx) => {
-        // Extract function name from LHS: "funcName(...) = ..."
-        const funcName = expr.normalized.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(/)?.[1];
+      // Loop to resolve transitive dependencies
+      let foundNewDeps = true;
+      while (foundNewDeps) {
+        foundNewDeps = false;
         
-        // If this function is needed and not already selected, add it
-        if (funcName && neededDeps.has(funcName) && !selectedIndices.has(idx)) {
-          expressionsToImport.push(expr);
-          selectedIndices.add(idx);
+        toolkit.expressions.forEach((expr, idx) => {
+          // Extract function name from LHS: "funcName(...) = ..."
+          const funcName = expr.normalized.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(/)?.[1];
           
-          // Recursively add dependencies of dependencies
-          expr.dependencies?.forEach(dep => neededDeps.add(dep));
-        }
-      });
+          // If this function is needed and not already selected, add it
+          if (funcName && neededDeps.has(funcName) && !selectedIndices.has(idx)) {
+            expressionsToImport.push(expr);
+            selectedIndices.add(idx);
+            foundNewDeps = true;
+            
+            // Add dependencies of this newly added expression
+            expr.dependencies?.forEach(dep => neededDeps.add(dep));
+          }
+        });
+      }
     }
     
     onConfirm(expressionsToImport);
@@ -85,10 +91,7 @@ export function ToolkitExpressionSelector({
 
   // Check which expressions are already imported
   const isAlreadyImported = (normalized: string): boolean => {
-    return importedExpressions.some(ie => 
-      ie.normalized === normalized || 
-      ie.source === toolkit.id
-    );
+    return importedExpressions.some(ie => ie.normalized === normalized);
   };
 
   const selectedCount = selected.size;
