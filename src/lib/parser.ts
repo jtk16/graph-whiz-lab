@@ -5,13 +5,14 @@ import { DefinitionContext } from './definitionContext';
 import { canCall, BUILTIN_FUNCTIONS } from './runtime/callables';
 
 export interface ASTNode {
-  type: 'number' | 'variable' | 'binary' | 'unary' | 'call';
+  type: 'number' | 'variable' | 'binary' | 'unary' | 'call' | 'list';
   value?: number | string;
   operator?: string;
   left?: ASTNode;
   right?: ASTNode;
   name?: string;
   args?: ASTNode[];
+  elements?: ASTNode[]; // For list type
 }
 
 const FUNCTIONS = Array.from(BUILTIN_FUNCTIONS);
@@ -136,6 +137,24 @@ class Parser {
     // Number
     if (this.isDigit(this.peek()) || this.peek() === '.') {
       return this.parseNumber();
+    }
+
+    // List literals: [1, 2, 3]
+    if (this.peek() === '[') {
+      this.consume(); // '['
+      const elements: ASTNode[] = [];
+      
+      if (this.peek() !== ']') {
+        elements.push(this.parseExpression());
+        while (this.peek() === ',') {
+          this.consume(); // ','
+          if (this.peek() === ']') break; // Allow trailing comma
+          elements.push(this.parseExpression());
+        }
+      }
+      
+      this.expect(']');
+      return { type: 'list', elements };
     }
 
     // Parentheses

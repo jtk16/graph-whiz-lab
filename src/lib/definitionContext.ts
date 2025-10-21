@@ -3,7 +3,7 @@
 import { ASTNode, parseExpression } from './parser';
 import { MathType, TypeInfo, inferType } from './types';
 
-export const RESERVED_NAMES = ['x', 'y', 'pi', 'e'];
+export const RESERVED_NAMES = ['x', 'y', 'pi', 'e', 'i'];
 
 export const CONSTANTS: Record<string, number> = {
   pi: Math.PI,
@@ -17,7 +17,7 @@ export interface FunctionDefinition {
 }
 
 export interface DefinitionContext {
-  variables: Record<string, number>;
+  variables: Record<string, number | ASTNode>; // Support both numbers and AST nodes (for lists)
   functions: Record<string, FunctionDefinition>;
   types: Record<string, import('./types').TypeInfo>; // Track type of each identifier
 }
@@ -125,11 +125,37 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
       processing.add(varName);
 
+      // Check if RHS is a list literal
+      const listMatch = rhs.match(/^\[.*\]$/);
+      if (listMatch) {
+        try {
+          const ast = parseExpression(rhs, context);
+          if (ast.type === 'list') {
+            // Store list as AST node for runtime evaluation
+            context.variables[varName] = ast;
+            context.types[varName] = { type: MathType.List };
+            console.log(`[${idx}] ✅ Added list variable ${varName} with ${ast.elements?.length} elements`);
+            processing.delete(varName);
+            return;
+          }
+        } catch (e) {
+          console.log(`[${idx}] ⚠️  Failed to parse list ${varName}: ${e}`);
+          processing.delete(varName);
+          return;
+        }
+      }
+
       // Only allow constant definitions (no variables in RHS)
       try {
         const ast = parseExpression(rhs, context);
         // Try to evaluate as constant (no variables except constants)
-        const value = evaluateConstant(ast, { ...CONSTANTS, ...context.variables });
+        const numericConstants: Record<string, number> = {};
+        for (const [key, val] of Object.entries(context.variables)) {
+          if (typeof val === 'number') {
+            numericConstants[key] = val;
+          }
+        }
+        const value = evaluateConstant(ast, { ...CONSTANTS, ...numericConstants });
         if (isFinite(value)) {
           context.variables[varName] = value;
           context.types[varName] = { type: MathType.Number };

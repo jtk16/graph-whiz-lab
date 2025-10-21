@@ -2,7 +2,7 @@
 
 import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
-import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean } from './value';
+import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean, createList } from './value';
 import { getOperator } from './operators';
 import { getCallable, evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
@@ -16,6 +16,10 @@ export function evaluate(
     case 'number':
       return createNumber(node.value as number);
 
+    case 'list':
+      const elements = node.elements!.map(elem => evaluate(elem, variables, context));
+      return createList(elements);
+
     case 'variable':
       const varName = node.value as string;
       
@@ -24,9 +28,14 @@ export function evaluate(
         return createNumber(variables[varName]);
       }
       
-      // Check context variables (defined constants)
+      // Check context variables (defined constants or list ASTs)
       if (context?.variables && varName in context.variables) {
-        return createNumber(context.variables[varName]);
+        const varValue = context.variables[varName];
+        // If it's an AST node (for lists), evaluate it
+        if (typeof varValue === 'object' && 'type' in varValue) {
+          return evaluate(varValue as ASTNode, variables, context);
+        }
+        return createNumber(varValue);
       }
       
       // Check for built-in constants
