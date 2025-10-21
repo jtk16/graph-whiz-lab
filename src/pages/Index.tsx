@@ -57,9 +57,16 @@ const Index = () => {
   const addExpression = () => {
     const newId = Date.now().toString();
     const colorIndex = expressions.length % GRAPH_COLORS.length;
+    const newColor = GRAPH_COLORS[colorIndex];
     setExpressions([
       ...expressions,
-      { id: newId, latex: "", normalized: "", color: GRAPH_COLORS[colorIndex], typeInfo: { type: MathType.Unknown } },
+      { 
+        id: newId, 
+        latex: "", 
+        normalized: "", 
+        color: newColor, 
+        typeInfo: { type: MathType.Unknown } 
+      },
     ]);
     setActiveId(newId);
   };
@@ -133,7 +140,7 @@ const Index = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden relative">
+    <div className="flex h-screen overflow-hidden">
       <ResizablePanelGroup direction="horizontal">
         {/* Expression Sidebar - Collapsible & Resizable */}
         {!isPanelCollapsed && (
@@ -162,6 +169,16 @@ const Index = () => {
         {/* Graph Canvas */}
         <ResizablePanel>
           <div className="h-full bg-canvas-bg relative">
+            {/* Collapse/Expand Toggle */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+              className="absolute top-4 right-4 z-10 h-8 w-8"
+            >
+              {isPanelCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+
             <GraphCanvas 
               expressions={expressions}
               viewport={viewport}
@@ -175,16 +192,6 @@ const Index = () => {
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
-
-      {/* Collapse/Expand Toggle */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-        className="absolute top-4 left-4 z-10 h-8 w-8"
-      >
-        {isPanelCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-      </Button>
     </div>
   );
 };
