@@ -66,5 +66,9 @@ export function normalizeExpression(latex: string): string {
   // Note: We DON'T handle letter(paren) → letter*(paren) because that's function call syntax
   // For multiplication, users should write c*(x) explicitly
   
+  // Single-character implicit multiplication: tx → t*x, xy → x*y
+  // BUT preserve multi-char identifiers like floor, theta, sin
+  normalized = normalized.replace(/\b([a-z])([a-z])\b/gi, '$1*$2');
+  
   return normalized;
 }
