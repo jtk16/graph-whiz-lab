@@ -23,9 +23,18 @@ export function validateExpression(
     return errors;
   }
 
-  // Extract all identifiers from the expression
+  // For definitions, only validate the RHS
+  let expressionToValidate = normalized;
+  if (normalized.includes('=')) {
+    const parts = normalized.split('=');
+    if (parts.length === 2) {
+      expressionToValidate = parts[1].trim(); // Only validate RHS
+    }
+  }
+
+  // Extract all identifiers from the expression (RHS only for definitions)
   const identifierRegex = /\b([a-zA-Z][a-zA-Z0-9_]*)\b/g;
-  const matches = normalized.matchAll(identifierRegex);
+  const matches = expressionToValidate.matchAll(identifierRegex);
   
   for (const match of matches) {
     const identifier = match[1];
