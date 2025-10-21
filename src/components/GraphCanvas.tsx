@@ -320,7 +320,25 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       return;
     }
 
-    ctx.strokeStyle = expr.color;
+    // Resolve HSL color - handle both CSS variables and direct HSL values
+    let resolvedColor = expr.color;
+    if (expr.color.includes('var(--')) {
+      // Extract CSS variable name
+      const varMatch = expr.color.match(/var\((--[^)]+)\)/);
+      if (varMatch) {
+        const varName = varMatch[1];
+        const computedStyle = getComputedStyle(document.documentElement);
+        const varValue = computedStyle.getPropertyValue(varName).trim();
+        if (varValue) {
+          // CSS variables contain just the HSL values, need to wrap in hsl()
+          resolvedColor = `hsl(${varValue})`;
+        }
+      }
+    }
+    // If it's already in hsl() format, use as-is
+    
+    console.log('Drawing expression with color:', expr.color, '→', resolvedColor);
+    ctx.strokeStyle = resolvedColor;
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
