@@ -6,6 +6,8 @@ import './complexFunctions'; // Complex number functions
 import './pointFunctions'; // Point/vector functions
 import './signalFunctions'; // Signal processing
 import './calculusFunctions'; // Calculus and conditionals
+import '../computation/numericalFunctions'; // Numerical methods
+import '../computation/derivativeFunctions'; // Advanced derivatives
 
 // Re-export core APIs
 export * from './registry';

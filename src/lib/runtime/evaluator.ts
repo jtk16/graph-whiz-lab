@@ -4,7 +4,8 @@ import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
 import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean, createList } from './value';
 import { getOperator } from './operators';
-import { getCallable, evaluateConditional } from './functions';
+import { getFunctionSignature } from './registry';
+import { evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
 
 export function evaluate(
@@ -198,13 +199,13 @@ export function evaluate(
       
       const arg = evaluate(node.args[0], variables, context);
       const argType = kindToMathType(arg.kind);
-      const callable = getCallable(node.name!, argType);
+      const funcSig = getFunctionSignature(node.name!, argType);
       
-      if (!callable) {
+      if (!funcSig) {
         throw new Error(`No function '${node.name}' for ${argType}`);
       }
       
-      return callable.execute(arg);
+      return funcSig.execute(arg);
 
     default:
       throw new Error(`Unknown node type: ${(node as any).type}`);
