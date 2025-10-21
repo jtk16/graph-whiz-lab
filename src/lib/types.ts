@@ -84,6 +84,17 @@ function inferExpressionType(expr: string): TypeInfo {
     return { type: MathType.List };
   }
   
+  // Pure number literal (includes decimals and negatives)
+  if (expr.match(/^-?\d+(\.\d+)?$/)) {
+    return { type: MathType.Number };
+  }
+  
+  // Arithmetic expression with only numbers and operators (no variables)
+  // This catches things like "7+8", "2*3", "10/2", etc.
+  if (expr.match(/^[\d\+\-\*\/\^\(\)\.\s]+$/)) {
+    return { type: MathType.Number };
+  }
+  
   // Function calls that return specific types
   if (expr.match(/^(sin|cos|tan|sqrt|abs|exp|ln|log|floor|ceil|round)\(/)) {
     return { type: MathType.Number };
@@ -104,18 +115,19 @@ function inferExpressionType(expr: string): TypeInfo {
     return { type: MathType.Number };
   }
   
-  // Contains variables - likely a function expression
+  // Expressions with only constants (pi, e) and operators - still a number
+  const withoutConstants = expr.replace(/pi|e/g, '1');
+  if (withoutConstants.match(/^[\d\+\-\*\/\^\(\)\.\s]+$/)) {
+    return { type: MathType.Number };
+  }
+  
+  // Contains variables (x, y, etc.) - likely a function expression
   if (expr.match(/[a-z]/i) && !expr.match(/^(pi|e|true|false)$/)) {
     return { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number };
   }
   
-  // Pure number
-  if (expr.match(/^-?\d+(\.\d+)?$/)) {
-    return { type: MathType.Number };
-  }
-  
-  // Default to function for expressions with variables
-  return { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number };
+  // Default to Number for anything else (fallback)
+  return { type: MathType.Number };
 }
 
 export function getTypeLabel(typeInfo: TypeInfo): string {

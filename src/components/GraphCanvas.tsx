@@ -174,18 +174,12 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     const yRange = vp.yMax - vp.yMin;
     const tickSpacing = calculateGridSpacing(Math.max(xRange, yRange));
     
-    // Use a contrasting color for labels
-    const computedStyle = getComputedStyle(canvasRef.current!);
-    const foreground = computedStyle.getPropertyValue('--foreground').trim();
-    
-    ctx.fillStyle = `hsl(${foreground})`;
-    ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
-    
     const tickSize = 8;
 
     // X-axis ticks and labels
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
     
     for (let x = Math.ceil(vp.xMin / tickSpacing) * tickSpacing; x <= vp.xMax; x += tickSpacing) {
       if (Math.abs(x) < tickSpacing * 0.01) continue; // Skip zero
@@ -193,7 +187,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const px = mapX(x, width, vp);
       
       // Draw tick mark
-      ctx.strokeStyle = `hsl(${foreground})`;
+      ctx.strokeStyle = 'hsl(var(--foreground))';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(px, xAxisY - tickSize);
@@ -204,22 +198,21 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const label = formatTickLabel(x);
       const labelY = xAxisY + tickSize + 6;
       
-      if (labelY >= 0 && labelY < height - 5) {
-        // Draw background
-        ctx.save();
+      if (labelY >= 0 && labelY < height - 5 && px >= 0 && px <= width) {
         const metrics = ctx.measureText(label);
-        const padding = 3;
-        ctx.fillStyle = `hsl(var(--canvas-bg))`;
+        const padding = 4;
+        
+        // Draw semi-transparent background
+        ctx.fillStyle = 'hsla(var(--canvas-bg), 0.9)';
         ctx.fillRect(
           px - metrics.width / 2 - padding,
-          labelY - padding,
+          labelY - 2,
           metrics.width + padding * 2,
-          14 + padding * 2
+          16
         );
-        ctx.restore();
         
         // Draw text
-        ctx.fillStyle = `hsl(${foreground})`;
+        ctx.fillStyle = 'hsl(var(--foreground))';
         ctx.fillText(label, px, labelY);
       }
     }
@@ -234,33 +227,32 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
       const py = mapY(y, height, vp);
       
       // Draw tick mark
-      ctx.strokeStyle = `hsl(${foreground})`;
+      ctx.strokeStyle = 'hsl(var(--foreground))';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(yAxisX - tickSize, py);
-      ctx.moveTo(yAxisX + tickSize, py);
+      ctx.lineTo(yAxisX + tickSize, py);
       ctx.stroke();
       
       // Draw label with background for visibility
       const label = formatTickLabel(y);
       const labelX = yAxisX - tickSize - 6;
       
-      if (labelX >= 0 && labelX < width - 5) {
-        // Draw background
-        ctx.save();
+      if (labelX >= 0 && labelX < width - 5 && py >= 0 && py <= height) {
         const metrics = ctx.measureText(label);
-        const padding = 3;
-        ctx.fillStyle = `hsl(var(--canvas-bg))`;
+        const padding = 4;
+        
+        // Draw semi-transparent background
+        ctx.fillStyle = 'hsla(var(--canvas-bg), 0.9)';
         ctx.fillRect(
           labelX - metrics.width - padding,
-          py - 7 - padding,
+          py - 8,
           metrics.width + padding * 2,
-          14 + padding * 2
+          16
         );
-        ctx.restore();
         
         // Draw text
-        ctx.fillStyle = `hsl(${foreground})`;
+        ctx.fillStyle = 'hsl(var(--foreground))';
         ctx.fillText(label, labelX, py);
       }
     }
