@@ -87,16 +87,22 @@ export function evaluate(
       if (node.name === 'if' && node.args && node.args.length === 3) {
         const condition = evaluate(node.args[0], variables, context);
         
-        // Short-circuit evaluation: only evaluate the branch that will be taken
+        // Accept both numbers (0=false, non-zero=true) and booleans
+        let conditionIsTrue = false;
         if (isNumber(condition)) {
-          if (condition.value !== 0) {
-            return evaluate(node.args[1], variables, context);
-          } else {
-            return evaluate(node.args[2], variables, context);
-          }
+          conditionIsTrue = condition.value !== 0;
+        } else if (isBoolean(condition)) {
+          conditionIsTrue = condition.value;
+        } else {
+          throw new Error('if() condition must evaluate to a number or boolean');
         }
         
-        throw new Error('if() condition must evaluate to a number');
+        // Short-circuit evaluation: only evaluate the branch that will be taken
+        if (conditionIsTrue) {
+          return evaluate(node.args[1], variables, context);
+        } else {
+          return evaluate(node.args[2], variables, context);
+        }
       }
       
       // Special handling for piecewise(cond1, val1, cond2, val2, ..., default)
