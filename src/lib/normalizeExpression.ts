@@ -51,9 +51,10 @@ export function normalizeExpression(latex: string): string {
   // Handle implicit multiplication (e.g., 2x → 2*x, 2sin(x) → 2*sin(x))
   // Number followed by letter
   normalized = normalized.replace(/(\d)([a-zA-Z])/g, '$1*$2');
-  // Closing paren followed by opening paren or letter
+  // Closing paren followed by opening paren
   normalized = normalized.replace(/\)(\()/g, ')*$1');
-  normalized = normalized.replace(/\)([a-zA-Z])/g, ')*$1');
+  // Note: We DON'T handle letter(paren) → letter*(paren) because that's function call syntax
+  // For multiplication, users should write c*(x) explicitly
   
   return normalized;
 }
