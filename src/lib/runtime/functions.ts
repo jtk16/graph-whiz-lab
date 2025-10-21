@@ -1,7 +1,9 @@
 // Function call registry for built-in functions
+// Now using unified registry system
 
 import { MathType } from '../types';
 import { RuntimeValue, createNumber, createBoolean, createComplex, isList, isNumber, isPoint, isBoolean, isComplex } from './value';
+import { getFunctionSignature } from './registry';
 
 type CallSignature = `${string}(${MathType})`;
 
@@ -14,7 +16,7 @@ interface CallableDefinition {
 
 const CALLABLES = new Map<CallSignature, CallableDefinition>();
 
-// Register a callable function
+// Register a callable function (legacy - kept for compatibility)
 export function registerCallable(
   name: string,
   paramType: MathType,
@@ -25,8 +27,20 @@ export function registerCallable(
   CALLABLES.set(sig, { name, paramType, returnType, execute });
 }
 
-// Lookup a callable
+// Lookup a callable - check registry first, then fallback to legacy
 export function getCallable(name: string, paramType: MathType): CallableDefinition | undefined {
+  // Try new registry first
+  const registrySignature = getFunctionSignature(name, paramType);
+  if (registrySignature) {
+    return {
+      name,
+      paramType: registrySignature.paramType,
+      returnType: registrySignature.returnType,
+      execute: registrySignature.execute,
+    };
+  }
+  
+  // Fallback to legacy CALLABLES
   const sig: CallSignature = `${name}(${paramType})`;
   return CALLABLES.get(sig);
 }

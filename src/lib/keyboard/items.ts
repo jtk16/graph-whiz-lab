@@ -1,4 +1,5 @@
 import { KeyboardCategory } from './categories';
+import { getKeyboardItems as getRegisteredKeyboardItems } from '../runtime/registry';
 
 export interface KeyboardItem {
   id: string;
@@ -10,7 +11,8 @@ export interface KeyboardItem {
   example?: string;
 }
 
-export const KEYBOARD_ITEMS: KeyboardItem[] = [
+// Static items that aren't functions (operators, constants, variables, data types)
+const STATIC_KEYBOARD_ITEMS: KeyboardItem[] = [
   // ========== OPERATORS (All Implemented) ==========
   { id: 'add', latex: '+', normalized: '+', description: 'Addition', category: KeyboardCategory.Operators },
   { id: 'sub', latex: '-', normalized: '-', description: 'Subtraction', category: KeyboardCategory.Operators },
@@ -27,54 +29,9 @@ export const KEYBOARD_ITEMS: KeyboardItem[] = [
   { id: 'and', latex: '\\land', normalized: '&&', description: 'Logical AND', category: KeyboardCategory.Operators },
   { id: 'or', latex: '\\lor', normalized: '||', description: 'Logical OR', category: KeyboardCategory.Operators },
 
-  // ========== TRIGONOMETRIC (All Implemented in functions.ts) ==========
-  { id: 'sin', latex: '\\sin(#?)', normalized: 'sin', description: 'Sine function', category: KeyboardCategory.Trigonometric, insertTemplate: '\\sin(#0)', example: 'sin(x)' },
-  { id: 'cos', latex: '\\cos(#?)', normalized: 'cos', description: 'Cosine function', category: KeyboardCategory.Trigonometric, insertTemplate: '\\cos(#0)', example: 'cos(x)' },
-  { id: 'tan', latex: '\\tan(#?)', normalized: 'tan', description: 'Tangent function', category: KeyboardCategory.Trigonometric, insertTemplate: '\\tan(#0)', example: 'tan(x)' },
-
-  // ========== MATHEMATICAL FUNCTIONS (All Implemented in functions.ts) ==========
-  { id: 'sqrt', latex: '\\sqrt{#?}', normalized: 'sqrt', description: 'Square root', category: KeyboardCategory.Mathematical, insertTemplate: '\\sqrt{#0}', example: 'sqrt(x)' },
-  { id: 'abs', latex: '\\left|#?\\right|', normalized: 'abs', description: 'Absolute value', category: KeyboardCategory.Mathematical, insertTemplate: '\\left|#0\\right|', example: 'abs(x)' },
-  { id: 'exp', latex: 'e^{#?}', normalized: 'exp', description: 'Exponential (e^x)', category: KeyboardCategory.Mathematical, insertTemplate: 'e^{#0}', example: 'exp(x)' },
-  { id: 'ln', latex: '\\ln(#?)', normalized: 'ln', description: 'Natural logarithm', category: KeyboardCategory.Mathematical, insertTemplate: '\\ln(#0)', example: 'ln(x)' },
-  { id: 'log', latex: '\\log(#?)', normalized: 'log', description: 'Logarithm base 10', category: KeyboardCategory.Mathematical, insertTemplate: '\\log(#0)', example: 'log(x)' },
-  { id: 'floor', latex: '\\lfloor#?\\rfloor', normalized: 'floor', description: 'Floor function', category: KeyboardCategory.Mathematical, insertTemplate: '\\lfloor#0\\rfloor', example: 'floor(x)' },
-  { id: 'ceil', latex: '\\lceil#?\\rceil', normalized: 'ceil', description: 'Ceiling function', category: KeyboardCategory.Mathematical, insertTemplate: '\\lceil#0\\rceil', example: 'ceil(x)' },
-  { id: 'round', latex: 'round(#?)', normalized: 'round', description: 'Round to nearest integer', category: KeyboardCategory.Mathematical, insertTemplate: 'round(#0)', example: 'round(x)' },
+  // ========== NON-FUNCTION ITEMS ==========
   { id: 'frac', latex: '\\frac{#?}{#?}', normalized: '/', description: 'Fraction', category: KeyboardCategory.Mathematical, insertTemplate: '\\frac{#0}{#1}' },
-
-  // ========== LIST FUNCTIONS (All Implemented in functions.ts + numerical.ts) ==========
-  { id: 'sum', latex: 'sum(#?)', normalized: 'sum', description: 'Sum of list elements', category: KeyboardCategory.Lists, insertTemplate: 'sum(#0)', example: 'sum([1,2,3])' },
-  { id: 'mean', latex: 'mean(#?)', normalized: 'mean', description: 'Mean of list', category: KeyboardCategory.Lists, insertTemplate: 'mean(#0)', example: 'mean([1,2,3])' },
-  { id: 'min', latex: 'min(#?)', normalized: 'min', description: 'Minimum value', category: KeyboardCategory.Lists, insertTemplate: 'min(#0)', example: 'min([1,2,3])' },
-  { id: 'max', latex: 'max(#?)', normalized: 'max', description: 'Maximum value', category: KeyboardCategory.Lists, insertTemplate: 'max(#0)', example: 'max([1,2,3])' },
-  { id: 'length', latex: 'length(#?)', normalized: 'length', description: 'Length of list', category: KeyboardCategory.Lists, insertTemplate: 'length(#0)', example: 'length([1,2,3])' },
-  { id: 'variance', latex: 'variance(#?)', normalized: 'variance', description: 'Variance of list', category: KeyboardCategory.Lists, insertTemplate: 'variance(#0)', example: 'variance([1,2,3])' },
-  { id: 'stdev', latex: 'stdev(#?)', normalized: 'stdev', description: 'Standard deviation', category: KeyboardCategory.Lists, insertTemplate: 'stdev(#0)', example: 'stdev([1,2,3])' },
-
-  // ========== COMPLEX FUNCTIONS (All Implemented in functions.ts) ==========
-  { id: 'cabs', latex: '|z|', normalized: 'abs', description: 'Complex magnitude', category: KeyboardCategory.Complex, example: 'abs(1+2i)' },
-  { id: 'arg', latex: 'arg(#?)', normalized: 'arg', description: 'Complex argument', category: KeyboardCategory.Complex, insertTemplate: 'arg(#0)', example: 'arg(1+2i)' },
-  { id: 'real', latex: 'Re(#?)', normalized: 'real', description: 'Real part', category: KeyboardCategory.Complex, insertTemplate: 'real(#0)', example: 'real(1+2i)' },
-  { id: 'imag', latex: 'Im(#?)', normalized: 'imag', description: 'Imaginary part', category: KeyboardCategory.Complex, insertTemplate: 'imag(#0)', example: 'imag(1+2i)' },
-  { id: 'conj', latex: '\\overline{#?}', normalized: 'conj', description: 'Complex conjugate', category: KeyboardCategory.Complex, insertTemplate: '\\overline{#0}', example: 'conj(1+2i)' },
-
-  // ========== POINT/VECTOR FUNCTIONS (Implemented in functions.ts) ==========
-  { id: 'plength', latex: 'length(p)', normalized: 'length', description: 'Vector magnitude', category: KeyboardCategory.Points, example: 'length((3,4))' },
-
-  // ========== CONDITIONAL FUNCTIONS (Implemented in evaluator.ts) ==========
-  { id: 'if', latex: 'if(#?,#?,#?)', normalized: 'if', description: 'If-then-else', category: KeyboardCategory.Conditional, insertTemplate: 'if(#0,#1,#2)', example: 'if(x>0,1,-1)' },
-  { id: 'piecewise', latex: 'piecewise(#?,#?,#?)', normalized: 'piecewise', description: 'Piecewise function', category: KeyboardCategory.Conditional, insertTemplate: 'piecewise(#0,#1,#2)', example: 'piecewise(x>0,1,-1)' },
-
-  // ========== SIGNAL PROCESSING (Implemented in signal.ts) ==========
-  { id: 'fft', latex: 'fft(#?)', normalized: 'fft', description: 'Fast Fourier Transform', category: KeyboardCategory.Signal, insertTemplate: 'fft(#0)', example: 'fft([1,2,3,4])' },
-  { id: 'ifft', latex: 'ifft(#?)', normalized: 'ifft', description: 'Inverse FFT', category: KeyboardCategory.Signal, insertTemplate: 'ifft(#0)', example: 'ifft(fft([1,2,3,4]))' },
-  { id: 'magnitude', latex: 'magnitude(#?)', normalized: 'magnitude', description: 'FFT magnitude', category: KeyboardCategory.Signal, insertTemplate: 'magnitude(#0)', example: 'magnitude(fft([1,2,3]))' },
-  { id: 'phase', latex: 'phase(#?)', normalized: 'phase', description: 'FFT phase', category: KeyboardCategory.Signal, insertTemplate: 'phase(#0)', example: 'phase(fft([1,2,3]))' },
-
-  // ========== CALCULUS (D is implemented in higherOrderFunctions.ts) ==========
-  { id: 'D', latex: 'D(#?)', normalized: 'D', description: 'Derivative operator', category: KeyboardCategory.Calculus, insertTemplate: 'D(#0)', example: 'D(f)' },
-
+  
   // ========== CONSTANTS (Built-in, parsed directly) ==========
   { id: 'pi', latex: '\\pi', normalized: 'pi', description: 'Pi (3.14159...)', category: KeyboardCategory.Constants },
   { id: 'e', latex: 'e', normalized: 'e', description: 'Euler\'s number (2.71828...)', category: KeyboardCategory.Constants },
@@ -89,6 +46,12 @@ export const KEYBOARD_ITEMS: KeyboardItem[] = [
   // ========== DATA TYPE CONSTRUCTORS ==========
   { id: 'point', latex: '(#?,#?)', normalized: '(,)', description: 'Point/Vector', category: KeyboardCategory.DataTypes, insertTemplate: '(#0,#1)', example: '(3,4)' },
   { id: 'list', latex: '[#?]', normalized: '[]', description: 'List', category: KeyboardCategory.DataTypes, insertTemplate: '[#0]', example: '[1,2,3]' },
+];
+
+// Combine static items with registered function items
+export const KEYBOARD_ITEMS: KeyboardItem[] = [
+  ...STATIC_KEYBOARD_ITEMS,
+  ...getRegisteredKeyboardItems(),
 ];
 
 export function getItemsByCategory(category: KeyboardCategory): KeyboardItem[] {

@@ -1,7 +1,9 @@
 // Defines which types can be called with parentheses
+// Now using unified registry for BUILTIN_FUNCTIONS
 
 import { MathType } from '../types';
 import { DefinitionContext } from '../definitionContext';
+import { BUILTIN_FUNCTIONS } from './registry';
 
 // Types that can be "called" with parentheses
 export const CALLABLE_TYPES = new Set<MathType>([
@@ -15,16 +17,8 @@ export function isCallable(type: MathType | undefined): boolean {
   return CALLABLE_TYPES.has(type);
 }
 
-// Built-in function names
-export const BUILTIN_FUNCTIONS = new Set([
-  'sin', 'cos', 'tan', 
-  'sqrt', 'abs', 'exp', 
-  'ln', 'log',
-  'floor', 'ceil', 'round',
-  'min', 'max',
-  'compose', 'D', // Higher-order functions
-  'if', 'piecewise', // Conditional functions
-]);
+// Re-export BUILTIN_FUNCTIONS from registry
+export { BUILTIN_FUNCTIONS };
 
 // Check if an identifier can be called (either built-in or user-defined function)
 export function canCall(name: string, context?: DefinitionContext): boolean {

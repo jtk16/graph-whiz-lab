@@ -73,6 +73,12 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/_\{([^}]+)\}/g, '_$1');
   // Already handles single-char subscripts like f_1
   
+  // Floor notation: ⌊x⌋ → floor(x)
+  normalized = normalized.replace(/\\lfloor\s*([^\\]+?)\\rfloor/g, 'floor($1)');
+  
+  // Ceiling notation: ⌈x⌉ → ceil(x)
+  normalized = normalized.replace(/\\lceil\s*([^\\]+?)\\rceil/g, 'ceil($1)');
+  
   // Common LaTeX commands to remove
   normalized = normalized.replace(/\\left/g, '');
   normalized = normalized.replace(/\\right/g, '');
