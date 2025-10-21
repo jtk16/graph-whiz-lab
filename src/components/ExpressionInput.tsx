@@ -1,4 +1,5 @@
-import { MathInput } from "@/components/MathInput";
+import { useRef, useEffect } from "react";
+import { MathInput, MathInputRef } from "@/components/MathInput";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -41,6 +42,7 @@ interface ExpressionInputProps {
   onRemove: () => void;
   isActive: boolean;
   onFocus: () => void;
+  onSetActiveMathInput: (ref: MathInputRef | null) => void;
   allExpressions: Array<{ normalized: string }>;
   errors?: Array<{
     type: string;
@@ -62,10 +64,19 @@ export const ExpressionInput = ({
   onRemove,
   isActive,
   onFocus,
+  onSetActiveMathInput,
   allExpressions,
   errors = [],
 }: ExpressionInputProps) => {
+  const mathInputRef = useRef<MathInputRef>(null);
   const hasErrors = errors.length > 0;
+
+  // Update parent with our ref when focused
+  useEffect(() => {
+    if (isActive && mathInputRef.current) {
+      onSetActiveMathInput(mathInputRef.current);
+    }
+  }, [isActive, onSetActiveMathInput]);
   // Calculate scalar value if applicable
   const getScalarValue = (): string | null => {
     if (!normalized) return null;
@@ -177,6 +188,7 @@ export const ExpressionInput = ({
       {/* Math Input */}
       <div className="flex-1 min-w-0">
         <MathInput
+          ref={mathInputRef}
           value={value}
           onChange={onChange}
           onFocus={onFocus}

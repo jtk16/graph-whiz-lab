@@ -1,19 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
 import { TypeTable } from "@/components/TypeTable";
 import { Header } from "@/components/Header";
 import { ToolkitDefinitionsPanel } from "@/components/ToolkitDefinitionsPanel";
+import { MathKeyboard } from "@/components/MathKeyboard";
 import { normalizeExpression } from "@/lib/normalizeExpression";
 import { inferType, TypeInfo, MathType } from "@/lib/types";
 import { buildDefinitionContext } from "@/lib/definitionContext";
 import { validateExpression, detectCircularDependency } from "@/lib/validation/expressionValidator";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToolkitExpression, getToolkitById } from "@/lib/toolkits";
 import { toast } from "@/hooks/use-toast";
+import { KeyboardItem } from "@/lib/keyboard/items";
+import { MathInputRef } from "@/components/MathInput";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -67,12 +70,20 @@ const Index = () => {
   
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [viewport, setViewport] = useState({
     xMin: -10,
     xMax: 10,
     yMin: -10,
     yMax: 10,
   });
+
+  // Ref to store active MathInput for keyboard insertions
+  const activeMathInputRef = useRef<MathInputRef | null>(null);
+
+  const setActiveMathInput = (ref: MathInputRef | null) => {
+    activeMathInputRef.current = ref;
+  };
 
   // Persist toolkit definitions to localStorage
   useEffect(() => {
@@ -262,6 +273,13 @@ const Index = () => {
     });
   };
 
+  const handleKeyboardInsert = (item: KeyboardItem) => {
+    if (activeMathInputRef.current) {
+      const latex = item.insertTemplate || item.latex;
+      activeMathInputRef.current.insert(latex);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <Header 
@@ -301,6 +319,7 @@ const Index = () => {
                       onRemoveExpression={removeExpression}
                       onClearAll={clearAllExpressions}
                       onSetActive={setActiveId}
+                      onSetActiveMathInput={setActiveMathInput}
                     />
                     <div className="border-t border-border">
                       <TypeTable 
@@ -351,10 +370,28 @@ const Index = () => {
                 onZoomOut={handleZoomOut}
                 onResetView={handleResetView}
               />
+              
+              {/* Keyboard Toggle Button */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsKeyboardVisible(!isKeyboardVisible)}
+                className="absolute bottom-20 right-4 z-10 h-10 w-10"
+                title={isKeyboardVisible ? "Hide Keyboard" : "Show Keyboard"}
+              >
+                <Keyboard className="h-5 w-5" />
+              </Button>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+
+      {/* Math Keyboard - Bottom of screen */}
+      {isKeyboardVisible && (
+        <div className="border-t">
+          <MathKeyboard onInsert={handleKeyboardInsert} />
+        </div>
+      )}
     </div>
   );
 };

@@ -68,6 +68,12 @@ registerOperator(MathType.Number, '^', MathType.Number, MathType.Number,
     return createNumber(Math.pow(l.value, r.value));
   });
 
+registerOperator(MathType.Number, '%', MathType.Number, MathType.Number,
+  (l, r) => {
+    if (!isNumber(l) || !isNumber(r)) throw new Error('Type mismatch');
+    return createNumber(l.value % r.value);
+  });
+
 // Number comparisons
 registerOperator(MathType.Number, '<', MathType.Number, MathType.Boolean,
   (l, r) => {

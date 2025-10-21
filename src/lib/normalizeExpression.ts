@@ -78,6 +78,8 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/\\right/g, '');
   normalized = normalized.replace(/\\cdot/g, '*');
   normalized = normalized.replace(/\\times/g, '*');
+  normalized = normalized.replace(/\\bmod/g, '%');
+  normalized = normalized.replace(/\\mod/g, '%');
   
   // Clean up whitespace
   normalized = normalized.trim();

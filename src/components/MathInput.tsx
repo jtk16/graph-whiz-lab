@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { MathfieldElement } from "mathlive";
 
 interface MathInputProps {
@@ -10,16 +10,34 @@ interface MathInputProps {
   disabled?: boolean;
 }
 
-export const MathInput = ({
+export interface MathInputRef {
+  insert: (latex: string) => void;
+  focus: () => void;
+}
+
+export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
   value,
   onChange,
   onFocus,
   placeholder = "y = x^2",
   className = "",
   disabled = false,
-}: MathInputProps) => {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mathFieldRef = useRef<MathfieldElement | null>(null);
+
+  // Expose insert and focus methods via ref
+  useImperativeHandle(ref, () => ({
+    insert: (latex: string) => {
+      if (mathFieldRef.current) {
+        mathFieldRef.current.executeCommand(['insert', latex]);
+        mathFieldRef.current.focus();
+      }
+    },
+    focus: () => {
+      mathFieldRef.current?.focus();
+    }
+  }));
 
   // Create MathfieldElement once and clean up on unmount
   useEffect(() => {
@@ -83,4 +101,4 @@ export const MathInput = ({
   }, [disabled]);
 
   return <div className={className} ref={containerRef} />;
-};
+});

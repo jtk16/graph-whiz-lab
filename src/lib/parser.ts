@@ -93,7 +93,7 @@ class Parser {
     while (true) {
       const ch = this.peek();
       
-      if (ch === '*' || ch === '/') {
+      if (ch === '*' || ch === '/' || ch === '%') {
         const operator = this.consume();
         const right = this.parsePower();
         left = { type: 'binary', operator, left, right };

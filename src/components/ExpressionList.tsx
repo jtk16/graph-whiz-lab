@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExpressionInput } from "./ExpressionInput";
+import { MathInputRef } from "./MathInput";
 
 interface Expression {
   id: string;
@@ -25,6 +26,7 @@ interface ExpressionListProps {
   onRemoveExpression: (id: string) => void;
   onClearAll: () => void;
   onSetActive: (id: string) => void;
+  onSetActiveMathInput: (ref: MathInputRef | null) => void;
 }
 
 export const ExpressionList = ({
@@ -36,6 +38,7 @@ export const ExpressionList = ({
   onRemoveExpression,
   onClearAll,
   onSetActive,
+  onSetActiveMathInput,
 }: ExpressionListProps) => {
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-expression-bg">
@@ -84,6 +87,7 @@ export const ExpressionList = ({
               onRemove={() => onRemoveExpression(expr.id)}
               isActive={expr.id === activeId}
               onFocus={() => onSetActive(expr.id)}
+              onSetActiveMathInput={onSetActiveMathInput}
               allExpressions={expressions}
               errors={expr.errors}
             />
