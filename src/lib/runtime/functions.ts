@@ -1,7 +1,7 @@
 // Function call registry for built-in functions
 
 import { MathType } from '../types';
-import { RuntimeValue, createNumber, createBoolean, isList, isNumber, isPoint } from './value';
+import { RuntimeValue, createNumber, createBoolean, isList, isNumber, isPoint, isBoolean } from './value';
 
 type CallSignature = `${string}(${MathType})`;
 
@@ -159,3 +159,23 @@ registerCallable('length', MathType.Point, MathType.Number,
     if (!isPoint(arg)) throw new Error('length expects Point');
     return createNumber(Math.sqrt(arg.x * arg.x + arg.y * arg.y));
   });
+
+// ============= CONDITIONAL/PIECEWISE FUNCTIONS =============
+// Note: These are special functions that need multi-argument support
+// They will be handled specially in the evaluator
+
+// Export a helper for conditional evaluation
+export function evaluateConditional(
+  condition: RuntimeValue,
+  trueValue: RuntimeValue,
+  falseValue: RuntimeValue
+): RuntimeValue {
+  if (isBoolean(condition)) {
+    return condition.value ? trueValue : falseValue;
+  } else if (isNumber(condition)) {
+    // Treat non-zero as true, zero as false
+    return condition.value !== 0 ? trueValue : falseValue;
+  } else {
+    throw new Error('Condition must be Boolean or Number');
+  }
+}

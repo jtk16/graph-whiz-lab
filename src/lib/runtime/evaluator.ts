@@ -2,9 +2,9 @@
 
 import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
-import { RuntimeValue, createNumber, createFunction, kindToMathType, isNumber } from './value';
+import { RuntimeValue, createNumber, createFunction, kindToMathType, isNumber, createBoolean } from './value';
 import { getOperator } from './operators';
-import { getCallable } from './functions';
+import { getCallable, evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
 
 export function evaluate(
@@ -66,6 +66,22 @@ export function evaluate(
       return operand; // Unary plus
 
     case 'call':
+      // Special handling for if(condition, trueValue, falseValue)
+      if (node.name === 'if' && node.args && node.args.length === 3) {
+        const condition = evaluate(node.args[0], variables, context);
+        
+        // Short-circuit evaluation: only evaluate the branch that will be taken
+        if (isNumber(condition)) {
+          if (condition.value !== 0) {
+            return evaluate(node.args[1], variables, context);
+          } else {
+            return evaluate(node.args[2], variables, context);
+          }
+        }
+        
+        throw new Error('if() condition must evaluate to a number');
+      }
+      
       // Check if it's a user-defined function
       if (context?.functions && node.name && node.name in context.functions) {
         const funcDef = context.functions[node.name];
