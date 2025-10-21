@@ -10,6 +10,41 @@ export function normalizeExpression(latex: string): string {
   
   let normalized = latex;
   
+  // === DERIVATIVE OPERATORS (must come first) ===
+  
+  // Ordinary derivatives: \frac{d}{dx} → d/d{x}
+  // Also handles \frac{df}{dx} (ignores the f in numerator)
+  normalized = normalized.replace(
+    /\\frac\{d(?:[a-zA-Z])?\}\{d([a-zA-Z]+)\}/g,
+    'd/d{$1}'
+  );
+  
+  // Partial derivatives: \frac{\partial}{\partial x} → ∂/∂{x}
+  // Also handles \frac{\partial f}{\partial x}
+  normalized = normalized.replace(
+    /\\frac\{\\partial(?:\s*[a-zA-Z])?\}\{\\partial\s*([a-zA-Z]+)\}/g,
+    '∂/∂{$1}'
+  );
+  
+  // Higher-order ordinary: \frac{d^2}{dx^2} → d/d{x}(d/d{x}(...))
+  normalized = normalized.replace(
+    /\\frac\{d\^(\d+)\}\{d([a-zA-Z]+)\^(\d+)\}/g,
+    (match, order, varName) => {
+      const n = parseInt(order);
+      let result = '';
+      for (let i = 0; i < n; i++) {
+        result = `d/d{${varName}}(` + result;
+      }
+      return result; // Opening parens, content follows, user needs to close them
+    }
+  );
+  
+  // Mixed partials: \frac{\partial^2}{\partial x \partial y} → ∂/∂{y}(∂/∂{x}(...))
+  normalized = normalized.replace(
+    /\\frac\{\\partial\^2\}\{\\partial\s*([a-zA-Z]+)\\s*\\partial\s*([a-zA-Z]+)\}/g,
+    '∂/∂{$2}(∂/∂{$1}('
+  );
+  
   // Remove y = prefix if present (common in graphing)
   normalized = normalized.replace(/^y\s*=\s*/, '');
   

@@ -5,7 +5,7 @@ import { DefinitionContext } from './definitionContext';
 import { canCall, BUILTIN_FUNCTIONS } from './runtime/callables';
 
 export interface ASTNode {
-  type: 'number' | 'variable' | 'binary' | 'unary' | 'call' | 'list';
+  type: 'number' | 'variable' | 'binary' | 'unary' | 'call' | 'list' | 'derivative' | 'partial';
   value?: number | string;
   operator?: string;
   left?: ASTNode;
@@ -13,6 +13,8 @@ export interface ASTNode {
   name?: string;
   args?: ASTNode[];
   elements?: ASTNode[]; // For list type
+  variable?: string;    // For derivative/partial: variable name
+  operand?: ASTNode;    // For derivative/partial: expression to differentiate
 }
 
 const FUNCTIONS = Array.from(BUILTIN_FUNCTIONS);
@@ -134,6 +136,17 @@ class Parser {
   }
 
   private parsePrimary(): ASTNode {
+    // === DERIVATIVE OPERATORS ===
+    // Check for d/d{var} pattern
+    if (this.peek() === 'd' && this.input.substring(this.pos, this.pos + 4) === 'd/d{') {
+      return this.parseDerivativeOperator('derivative');
+    }
+    
+    // Check for ∂/∂{var} pattern
+    if (this.peek() === '∂' && this.input.substring(this.pos, this.pos + 4) === '∂/∂{') {
+      return this.parseDerivativeOperator('partial');
+    }
+    
     // Number
     if (this.isDigit(this.peek()) || this.peek() === '.') {
       return this.parseNumber();
@@ -246,6 +259,49 @@ class Parser {
 
   private isLetter(char: string): boolean {
     return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z');
+  }
+
+  private parseDerivativeOperator(type: 'derivative' | 'partial'): ASTNode {
+    // Consume the prefix: 'd/d{' or '∂/∂{'
+    const prefix = type === 'derivative' ? 'd/d{' : '∂/∂{';
+    for (let i = 0; i < prefix.length; i++) {
+      this.consume();
+    }
+    
+    // Extract variable name (everything until '}')
+    let variable = '';
+    while (this.peek() !== '}' && this.peek() !== '') {
+      variable += this.consume();
+    }
+    
+    if (this.peek() !== '}') {
+      throw new Error(`Expected '}' in ${type} operator`);
+    }
+    this.consume(); // consume '}'
+    
+    if (!variable) {
+      throw new Error(`${type} operator missing variable name`);
+    }
+    
+    // Parse the operand (expression to differentiate)
+    // Support both d/d{x}(expr) and d/d{x}expr formats
+    let operand: ASTNode;
+    
+    if (this.peek() === '(') {
+      // Explicit parentheses: d/d{x}(x^2)
+      this.consume(); // '('
+      operand = this.parseExpression();
+      this.expect(')');
+    } else {
+      // No parentheses: d/d{x}x^2 - parse next primary/power
+      operand = this.parsePower();
+    }
+    
+    return {
+      type,
+      variable,
+      operand
+    };
   }
 }
 

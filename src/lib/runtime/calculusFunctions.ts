@@ -73,3 +73,84 @@ registerFunction({
     insertTemplate: 'piecewise(#0,#1,#2)'
   }
 });
+
+// Derivative operators for keyboard
+registerFunction({
+  name: 'd/dx',
+  signatures: [{
+    paramType: MathType.Function,
+    returnType: MathType.Function,
+    execute: (arg) => arg // Handled in parser/evaluator
+  }],
+  metadata: {
+    latex: '\\frac{d}{dx}(#?)',
+    description: 'Derivative with respect to x',
+    category: KeyboardCategory.Calculus,
+    example: 'd/dx(x^2) → 2*x',
+    insertTemplate: '\\frac{d}{dx}(#0)'
+  }
+});
+
+registerFunction({
+  name: 'd/dy',
+  signatures: [{
+    paramType: MathType.Function,
+    returnType: MathType.Function,
+    execute: (arg) => arg
+  }],
+  metadata: {
+    latex: '\\frac{d}{dy}(#?)',
+    description: 'Derivative with respect to y',
+    category: KeyboardCategory.Calculus,
+    example: 'd/dy(y^2) → 2*y',
+    insertTemplate: '\\frac{d}{dy}(#0)'
+  }
+});
+
+registerFunction({
+  name: 'd/dt',
+  signatures: [{
+    paramType: MathType.Function,
+    returnType: MathType.Function,
+    execute: (arg) => arg
+  }],
+  metadata: {
+    latex: '\\frac{d}{dt}(#?)',
+    description: 'Derivative with respect to t',
+    category: KeyboardCategory.Calculus,
+    example: 'd/dt(t^3) → 3*t^2',
+    insertTemplate: '\\frac{d}{dt}(#0)'
+  }
+});
+
+registerFunction({
+  name: '∂/∂x',
+  signatures: [{
+    paramType: MathType.Function,
+    returnType: MathType.Function,
+    execute: (arg) => arg
+  }],
+  metadata: {
+    latex: '\\frac{\\partial}{\\partial x}(#?)',
+    description: 'Partial derivative with respect to x',
+    category: KeyboardCategory.Calculus,
+    example: '∂/∂x(x*y) → y',
+    insertTemplate: '\\frac{\\partial}{\\partial x}(#0)'
+  }
+});
+
+registerFunction({
+  name: '∂/∂y',
+  signatures: [{
+    paramType: MathType.Function,
+    returnType: MathType.Function,
+    execute: (arg) => arg
+  }],
+  metadata: {
+    latex: '\\frac{\\partial}{\\partial y}(#?)',
+    description: 'Partial derivative with respect to y',
+    category: KeyboardCategory.Calculus,
+    example: '∂/∂y(x*y) → x',
+    insertTemplate: '\\frac{\\partial}{\\partial y}(#0)'
+  }
+});

@@ -1,12 +1,13 @@
 // Type-aware expression evaluator using operator overloading
 
 import { ASTNode } from '../parser';
-import { DefinitionContext } from '../definitionContext';
+import { DefinitionContext, FunctionDefinition } from '../definitionContext';
 import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean, createList } from './value';
 import { getOperator } from './operators';
 import { getFunctionSignature } from './registry';
 import { evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
+import { symbolicDerivativeAST, symbolicPartialAST } from '../computation/symbolic';
 
 export function evaluate(
   node: ASTNode,
@@ -82,6 +83,12 @@ export function evaluate(
       }
       
       return operand; // Unary plus
+
+    case 'derivative':
+      return evaluateDerivative(node, variables, context);
+
+    case 'partial':
+      return evaluatePartial(node, variables, context);
 
     case 'call':
       // Special handling for if(condition, trueValue, falseValue)
@@ -225,4 +232,46 @@ export function evaluateToNumber(
   }
   
   return result.value;
+}
+
+function evaluateDerivative(
+  node: ASTNode,
+  variables: Record<string, number>,
+  context?: DefinitionContext
+): RuntimeValue {
+  const variable = node.variable!;
+  const operand = node.operand!;
+  
+  // Use symbolic differentiation to transform the operand AST
+  const derivativeAST = symbolicDerivativeAST(operand, variable);
+  
+  // Create a new function with the derivative body
+  const derivativeDef: FunctionDefinition = {
+    name: `d/d${variable}`,
+    params: [variable],
+    body: derivativeAST
+  };
+  
+  return createFunction(derivativeDef);
+}
+
+function evaluatePartial(
+  node: ASTNode,
+  variables: Record<string, number>,
+  context?: DefinitionContext
+): RuntimeValue {
+  const variable = node.variable!;
+  const operand = node.operand!;
+  
+  // Use symbolic partial derivative
+  const partialAST = symbolicPartialAST(operand, variable);
+  
+  // Create a new function with the partial derivative body
+  const partialDef: FunctionDefinition = {
+    name: `∂/∂${variable}`,
+    params: [variable],
+    body: partialAST
+  };
+  
+  return createFunction(partialDef);
 }

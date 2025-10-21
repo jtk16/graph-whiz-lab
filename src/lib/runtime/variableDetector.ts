@@ -45,6 +45,13 @@ export function hasUnboundVariables(
       // Check all elements
       return node.elements.some(elem => hasUnboundVariables(elem, context));
 
+    case 'derivative':
+    case 'partial':
+      // The differentiation variable is bound within this operator
+      // Only check for unbound variables in the operand
+      if (!node.operand) return false;
+      return hasUnboundVariables(node.operand, context);
+
     default:
       return false;
   }
