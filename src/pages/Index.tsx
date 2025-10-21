@@ -3,6 +3,8 @@ import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
 import { TypeTable } from "@/components/TypeTable";
+import { Header } from "@/components/Header";
+import { ToolkitDefinitionsPanel } from "@/components/ToolkitDefinitionsPanel";
 import { normalizeExpression } from "@/lib/normalizeExpression";
 import { inferType, TypeInfo, MathType } from "@/lib/types";
 import { buildDefinitionContext } from "@/lib/definitionContext";
@@ -10,6 +12,8 @@ import { validateExpression, detectCircularDependency } from "@/lib/validation/e
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ToolkitExpression, getToolkitById } from "@/lib/toolkits";
+import { toast } from "@/hooks/use-toast";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -35,6 +39,19 @@ interface Expression {
 }
 
 const Index = () => {
+  // Load toolkit definitions from localStorage
+  const [toolkitDefinitions, setToolkitDefinitions] = useState<ToolkitExpression[]>(() => {
+    const saved = localStorage.getItem('toolkit-definitions');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
   // Load expressions from localStorage or start with empty array
   const [expressions, setExpressions] = useState<Expression[]>(() => {
     const saved = localStorage.getItem('graph-expressions');
@@ -56,6 +73,11 @@ const Index = () => {
     yMin: -10,
     yMax: 10,
   });
+
+  // Persist toolkit definitions to localStorage
+  useEffect(() => {
+    localStorage.setItem('toolkit-definitions', JSON.stringify(toolkitDefinitions));
+  }, [toolkitDefinitions]);
 
   // Persist expressions to localStorage whenever they change
   useEffect(() => {
@@ -94,7 +116,12 @@ const Index = () => {
           return { ...expr, errors: [] };
         }
         
-        const context = buildDefinitionContext(updated.filter(e => e.id !== expr.id));
+        // Build context with toolkit definitions FIRST (precedence)
+        const allContextExpressions = [
+          ...toolkitDefinitions.map(td => ({ normalized: td.normalized })),
+          ...updated.filter(e => e.id !== expr.id)
+        ];
+        const context = buildDefinitionContext(allContextExpressions);
         const errors = validateExpression(expr.normalized, context, expr.id);
         
         // Check for circular dependencies
@@ -170,74 +197,138 @@ const Index = () => {
     });
   };
 
+  // Toolkit management functions
+  const handleImportToolkit = (toolkitId: string) => {
+    const toolkit = getToolkitById(toolkitId);
+    if (!toolkit) return;
+    
+    // Check if toolkit is already imported
+    const alreadyImported = toolkitDefinitions.some(def => def.source === toolkitId);
+    if (alreadyImported) {
+      toast({
+        title: "Toolkit Already Imported",
+        description: `${toolkit.name} is already in use`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const newDefinitions = toolkit.expressions.map(expr => ({
+      ...expr,
+      id: `toolkit-${toolkitId}-${Date.now()}-${Math.random()}`,
+      source: toolkitId,
+    }));
+    
+    setToolkitDefinitions(prev => [...prev, ...newDefinitions]);
+    
+    toast({
+      title: "Toolkit Imported",
+      description: `${toolkit.name} definitions added (${newDefinitions.length} items)`,
+    });
+  };
+
+  const updateToolkitDefinition = (id: string, latex: string) => {
+    const normalized = normalizeExpression(latex);
+    setToolkitDefinitions(prev =>
+      prev.map(def =>
+        def.id === id ? { ...def, latex, normalized, isModified: true } : def
+      )
+    );
+  };
+
+  const removeToolkitDefinition = (id: string) => {
+    setToolkitDefinitions(prev => prev.filter(def => def.id !== id));
+  };
+
+  const clearToolkitDefinitions = () => {
+    setToolkitDefinitions([]);
+    toast({
+      title: "Toolkits Cleared",
+      description: "All toolkit definitions removed",
+    });
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <ResizablePanelGroup direction="horizontal">
-        {/* Expression Sidebar - Collapsible & Resizable */}
-        {!isPanelCollapsed && (
-          <>
-            <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-              <div className="h-full border-r border-border flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-border">
-                  <h2 className="text-lg font-semibold">Expressions</h2>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsPanelCollapsed(true)}
-                    className="h-8 w-8"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex-1 overflow-hidden flex flex-col">
-                  <ExpressionList
-                    expressions={expressions}
-                    activeId={activeId}
-                    onAddExpression={addExpression}
-                    onUpdateExpression={updateExpression}
-                    onUpdateColor={updateExpressionColor}
-                    onRemoveExpression={removeExpression}
-                    onClearAll={clearAllExpressions}
-                    onSetActive={setActiveId}
-                  />
-                  <div className="border-t border-border">
-                    <TypeTable expressions={expressions} />
+    <div className="flex flex-col h-screen overflow-hidden">
+      <Header onImportToolkit={handleImportToolkit} />
+      
+      <div className="flex-1 flex overflow-hidden">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Expression Sidebar - Collapsible & Resizable */}
+          {!isPanelCollapsed && (
+            <>
+              <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
+                <div className="h-full border-r border-border flex flex-col overflow-hidden">
+                  <div className="flex items-center justify-between p-4 border-b border-border">
+                    <h2 className="text-lg font-semibold">Expressions</h2>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIsPanelCollapsed(true)}
+                      className="h-8 w-8"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-hidden flex flex-col">
+                    {/* Toolkit Definitions Panel */}
+                    <ToolkitDefinitionsPanel
+                      definitions={toolkitDefinitions}
+                      onUpdate={updateToolkitDefinition}
+                      onRemove={removeToolkitDefinition}
+                      onClearAll={clearToolkitDefinitions}
+                    />
+                    
+                    {/* User Expressions List */}
+                    <ExpressionList
+                      expressions={expressions}
+                      activeId={activeId}
+                      onAddExpression={addExpression}
+                      onUpdateExpression={updateExpression}
+                      onUpdateColor={updateExpressionColor}
+                      onRemoveExpression={removeExpression}
+                      onClearAll={clearAllExpressions}
+                      onSetActive={setActiveId}
+                    />
+                    <div className="border-t border-border">
+                      <TypeTable expressions={expressions} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-          </>
-        )}
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
+          )}
 
-        {/* Graph Canvas */}
-        <ResizablePanel>
-          <div className="h-full bg-canvas-bg relative">
-            {/* Show expand button when collapsed */}
-            {isPanelCollapsed && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsPanelCollapsed(false)}
-                className="absolute top-4 left-4 z-10 h-8 w-8"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
+          {/* Graph Canvas */}
+          <ResizablePanel>
+            <div className="h-full bg-canvas-bg relative">
+              {/* Show expand button when collapsed */}
+              {isPanelCollapsed && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsPanelCollapsed(false)}
+                  className="absolute top-4 left-4 z-10 h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
 
-            <GraphCanvas 
-              expressions={expressions}
-              viewport={viewport}
-              onViewportChange={setViewport}
-            />
-            <GraphControls
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onResetView={handleResetView}
-            />
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+              <GraphCanvas 
+                expressions={expressions}
+                viewport={viewport}
+                onViewportChange={setViewport}
+              />
+              <GraphControls
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetView={handleResetView}
+              />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 };
