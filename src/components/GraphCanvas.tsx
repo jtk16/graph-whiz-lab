@@ -40,15 +40,21 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
 
     ctx.scale(dpr, dpr);
 
+    // Get computed styles for colors
+    const computedStyle = getComputedStyle(canvas);
+    const canvasBg = computedStyle.getPropertyValue('--canvas-bg').trim();
+    const gridLine = computedStyle.getPropertyValue('--grid-line').trim();
+    const axisLine = computedStyle.getPropertyValue('--axis-line').trim();
+
     // Clear canvas
-    ctx.fillStyle = "hsl(var(--canvas-bg))";
+    ctx.fillStyle = `hsl(${canvasBg})`;
     ctx.fillRect(0, 0, rect.width, rect.height);
 
     // Draw grid
-    drawGrid(ctx, rect.width, rect.height, viewport);
+    drawGrid(ctx, rect.width, rect.height, viewport, gridLine);
 
     // Draw axes
-    drawAxes(ctx, rect.width, rect.height, viewport);
+    drawAxes(ctx, rect.width, rect.height, viewport, axisLine);
 
     // Draw expressions
     expressions.forEach((expr) => {
@@ -66,9 +72,10 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
-    vp: typeof viewport
+    vp: typeof viewport,
+    gridLineColor: string
   ) => {
-    ctx.strokeStyle = "hsl(var(--grid-line))";
+    ctx.strokeStyle = `hsl(${gridLineColor})`;
     ctx.lineWidth = 1;
 
     const xRange = vp.xMax - vp.xMin;
@@ -98,9 +105,10 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
-    vp: typeof viewport
+    vp: typeof viewport,
+    axisLineColor: string
   ) => {
-    ctx.strokeStyle = "hsl(var(--axis-line))";
+    ctx.strokeStyle = `hsl(${axisLineColor})`;
     ctx.lineWidth = 2;
 
     // X-axis
