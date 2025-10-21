@@ -26,6 +26,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragStartViewport, setDragStartViewport] = useState(viewport);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; screenX: number; screenY: number } | null>(null);
 
   useEffect(() => {
     // Build definition context from all expressions
@@ -124,22 +125,111 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     ctx.strokeStyle = `hsl(${axisLineColor})`;
     ctx.lineWidth = 2;
 
+    const yAxisX = Math.max(0, Math.min(width, mapX(0, width, vp)));
+    const xAxisY = Math.max(0, Math.min(height, mapY(0, height, vp)));
+
     // X-axis
-    if (vp.yMin <= 0 && vp.yMax >= 0) {
-      const y = mapY(0, height, vp);
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.moveTo(0, xAxisY);
+    ctx.lineTo(width, xAxisY);
+    ctx.stroke();
 
     // Y-axis
-    if (vp.xMin <= 0 && vp.xMax >= 0) {
-      const x = mapX(0, width, vp);
+    ctx.beginPath();
+    ctx.moveTo(yAxisX, 0);
+    ctx.lineTo(yAxisX, height);
+    ctx.stroke();
+
+    // Draw tick marks and labels
+    drawTickMarks(ctx, width, height, vp, yAxisX, xAxisY);
+  };
+
+  const formatTickLabel = (value: number): string => {
+    const absValue = Math.abs(value);
+    
+    // Use scientific notation for very large or very small numbers
+    if (absValue >= 10000 || (absValue < 0.01 && absValue > 0)) {
+      return value.toExponential(1);
+    }
+    
+    // Use fixed decimal for reasonable numbers
+    if (absValue >= 100) {
+      return value.toFixed(0);
+    } else if (absValue >= 1) {
+      return value.toFixed(1);
+    } else {
+      return value.toFixed(2);
+    }
+  };
+
+  const drawTickMarks = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    vp: typeof viewport,
+    yAxisX: number,
+    xAxisY: number
+  ) => {
+    const xRange = vp.xMax - vp.xMin;
+    const yRange = vp.yMax - vp.yMin;
+    const tickSpacing = calculateGridSpacing(Math.max(xRange, yRange));
+    
+    ctx.fillStyle = `hsl(var(--foreground))`;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    const tickSize = 6;
+
+    // X-axis ticks
+    for (let x = Math.ceil(vp.xMin / tickSpacing) * tickSpacing; x <= vp.xMax; x += tickSpacing) {
+      if (Math.abs(x) < tickSpacing * 0.01) continue; // Skip zero
+      
+      const px = mapX(x, width, vp);
+      
+      // Draw tick mark
+      ctx.strokeStyle = `hsl(var(--axis-line))`;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
+      ctx.moveTo(px, xAxisY - tickSize);
+      ctx.lineTo(px, xAxisY + tickSize);
       ctx.stroke();
+      
+      // Draw label
+      const label = formatTickLabel(x);
+      const labelY = xAxisY + tickSize + 4;
+      
+      // Ensure label is visible
+      if (labelY < height - 15) {
+        ctx.fillText(label, px, labelY);
+      }
+    }
+
+    // Y-axis ticks
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    for (let y = Math.ceil(vp.yMin / tickSpacing) * tickSpacing; y <= vp.yMax; y += tickSpacing) {
+      if (Math.abs(y) < tickSpacing * 0.01) continue; // Skip zero
+      
+      const py = mapY(y, height, vp);
+      
+      // Draw tick mark
+      ctx.strokeStyle = `hsl(var(--axis-line))`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(yAxisX - tickSize, py);
+      ctx.lineTo(yAxisX + tickSize, py);
+      ctx.stroke();
+      
+      // Draw label
+      const label = formatTickLabel(y);
+      const labelX = yAxisX - tickSize - 4;
+      
+      // Ensure label is visible
+      if (labelX > 5) {
+        ctx.fillText(label, labelX, py);
+      }
     }
   };
 
@@ -172,12 +262,15 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     ctx.beginPath();
 
     const xRange = vp.xMax - vp.xMin;
+    const samplesPerPixel = 2; // Increase sampling for smoother curves
+    const totalSamples = width * samplesPerPixel;
     let started = false;
     let lastY: number | null = null;
     let sampleCount = 0;
 
-    for (let px = 0; px < width; px++) {
-      const x = vp.xMin + (px / width) * xRange;
+    for (let i = 0; i < totalSamples; i++) {
+      const x = vp.xMin + (i / totalSamples) * xRange;
+      const px = (i / samplesPerPixel);
       
       try {
         const y = parseAndEvaluate(rhs, x, ast, context);
@@ -189,8 +282,8 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
         if (isFinite(y)) {
           const py = mapY(y, height, vp);
           
-          // Check for discontinuities
-          if (lastY !== null && Math.abs(y - lastY) > (vp.yMax - vp.yMin) * 0.5) {
+          // Only check for discontinuities, not out-of-bounds
+          if (lastY !== null && Math.abs(y - lastY) > (vp.yMax - vp.yMin) * 0.8) {
             started = false;
           }
           
@@ -235,9 +328,58 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
-    setDragStartViewport(viewport);
+    if (!canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    
+    // Check if clicking near a plotted point
+    const clickedPoint = findNearestPoint(canvasX, canvasY, rect.width, rect.height);
+    
+    if (clickedPoint) {
+      setHoveredPoint({
+        x: clickedPoint.x,
+        y: clickedPoint.y,
+        screenX: e.clientX,
+        screenY: e.clientY
+      });
+    } else {
+      setHoveredPoint(null);
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setDragStartViewport(viewport);
+    }
+  };
+
+  const findNearestPoint = (canvasX: number, canvasY: number, width: number, height: number) => {
+    const context = buildDefinitionContext(expressions);
+    const threshold = 10; // pixels
+    let nearest: { x: number; y: number; distance: number } | null = null;
+
+    for (const expr of expressions) {
+      const normalized = expr.normalized.trim();
+      if (!normalized || normalized.includes('=')) continue;
+
+      try {
+        const ast = parseExpression(normalized, context);
+        const mathX = viewport.xMin + (canvasX / width) * (viewport.xMax - viewport.xMin);
+        const y = parseAndEvaluate(normalized, mathX, ast, context);
+
+        if (isFinite(y)) {
+          const py = mapY(y, height, viewport);
+          const distance = Math.abs(py - canvasY);
+
+          if (distance < threshold && (!nearest || distance < nearest.distance)) {
+            nearest = { x: mathX, y, distance };
+          }
+        }
+      } catch (e) {
+        // Skip invalid expressions
+      }
+    }
+
+    return nearest;
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -287,15 +429,30 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-full cursor-move"
-      style={{ display: "block" }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full cursor-move"
+        style={{ display: "block" }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+      />
+      {hoveredPoint && (
+        <div
+          className="absolute bg-popover border border-border rounded-md shadow-lg px-3 py-2 text-sm pointer-events-none z-10"
+          style={{
+            left: hoveredPoint.screenX + 10,
+            top: hoveredPoint.screenY - 30,
+          }}
+        >
+          <div className="font-mono">
+            ({hoveredPoint.x.toFixed(3)}, {hoveredPoint.y.toFixed(3)})
+          </div>
+        </div>
+      )}
+    </>
   );
 };
