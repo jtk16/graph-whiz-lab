@@ -30,6 +30,7 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
   useEffect(() => {
     // Build definition context from all expressions
     const context = buildDefinitionContext(expressions);
+    console.log('Definition context:', context);
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -63,15 +64,19 @@ export const GraphCanvas = ({ expressions, viewport, onViewportChange }: GraphCa
     // Draw expressions (skip definitions)
     expressions.forEach((expr) => {
       const normalized = expr.normalized.trim();
+      console.log('Processing expression:', { normalized, hasEquals: normalized.includes('=') });
       if (!normalized) return;
       
       // Skip function definitions (f(x) = ...) and variable definitions (a = ...)
-      if (normalized.includes('=')) return;
+      if (normalized.includes('=')) {
+        console.log('Skipping definition:', normalized);
+        return;
+      }
       
       try {
         drawExpression(ctx, rect.width, rect.height, viewport, expr, context);
       } catch (e) {
-        console.error('Error drawing expression:', e);
+        console.error('Error drawing expression:', normalized, e);
       }
     });
   }, [expressions, viewport]);
