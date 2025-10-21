@@ -147,18 +147,31 @@ const Index = () => {
           <>
             <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
               <div className="h-full border-r border-border flex flex-col overflow-hidden">
-                <ExpressionList
-                  expressions={expressions}
-                  activeId={activeId}
-                  onAddExpression={addExpression}
-                  onUpdateExpression={updateExpression}
-                  onUpdateColor={updateExpressionColor}
-                  onRemoveExpression={removeExpression}
-                  onClearAll={clearAllExpressions}
-                  onSetActive={setActiveId}
-                />
-                <div className="border-t border-border">
-                  <TypeTable expressions={expressions} />
+                <div className="flex items-center justify-between p-4 border-b border-border">
+                  <h2 className="text-lg font-semibold">Expressions</h2>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsPanelCollapsed(true)}
+                    className="h-8 w-8"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  <ExpressionList
+                    expressions={expressions}
+                    activeId={activeId}
+                    onAddExpression={addExpression}
+                    onUpdateExpression={updateExpression}
+                    onUpdateColor={updateExpressionColor}
+                    onRemoveExpression={removeExpression}
+                    onClearAll={clearAllExpressions}
+                    onSetActive={setActiveId}
+                  />
+                  <div className="border-t border-border">
+                    <TypeTable expressions={expressions} />
+                  </div>
                 </div>
               </div>
             </ResizablePanel>
@@ -169,15 +182,17 @@ const Index = () => {
         {/* Graph Canvas */}
         <ResizablePanel>
           <div className="h-full bg-canvas-bg relative">
-            {/* Collapse/Expand Toggle */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-              className="absolute top-4 right-4 z-10 h-8 w-8"
-            >
-              {isPanelCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
+            {/* Show expand button when collapsed */}
+            {isPanelCollapsed && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsPanelCollapsed(false)}
+                className="absolute top-4 left-4 z-10 h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
 
             <GraphCanvas 
               expressions={expressions}

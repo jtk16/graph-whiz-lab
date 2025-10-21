@@ -32,10 +32,9 @@ export const ExpressionList = ({
   onSetActive,
 }: ExpressionListProps) => {
   return (
-    <div className="flex flex-col h-full bg-expression-bg">
+    <div className="flex flex-col flex-1 overflow-hidden bg-expression-bg">
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Expressions</h2>
           {expressions.length > 0 && (
             <Button
               onClick={onClearAll}
