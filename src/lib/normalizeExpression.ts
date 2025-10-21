@@ -67,7 +67,7 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/\\gamma/g, 'gamma');
   
   // Exponents: x^{2} → x^2
-  normalized = normalized.replace(/\^?\{([^}]+)\}/g, '^$1');
+  normalized = normalized.replace(/\^\{([^}]+)\}/g, '^$1');
   
   // Subscripts: f_{1} → f_1, f_a → f_a
   normalized = normalized.replace(/_\{([^}]+)\}/g, '_$1');
