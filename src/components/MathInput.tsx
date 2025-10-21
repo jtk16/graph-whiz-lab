@@ -7,6 +7,7 @@ interface MathInputProps {
   onFocus?: () => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export const MathInput = ({
@@ -15,6 +16,7 @@ export const MathInput = ({
   onFocus,
   placeholder = "y = x^2",
   className = "",
+  disabled = false,
 }: MathInputProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mathFieldRef = useRef<MathfieldElement | null>(null);
@@ -27,6 +29,7 @@ export const MathInput = ({
       defaultMode: "math",
       smartFence: true,
       smartSuperscript: true,
+      readOnly: disabled,
       inlineShortcuts: {
         sqrt: "\\sqrt{#0}",
         int: "\\int",
@@ -71,6 +74,13 @@ export const MathInput = ({
       mathFieldRef.current.value = value;
     }
   }, [value]);
+
+  // Update disabled state when prop changes
+  useEffect(() => {
+    if (mathFieldRef.current) {
+      mathFieldRef.current.readOnly = disabled;
+    }
+  }, [disabled]);
 
   return <div className={className} ref={containerRef} />;
 };
