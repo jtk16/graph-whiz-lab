@@ -2,7 +2,17 @@
 import { MathType } from '../types';
 import { RuntimeValue } from './value';
 import { KeyboardCategory } from '../keyboard/categories';
-import { KeyboardItem } from '../keyboard/items';
+
+// Keyboard item definition (moved here to break circular dependency)
+export interface KeyboardItem {
+  id: string;
+  latex: string;
+  normalized: string;
+  description: string;
+  category: KeyboardCategory;
+  insertTemplate?: string;
+  example?: string;
+}
 
 // Function signature definition
 interface FunctionSignature {

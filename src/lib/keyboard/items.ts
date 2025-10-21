@@ -1,15 +1,8 @@
 import { KeyboardCategory } from './categories';
-import { getKeyboardItems as getRegisteredKeyboardItems } from '../runtime/registry';
+import { getKeyboardItems as getRegisteredKeyboardItems, KeyboardItem } from '../runtime/registry';
 
-export interface KeyboardItem {
-  id: string;
-  latex: string;
-  normalized: string;
-  description: string;
-  category: KeyboardCategory;
-  insertTemplate?: string;
-  example?: string;
-}
+// Re-export KeyboardItem for convenience
+export type { KeyboardItem };
 
 // Static items that aren't functions (operators, constants, variables, data types)
 const STATIC_KEYBOARD_ITEMS: KeyboardItem[] = [
