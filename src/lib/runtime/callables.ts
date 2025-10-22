@@ -1,6 +1,9 @@
 // Defines which types can be called with parentheses
 // Now using unified operation registry for BUILTIN_FUNCTIONS
 
+// CRITICAL: Import operations FIRST to ensure they're registered before we query them
+import '../operations'; // This loads and registers all operations
+
 import { MathType } from '../types';
 import { DefinitionContext } from '../definitionContext';
 import { registry } from '../operations/registry';
@@ -11,9 +14,9 @@ export function getBuiltinFunctions(): Set<string> {
   return registry.getBuiltinFunctions();
 }
 
-// Legacy export - DO NOT use as constant, always call getBuiltinFunctions()
-// Kept for backwards compatibility but returns fresh Set each time
-export const BUILTIN_FUNCTIONS = getBuiltinFunctions();
+// Legacy export for backwards compatibility
+// Now safe because operations are loaded above
+export const BUILTIN_FUNCTIONS = registry.getBuiltinFunctions();
 
 // Types that can be "called" with parentheses
 export const CALLABLE_TYPES = new Set<MathType>([
