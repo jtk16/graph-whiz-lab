@@ -34,20 +34,17 @@ export const Graph3DTool = ({
       .trim();
     
     if (canvasBg) {
-      const [h, s, l] = canvasBg.split(' ').map(v => v.replace('%', ''));
-      const hue = parseInt(h) / 360;
-      const sat = parseInt(s) / 100;
-      const light = parseInt(l) / 100;
-      return Math.round(hue * 360) * 0x10000 + Math.round(sat * 255) * 0x100 + Math.round(light * 255);
+      // THREE.Color can parse HSL strings directly
+      return new THREE.Color(`hsl(${canvasBg})`);
     }
-    return 0x0a0a0a;
+    return new THREE.Color(0x0a0a0a);
   };
   
   // Only initialize 3D scene when active
   const { scene, isReady } = useScene3D(
     isActive ? canvasRef : { current: null }, 
     isActive ? {
-      backgroundColor: getBackgroundColor(),
+      backgroundColor: getBackgroundColor().getHex(),
       cameraPosition: [8, 8, 8],
       enableGrid: toolConfig?.showGrid !== false,
       enableAxes: toolConfig?.showAxes !== false
@@ -57,8 +54,7 @@ export const Graph3DTool = ({
   // Update scene background when theme changes
   useEffect(() => {
     if (scene && isActive) {
-      const bgColor = getBackgroundColor();
-      scene.background = new THREE.Color(bgColor);
+      scene.background = getBackgroundColor();
     }
   }, [scene, theme, resolvedTheme, isActive]);
   

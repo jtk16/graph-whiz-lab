@@ -3,6 +3,7 @@ import { evaluate } from '@/lib/runtime/evaluator';
 import { DefinitionContext } from '@/lib/definitionContext';
 import { MathSpace } from '../spaces/types';
 import { isNumber } from '@/lib/runtime/value';
+import { EDGE_TABLE, TRI_TABLE, EDGE_CONNECTIONS, CUBE_CORNERS } from '../marchingCubesLUT';
 
 /**
  * Abstract evaluator for 3D surfaces
@@ -234,7 +235,24 @@ export class SurfaceEvaluator {
     const vertices: number[] = [];
     const indices: number[] = [];
     
-    // Simplified Marching Cubes - sample grid and create triangles at zero crossings
+    // Edge vertex cache: key = "i,j,k,edge", value = vertex index
+    // This ensures adjacent cubes share vertices (prevents cracks)
+    const edgeVertexCache = new Map<string, number>();
+    
+    // Helper: Interpolate vertex position along an edge where the surface crosses
+    const interpolateVertex = (
+      x1: number, y1: number, z1: number, v1: number,
+      x2: number, y2: number, z2: number, v2: number
+    ): [number, number, number] => {
+      const t = Math.abs(v1 - v2) > 1e-6 ? (isoValue - v1) / (v2 - v1) : 0.5;
+      return [
+        x1 + t * (x2 - x1),
+        y1 + t * (y2 - y1),
+        z1 + t * (z2 - z1)
+      ];
+    };
+    
+    // Process each cube in the grid
     for (let i = 0; i < resolution; i++) {
       for (let j = 0; j < resolution; j++) {
         for (let k = 0; k < resolution; k++) {
@@ -242,48 +260,70 @@ export class SurfaceEvaluator {
           const y = yMin + j * stepY;
           const z = zMin + k * stepZ;
           
-          // Sample at 8 corners of cube
-          const v000 = implicitFn(x, y, z);
-          const v100 = implicitFn(x + stepX, y, z);
-          const v010 = implicitFn(x, y + stepY, z);
-          const v110 = implicitFn(x + stepX, y + stepY, z);
-          const v001 = implicitFn(x, y, z + stepZ);
-          const v101 = implicitFn(x + stepX, y, z + stepZ);
-          const v011 = implicitFn(x, y + stepY, z + stepZ);
-          const v111 = implicitFn(x + stepX, y + stepY, z + stepZ);
+          // Sample function at all 8 cube corners
+          const cornerValues = CUBE_CORNERS.map(([dx, dy, dz]) =>
+            implicitFn(x + dx * stepX, y + dy * stepY, z + dz * stepZ)
+          );
           
-          // Create cube configuration
+          // Build cube index (which corners are inside the isosurface)
           let cubeIndex = 0;
-          if (v000 < isoValue) cubeIndex |= 1;
-          if (v100 < isoValue) cubeIndex |= 2;
-          if (v110 < isoValue) cubeIndex |= 4;
-          if (v010 < isoValue) cubeIndex |= 8;
-          if (v001 < isoValue) cubeIndex |= 16;
-          if (v101 < isoValue) cubeIndex |= 32;
-          if (v111 < isoValue) cubeIndex |= 64;
-          if (v011 < isoValue) cubeIndex |= 128;
+          for (let ci = 0; ci < 8; ci++) {
+            if (cornerValues[ci] < isoValue) {
+              cubeIndex |= (1 << ci);
+            }
+          }
           
           // Skip if cube is completely inside or outside
           if (cubeIndex === 0 || cubeIndex === 255) continue;
           
-          // Simplified: add representative triangles for this cube
-          // This is a basic implementation - a full marching cubes would use lookup tables
-          const centerX = x + stepX / 2;
-          const centerY = y + stepY / 2;
-          const centerZ = z + stepZ / 2;
+          // Get edge flags from lookup table
+          const edgeFlags = EDGE_TABLE[cubeIndex];
           
-          // Create a simple quad at the approximate surface location
-          const baseIdx = vertices.length / 3;
+          // For each edge that has a vertex, interpolate its position
+          const edgeVertices: number[] = new Array(12);
+          for (let e = 0; e < 12; e++) {
+            if (edgeFlags & (1 << e)) {
+              const cacheKey = `${i},${j},${k},${e}`;
+              
+              let vertexIndex = edgeVertexCache.get(cacheKey);
+              if (vertexIndex === undefined) {
+                // Get the two corners this edge connects
+                const [c1, c2] = EDGE_CONNECTIONS[e];
+                const v1 = cornerValues[c1];
+                const v2 = cornerValues[c2];
+                
+                // Get corner positions in world space
+                const [dx1, dy1, dz1] = CUBE_CORNERS[c1];
+                const [dx2, dy2, dz2] = CUBE_CORNERS[c2];
+                const x1 = x + dx1 * stepX;
+                const y1 = y + dy1 * stepY;
+                const z1 = z + dz1 * stepZ;
+                const x2 = x + dx2 * stepX;
+                const y2 = y + dy2 * stepY;
+                const z2 = z + dz2 * stepZ;
+                
+                // Interpolate vertex position
+                const [vx, vy, vz] = interpolateVertex(x1, y1, z1, v1, x2, y2, z2, v2);
+                
+                vertexIndex = vertices.length / 3;
+                vertices.push(vx, vy, vz);
+                edgeVertexCache.set(cacheKey, vertexIndex);
+              }
+              
+              edgeVertices[e] = vertexIndex;
+            }
+          }
           
-          // Add vertices for a small quad around the center
-          vertices.push(centerX - stepX/4, centerY - stepY/4, centerZ);
-          vertices.push(centerX + stepX/4, centerY - stepY/4, centerZ);
-          vertices.push(centerX + stepX/4, centerY + stepY/4, centerZ);
-          vertices.push(centerX - stepX/4, centerY + stepY/4, centerZ);
-          
-          // Add two triangles
-          indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
-          indices.push(baseIdx, baseIdx + 2, baseIdx + 3);
+          // Build triangles from lookup table
+          const triConfig = TRI_TABLE[cubeIndex];
+          for (let t = 0; t < triConfig.length; t += 3) {
+            if (triConfig[t] === undefined) break; // end of triangle list
+            indices.push(
+              edgeVertices[triConfig[t]],
+              edgeVertices[triConfig[t + 1]],
+              edgeVertices[triConfig[t + 2]]
+            );
+          }
         }
       }
     }
