@@ -5,6 +5,10 @@ export enum MathType {
   Complex = 'Complex',
   Boolean = 'Boolean',
   Point = 'Point',
+  Point3D = 'Point3D',
+  Vector3D = 'Vector3D',
+  Curve3D = 'Curve3D',
+  Surface3D = 'Surface3D',
   List = 'List',
   Function = 'Function',
   Polygon = 'Polygon',
@@ -100,9 +104,11 @@ function inferReturnType(expr: string): MathType {
 function inferExpressionType(expr: string): TypeInfo {
   expr = expr.trim();
   
-  // Point literal: (x, y)
+  // Point literal: (x, y) or (x, y, z)
   if (expr.startsWith('(') && expr.includes(',') && !expr.includes(';')) {
-    return { type: MathType.Point };
+    // Count commas to determine dimensionality
+    const commaCount = (expr.match(/,/g) || []).length;
+    return { type: commaCount === 2 ? MathType.Point3D : MathType.Point };
   }
   
   // List literal: [1, 2, 3] or [[matrix]]
@@ -113,17 +119,28 @@ function inferExpressionType(expr: string): TypeInfo {
   // IMPORTANT: Check for variables BEFORE checking for pure numbers
   // This ensures cos(x) is typed as Function, not Number
   
-  // Check if expression contains x or y variables
+  // Check if expression contains x, y, or z variables
   const hasX = /\bx\b/.test(expr);
   const hasY = /\by\b/.test(expr);
+  const hasZ = /\bz\b/.test(expr);
+  
+  // 3D point literal: (x, y, z) with 3 comma-separated values
+  if (expr.match(/^\([^,]+,[^,]+,[^)]+\)$/)) {
+    return { type: MathType.Point3D };
+  }
+  
+  if (hasX && hasY && hasZ) {
+    // Three variables: implicit 3D surface or relation
+    return { type: MathType.Surface3D };
+  }
   
   if (hasX && hasY) {
     // Implicit relation like x^2 + y^2 - both variables present
     return { type: MathType.Boolean };
   }
   
-  if (hasX || hasY) {
-    // Expression with x or y is a function
+  if (hasX || hasY || hasZ) {
+    // Expression with x, y, or z is a function
     return {
       type: MathType.Function,
       domain: MathType.Number,
@@ -188,6 +205,14 @@ export function getTypeLabel(typeInfo: TypeInfo): string {
       return 'Boolean';
     case MathType.Point:
       return 'Point';
+    case MathType.Point3D:
+      return 'Point3D';
+    case MathType.Vector3D:
+      return 'Vector3D';
+    case MathType.Curve3D:
+      return 'Curve3D';
+    case MathType.Surface3D:
+      return 'Surface3D';
     case MathType.List:
       return typeInfo.elementType ? `List<${typeInfo.elementType}>` : 'List';
     case MathType.Function:
@@ -225,6 +250,14 @@ export function getTypeColor(type: MathType): string {
       return 'text-green-500';
     case MathType.Point:
       return 'text-purple-500';
+    case MathType.Point3D:
+      return 'text-purple-600';
+    case MathType.Vector3D:
+      return 'text-violet-500';
+    case MathType.Curve3D:
+      return 'text-fuchsia-500';
+    case MathType.Surface3D:
+      return 'text-indigo-600';
     case MathType.List:
       return 'text-orange-500';
     case MathType.Function:

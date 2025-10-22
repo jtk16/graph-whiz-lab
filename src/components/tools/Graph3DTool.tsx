@@ -4,9 +4,12 @@ import { parseExpression } from '@/lib/parser';
 import { buildDefinitionContext } from '@/lib/definitionContext';
 import { useScene3D } from '@/hooks/useScene3D';
 import { SurfaceEvaluator } from '@/lib/computation/evaluators/SurfaceEvaluator';
+import { ParametricCurveEvaluator } from '@/lib/computation/evaluators/ParametricCurveEvaluator';
 import { Surface3D } from '@/components/3d/Surface3D';
+import { Curve3D } from '@/components/3d/Curve3D';
 import { cartesianSpace, getSpace } from '@/lib/computation/spaces';
 import { Graph3DControls } from './Graph3DControls';
+import { inferType, MathType } from '@/lib/types';
 
 export const Graph3DTool = ({ 
   expressions, 
@@ -31,8 +34,8 @@ export const Graph3DTool = ({
     } : {}
   );
   
-  // Evaluate all expressions to surface data
-  const surfaceData = useMemo(() => {
+  // Evaluate all expressions to renderable data (surfaces or curves)
+  const renderableData = useMemo(() => {
     if (!isActive || !isReady) return [];
     
     const definitions = [...expressions, ...toolkitDefinitions].filter(e => 
@@ -44,18 +47,39 @@ export const Graph3DTool = ({
       .filter(expr => !expr.normalized.includes('='))
       .map(expr => {
         try {
+          // Infer expression type
+          const typeInfo = inferType(expr.latex, expr.normalized);
           const ast = parseExpression(expr.normalized, context);
-          const evaluator = new SurfaceEvaluator(ast, context, space);
           
-          const data = evaluator.evaluateSurface({
-            resolution: toolConfig?.resolution || 50,
-            bounds: viewport?.bounds || space.defaultBounds,
-            colorMode: toolConfig?.colorMode || 'height'
-          });
+          // Check if this is a parametric curve
+          const isCurve = typeInfo.type === MathType.Function && 
+                         (typeInfo.codomain === MathType.Point || 
+                          typeInfo.codomain === MathType.Point3D ||
+                          expr.normalized.match(/\([^)]+\)\s*=\s*\(/));
           
-          return { data, color: expr.color, id: expr.id };
+          if (isCurve) {
+            // Evaluate as parametric curve
+            const evaluator = new ParametricCurveEvaluator(ast, context);
+            const data = evaluator.evaluateCurve({
+              parameterName: 't',
+              parameterRange: { min: -5, max: 5 },
+              resolution: toolConfig?.resolution || 100
+            });
+            
+            return { type: 'curve' as const, data, color: expr.color, id: expr.id };
+          } else {
+            // Evaluate as surface
+            const evaluator = new SurfaceEvaluator(ast, context, space);
+            const data = evaluator.evaluateSurface({
+              resolution: toolConfig?.resolution || 50,
+              bounds: viewport?.bounds || space.defaultBounds,
+              colorMode: toolConfig?.colorMode || 'height'
+            });
+            
+            return { type: 'surface' as const, data, color: expr.color, id: expr.id };
+          }
         } catch (e) {
-          console.error('Failed to evaluate surface:', expr.normalized, e);
+          console.error('Failed to evaluate expression:', expr.normalized, e);
           return null;
         }
       })
@@ -79,17 +103,33 @@ export const Graph3DTool = ({
         </div>
       )}
       
-      {/* Render surfaces only when ready */}
-      {isReady && scene && surfaceData.map(({ data, color, id }) => (
-        <Surface3D
-          key={id}
-          scene={scene}
-          data={data}
-          color={color}
-          wireframe={toolConfig?.wireframe}
-          opacity={toolConfig?.opacity ?? 0.85}
-        />
-      ))}
+      {/* Render surfaces and curves only when ready */}
+      {isReady && scene && renderableData.map(({ type, data, color, id }) => {
+        if (type === 'surface') {
+          return (
+            <Surface3D
+              key={id}
+              scene={scene}
+              data={data}
+              color={color}
+              wireframe={toolConfig?.wireframe}
+              opacity={toolConfig?.opacity ?? 0.85}
+            />
+          );
+        } else if (type === 'curve') {
+          return (
+            <Curve3D
+              key={id}
+              scene={scene}
+              data={data}
+              color={color}
+              lineWidth={2}
+              opacity={1.0}
+            />
+          );
+        }
+        return null;
+      })}
       
       {/* Controls overlay */}
       {isReady && (

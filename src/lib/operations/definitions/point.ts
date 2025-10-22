@@ -4,7 +4,7 @@
 
 import { registry } from '../registry';
 import { MathType } from '../../types';
-import { isPoint, createNumber, createPoint } from '../../runtime/value';
+import { isPoint, isPoint3D, isVector3D, createNumber, createPoint, createVector3D } from '../../runtime/value';
 import { KeyboardCategory } from '../../keyboard/categories';
 
 // Dot product
@@ -20,7 +20,9 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Point, MathType.Point], output: MathType.Number }
+      { input: [MathType.Point, MathType.Point], output: MathType.Number },
+      { input: [MathType.Point3D, MathType.Point3D], output: MathType.Number },
+      { input: [MathType.Vector3D, MathType.Vector3D], output: MathType.Number }
     ]
   },
   runtime: {
@@ -31,7 +33,12 @@ registry.register({
         const result = a.x * b.x + a.y * b.y;
         return createNumber(result);
       }
-      throw new Error('dot expects two Points');
+      if ((isPoint3D(a) || isVector3D(a)) && (isPoint3D(b) || isVector3D(b))) {
+        // 3D dot product
+        const result = a.x * b.x + a.y * b.y + a.z * b.z;
+        return createNumber(result);
+      }
+      throw new Error('dot expects two Points or two 3D Points/Vectors');
     }
   },
   ui: {
@@ -54,7 +61,9 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Point, MathType.Point], output: MathType.Number }
+      { input: [MathType.Point, MathType.Point], output: MathType.Number },
+      { input: [MathType.Point3D, MathType.Point3D], output: MathType.Vector3D },
+      { input: [MathType.Vector3D, MathType.Vector3D], output: MathType.Vector3D }
     ]
   },
   runtime: {
@@ -65,7 +74,14 @@ registry.register({
         const result = a.x * b.y - a.y * b.x;
         return createNumber(result);
       }
-      throw new Error('cross expects two Points');
+      if ((isPoint3D(a) || isVector3D(a)) && (isPoint3D(b) || isVector3D(b))) {
+        // 3D cross product: returns vector
+        const x = a.y * b.z - a.z * b.y;
+        const y = a.z * b.x - a.x * b.z;
+        const z = a.x * b.y - a.y * b.x;
+        return createVector3D(x, y, z);
+      }
+      throw new Error('cross expects two Points or two 3D Points/Vectors');
     }
   },
   ui: {
@@ -88,7 +104,9 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Point, MathType.Point], output: MathType.Number }
+      { input: [MathType.Point, MathType.Point], output: MathType.Number },
+      { input: [MathType.Point3D, MathType.Point3D], output: MathType.Number },
+      { input: [MathType.Vector3D, MathType.Vector3D], output: MathType.Number }
     ]
   },
   runtime: {
@@ -100,7 +118,14 @@ registry.register({
         const dy = a.y - b.y;
         return createNumber(Math.sqrt(dx * dx + dy * dy));
       }
-      throw new Error('distance expects two Points');
+      if ((isPoint3D(a) || isVector3D(a)) && (isPoint3D(b) || isVector3D(b))) {
+        // 3D distance
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dz = a.z - b.z;
+        return createNumber(Math.sqrt(dx * dx + dy * dy + dz * dz));
+      }
+      throw new Error('distance expects two Points or two 3D Points/Vectors');
     }
   },
   ui: {

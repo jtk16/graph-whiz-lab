@@ -2,7 +2,7 @@
 
 import { ASTNode } from '../parser';
 import { DefinitionContext, FunctionDefinition } from '../definitionContext';
-import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean, createList } from './value';
+import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean, createList, createPoint, createPoint3D } from './value';
 import { getOperator } from './operators';
 import { registry } from '../operations/registry';
 import { evaluateConditional } from './functions';
@@ -64,6 +64,15 @@ export function evaluate(
 
     case 'list':
       const elements = node.elements!.map(elem => evaluate(elem, variables, context));
+      
+      // Check if this is a point literal (tuple of numbers)
+      if (elements.length === 2 && elements.every(isNumber)) {
+        return createPoint(elements[0].value, elements[1].value);
+      }
+      if (elements.length === 3 && elements.every(isNumber)) {
+        return createPoint3D(elements[0].value, elements[1].value, elements[2].value);
+      }
+      
       return createList(elements);
 
     case 'variable':

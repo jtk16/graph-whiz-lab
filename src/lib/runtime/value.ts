@@ -8,6 +8,9 @@ export type RuntimeValue =
   | { kind: 'complex'; real: number; imag: number }
   | { kind: 'boolean'; value: boolean }
   | { kind: 'point'; x: number; y: number }
+  | { kind: 'point3d'; x: number; y: number; z: number }
+  | { kind: 'vector3d'; x: number; y: number; z: number }
+  | { kind: 'curve3d'; parameterName: string; components: [RuntimeValue, RuntimeValue, RuntimeValue] }
   | { kind: 'list'; elements: RuntimeValue[]; elementType?: MathType }
   | { kind: 'function'; def: FunctionDefinition; boundParams?: Record<string, number> }
   | { kind: 'polygon'; points: RuntimeValue[] }
@@ -37,6 +40,18 @@ export function createFunction(def: FunctionDefinition, boundParams?: Record<str
 
 export function createComplex(real: number, imag: number): RuntimeValue {
   return { kind: 'complex', real, imag };
+}
+
+export function createPoint3D(x: number, y: number, z: number): RuntimeValue {
+  return { kind: 'point3d', x, y, z };
+}
+
+export function createVector3D(x: number, y: number, z: number): RuntimeValue {
+  return { kind: 'vector3d', x, y, z };
+}
+
+export function createCurve3D(parameterName: string, components: [RuntimeValue, RuntimeValue, RuntimeValue]): RuntimeValue {
+  return { kind: 'curve3d', parameterName, components };
 }
 
 export function promoteToComplex(value: RuntimeValue): RuntimeValue {
@@ -70,6 +85,18 @@ export function isComplex(value: RuntimeValue): value is { kind: 'complex'; real
   return value.kind === 'complex';
 }
 
+export function isPoint3D(value: RuntimeValue): value is { kind: 'point3d'; x: number; y: number; z: number } {
+  return value.kind === 'point3d';
+}
+
+export function isVector3D(value: RuntimeValue): value is { kind: 'vector3d'; x: number; y: number; z: number } {
+  return value.kind === 'vector3d';
+}
+
+export function isCurve3D(value: RuntimeValue): value is { kind: 'curve3d'; parameterName: string; components: [RuntimeValue, RuntimeValue, RuntimeValue] } {
+  return value.kind === 'curve3d';
+}
+
 // Convert RuntimeValue kind to MathType
 export function kindToMathType(kind: string): MathType {
   switch (kind) {
@@ -77,6 +104,9 @@ export function kindToMathType(kind: string): MathType {
     case 'complex': return MathType.Complex;
     case 'boolean': return MathType.Boolean;
     case 'point': return MathType.Point;
+    case 'point3d': return MathType.Point3D;
+    case 'vector3d': return MathType.Vector3D;
+    case 'curve3d': return MathType.Curve3D;
     case 'list': return MathType.List;
     case 'function': return MathType.Function;
     case 'polygon': return MathType.Polygon;

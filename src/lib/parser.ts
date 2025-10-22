@@ -171,12 +171,32 @@ class Parser {
       return { type: 'list', elements };
     }
 
-    // Parentheses
+    // Parentheses or Point literals
     if (this.peek() === '(') {
-      this.consume();
-      const expr = this.parseExpression();
+      this.consume(); // '('
+      
+      // Try to parse as point literal (x, y) or (x, y, z)
+      const firstExpr = this.parseExpression();
+      
+      if (this.peek() === ',') {
+        // Point literal
+        const components = [firstExpr];
+        
+        while (this.peek() === ',') {
+          this.consume(); // ','
+          components.push(this.parseExpression());
+        }
+        
+        this.expect(')');
+        
+        // Convert to list-like representation for points
+        // 2D point: 2 components, 3D point: 3 components
+        return { type: 'list', elements: components };
+      }
+      
+      // Just a parenthesized expression
       this.expect(')');
-      return expr;
+      return firstExpr;
     }
 
     // Function or variable

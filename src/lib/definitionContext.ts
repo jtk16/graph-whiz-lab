@@ -3,7 +3,7 @@
 import { ASTNode, parseExpression } from './parser';
 import { MathType, TypeInfo, inferType } from './types';
 
-export const RESERVED_NAMES = ['x', 'y', 'pi', 'e', 'i'];
+export const RESERVED_NAMES = ['x', 'y', 'z', 'pi', 'e', 'i'];
 
 export const CONSTANTS: Record<string, number> = {
   pi: Math.PI,
@@ -41,6 +41,7 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       e: { type: MathType.Number },
       x: { type: MathType.Number },
       y: { type: MathType.Number },
+      z: { type: MathType.Number },
     },
   };
 

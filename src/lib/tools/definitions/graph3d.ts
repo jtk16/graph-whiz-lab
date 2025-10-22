@@ -22,6 +22,10 @@ export const graph3DTool: VisualizationTool = {
   supportedTypes: [
     MathType.Function,
     MathType.Point,
+    MathType.Point3D,
+    MathType.Vector3D,
+    MathType.Curve3D,
+    MathType.Surface3D,
     MathType.List
   ],
   component: Graph3DTool,
