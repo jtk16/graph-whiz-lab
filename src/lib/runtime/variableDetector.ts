@@ -1,7 +1,7 @@
 import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
 import { registry } from '../operations/registry';
-import { BUILTIN_FUNCTIONS } from './registry';
+import { getBuiltinFunctions } from './callables';
 
 const BUILTIN_CONSTANTS = new Set(['pi', 'e', 'i']);
 
@@ -23,8 +23,8 @@ export function hasUnboundVariables(
       // Check if it's a built-in constant
       if (BUILTIN_CONSTANTS.has(varName)) return false;
       
-      // Check if it's a function name
-      if (BUILTIN_FUNCTIONS.has(varName)) return false;
+      // Check if it's a function name (use function to get current set)
+      if (getBuiltinFunctions().has(varName)) return false;
       
       // Check if it's defined in context
       if (context?.variables?.[varName] !== undefined) return false;
