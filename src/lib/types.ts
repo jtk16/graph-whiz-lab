@@ -144,19 +144,18 @@ function inferExpressionType(expr: string): TypeInfo {
     return { type: MathType.Number };
   }
   
-  // Function calls that return specific types
-  if (expr.match(/^(sin|cos|tan|sqrt|abs|exp|ln|log|floor|ceil|round)\(/)) {
+  // Function calls - smart detection based on whether they contain variables
+  const funcMatch = expr.match(/^([a-z_][a-z0-9_]*)\(/i);
+  if (funcMatch) {
+    const funcName = funcMatch[1];
+    // Check if arguments contain variables
+    const hasVars = expr.match(/\bx\b|\by\b|\bz\b|\bt\b/);
+    if (hasVars) {
+      // Contains variables - this is a function expression
+      return { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number };
+    }
+    // No variables - assume it evaluates to a Number (could be refined per-function)
     return { type: MathType.Number };
-  }
-  
-  // Vector operations
-  if (expr.match(/^(dot|cross|length|distance)\(/)) {
-    return { type: MathType.Number };
-  }
-  
-  // Boolean operations
-  if (expr.match(/^(and|or|not)\(/)) {
-    return { type: MathType.Boolean };
   }
   
   // Aggregate functions

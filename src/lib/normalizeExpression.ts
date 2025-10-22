@@ -72,31 +72,16 @@ export function normalizeExpression(latex: string): string {
     normalized = normalized.replace(piecewiseMatch[0], `piecewise(${args.join(',')})`);
   }
   
-  // Convert LaTeX functions to shorthand
-  // Trig functions with space: \sin x → sin(x)
-  normalized = normalized.replace(/\\sin\s+([a-zA-Z0-9])/g, 'sin($1)');
-  normalized = normalized.replace(/\\cos\s+([a-zA-Z0-9])/g, 'cos($1)');
-  normalized = normalized.replace(/\\tan\s+([a-zA-Z0-9])/g, 'tan($1)');
-  
-  // Trig functions with parentheses or directly: \sin(x) → sin(x), \cos → cos
+  // Note: LaTeX normalization is now handled by the operations registry
+  // But we keep some common patterns here for bootstrap/compatibility
+  // Trig functions
   normalized = normalized.replace(/\\sin/g, 'sin');
   normalized = normalized.replace(/\\cos/g, 'cos');
   normalized = normalized.replace(/\\tan/g, 'tan');
-  
-  // Mathematical functions with curly braces: \ln{x} → ln(x), \exp{x} → exp(x), etc.
-  normalized = normalized.replace(/\\ln\{([^}]+)\}/g, 'ln($1)');
   normalized = normalized.replace(/\\ln/g, 'ln');
-  normalized = normalized.replace(/\\log\{([^}]+)\}/g, 'log($1)');
   normalized = normalized.replace(/\\log/g, 'log');
-  normalized = normalized.replace(/\\exp\{([^}]+)\}/g, 'exp($1)');
   normalized = normalized.replace(/\\exp/g, 'exp');
-  
-  // Absolute value: \abs{x} → abs(x)
-  normalized = normalized.replace(/\\abs\{([^}]+)\}/g, 'abs($1)');
   normalized = normalized.replace(/\\abs/g, 'abs');
-  
-  // Square root: \sqrt{x} → sqrt(x)
-  normalized = normalized.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
   normalized = normalized.replace(/\\sqrt/g, 'sqrt');
   
   // Fractions: \frac{a}{b} → (a)/(b)

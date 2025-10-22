@@ -4,7 +4,7 @@ import { ASTNode } from '../parser';
 import { DefinitionContext, FunctionDefinition } from '../definitionContext';
 import { RuntimeValue, createNumber, createComplex, createFunction, kindToMathType, isNumber, isBoolean, createBoolean, createList } from './value';
 import { getOperator } from './operators';
-import { getFunctionSignature } from './registry';
+import { registry } from '../operations/registry';
 import { evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
 import { symbolicDerivativeAST, symbolicPartialAST } from '../computation/symbolic';
@@ -252,11 +252,10 @@ export function evaluate(
       const argHasVariables = hasUnboundVariables(node.args[0], context);
       
       if (argHasVariables) {
-        // Keep as symbolic function - try Function signature first
-        const funcType = MathType.Function;
-        const funcSig = getFunctionSignature(node.name!, funcType);
+        // Keep as symbolic function - check if operation supports it
+        const match = registry.findSignature(node.name!, [MathType.Function]);
         
-        if (funcSig) {
+        if (match && match.operation.types.signatures[match.signatureIndex].symbolic) {
           // Return a function that wraps this call
           const callNode = node;
           return createFunction({
@@ -270,13 +269,13 @@ export function evaluate(
       // Evaluate argument to concrete value
       const arg = evaluate(node.args[0], variables, context);
       const argType = kindToMathType(arg.kind);
-      const funcSig = getFunctionSignature(node.name!, argType);
+      const match = registry.findSignature(node.name!, [argType]);
       
-      if (!funcSig) {
+      if (!match) {
         throw new Error(`No function '${node.name}' for ${argType}`);
       }
       
-      return funcSig.execute(arg);
+      return registry.execute(node.name!, [arg], context);
 
     default:
       throw new Error(`Unknown node type: ${(node as any).type}`);

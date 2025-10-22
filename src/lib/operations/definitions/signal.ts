@@ -33,7 +33,10 @@ registry.register({
           throw new Error('FFT requires list of numbers');
         });
         const result = computeFFT(values);
-        return createList(result.map(val => createNumber(val)));
+        // computeFFT returns [number, number][] - convert to magnitudes
+        return createList(result.map(([real, imag]) => 
+          createNumber(Math.sqrt(real * real + imag * imag))
+        ));
       }
       throw new Error('fft expects List');
     }
@@ -69,8 +72,11 @@ registry.register({
           if (isNumber(el)) return el.value;
           throw new Error('IFFT requires list of numbers');
         });
-        const result = computeIFFT(values);
-        return createList(result.map(val => createNumber(val)));
+        // Convert magnitudes to complex pairs for IFFT
+        const complexPairs: [number, number][] = values.map(v => [v, 0]);
+        const result = computeIFFT(complexPairs);
+        // computeIFFT returns number[] - real values
+        return createList(result.map(real => createNumber(real)));
       }
       throw new Error('ifft expects List');
     }

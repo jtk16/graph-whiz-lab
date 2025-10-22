@@ -27,10 +27,8 @@ registry.register({
     evaluate: (args) => {
       const [a, b] = args;
       if (isPoint(a) && isPoint(b)) {
-        if (a.coordinates.length !== b.coordinates.length) {
-          throw new Error('Points must have same dimension for dot product');
-        }
-        const result = a.coordinates.reduce((sum, val, i) => sum + val * b.coordinates[i], 0);
+        // 2D dot product
+        const result = a.x * b.x + a.y * b.y;
         return createNumber(result);
       }
       throw new Error('dot expects two Points');
@@ -38,7 +36,7 @@ registry.register({
   },
   ui: {
     description: 'Dot product of two vectors',
-    category: KeyboardCategory.Vector,
+    category: KeyboardCategory.Points,
     example: 'dot((1,2), (3,4)) = 11'
   }
 });
@@ -56,31 +54,24 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Point, MathType.Point], output: MathType.Point }
+      { input: [MathType.Point, MathType.Point], output: MathType.Number }
     ]
   },
   runtime: {
     evaluate: (args) => {
       const [a, b] = args;
       if (isPoint(a) && isPoint(b)) {
-        if (a.coordinates.length !== 3 || b.coordinates.length !== 3) {
-          throw new Error('Cross product requires 3D vectors');
-        }
-        const [ax, ay, az] = a.coordinates;
-        const [bx, by, bz] = b.coordinates;
-        return createPoint([
-          ay * bz - az * by,
-          az * bx - ax * bz,
-          ax * by - ay * bx
-        ]);
+        // 2D cross product: returns z-component (scalar) treating as 3D with z=0
+        const result = a.x * b.y - a.y * b.x;
+        return createNumber(result);
       }
-      throw new Error('cross expects two 3D Points');
+      throw new Error('cross expects two Points');
     }
   },
   ui: {
-    description: 'Cross product of two 3D vectors',
-    category: KeyboardCategory.Vector,
-    example: 'cross((1,0,0), (0,1,0)) = (0,0,1)'
+    description: 'Cross product of two 2D vectors (returns scalar)',
+    category: KeyboardCategory.Points,
+    example: 'cross((1,0), (0,1)) = 1'
   }
 });
 
@@ -104,21 +95,17 @@ registry.register({
     evaluate: (args) => {
       const [a, b] = args;
       if (isPoint(a) && isPoint(b)) {
-        if (a.coordinates.length !== b.coordinates.length) {
-          throw new Error('Points must have same dimension');
-        }
-        const sumSquares = a.coordinates.reduce(
-          (sum, val, i) => sum + Math.pow(val - b.coordinates[i], 2),
-          0
-        );
-        return createNumber(Math.sqrt(sumSquares));
+        // 2D distance
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        return createNumber(Math.sqrt(dx * dx + dy * dy));
       }
       throw new Error('distance expects two Points');
     }
   },
   ui: {
     description: 'Euclidean distance between two points',
-    category: KeyboardCategory.Vector,
+    category: KeyboardCategory.Points,
     example: 'distance((0,0), (3,4)) = 5'
   }
 });

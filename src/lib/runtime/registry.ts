@@ -1,76 +1,68 @@
-// Unified function registry - single source of truth for all functions
+/**
+ * @deprecated Legacy registry - use '../operations/registry' instead
+ * This file is kept for backwards compatibility only.
+ * All new code should use the unified operations registry.
+ */
+
+import { registry, KeyboardItem } from '../operations/registry';
 import { MathType } from '../types';
 import { RuntimeValue } from './value';
-import { KeyboardCategory } from '../keyboard/categories';
 
-// Keyboard item definition (moved here to break circular dependency)
-export interface KeyboardItem {
-  id: string;
-  latex: string;
-  normalized: string;
-  description: string;
-  category: KeyboardCategory;
-  insertTemplate?: string;
-  example?: string;
-}
+// Re-export KeyboardItem for backwards compatibility
+export type { KeyboardItem };
 
-// Function signature definition
+// Re-export for backwards compatibility
+export const BUILTIN_FUNCTIONS = registry.getBuiltinFunctions();
+
+// Legacy function signature (single-arg only)
 interface FunctionSignature {
   paramType: MathType;
   returnType: MathType;
   execute: (arg: RuntimeValue) => RuntimeValue;
 }
 
-// Complete function descriptor with runtime and UI metadata
-export interface FunctionDescriptor {
-  name: string;
-  signatures: FunctionSignature[];
-  metadata: {
-    latex: string;
-    description: string;
-    category: KeyboardCategory;
-    example?: string;
-    insertTemplate?: string;
-  };
-}
-
-// Central registry
-export const FUNCTION_REGISTRY = new Map<string, FunctionDescriptor>();
-
-// Auto-generated set for parser
-export const BUILTIN_FUNCTIONS = new Set<string>();
-
-// Register a function with all metadata
-export function registerFunction(descriptor: FunctionDescriptor): void {
-  FUNCTION_REGISTRY.set(descriptor.name, descriptor);
-  BUILTIN_FUNCTIONS.add(descriptor.name);
-}
-
-// Generate keyboard items from registry
-export function getKeyboardItems(): KeyboardItem[] {
-  return Array.from(FUNCTION_REGISTRY.values()).map(desc => ({
-    id: desc.name,
-    latex: desc.metadata.latex,
-    normalized: desc.name,
-    description: desc.metadata.description,
-    category: desc.metadata.category,
-    example: desc.metadata.example,
-    insertTemplate: desc.metadata.insertTemplate,
-  }));
-}
-
-// Get function signature for runtime execution
+/**
+ * @deprecated Use registry.findSignature() instead
+ */
 export function getFunctionSignature(
   name: string,
   paramType: MathType
 ): FunctionSignature | undefined {
-  const descriptor = FUNCTION_REGISTRY.get(name);
-  if (!descriptor) return undefined;
+  const match = registry.findSignature(name, [paramType]);
+  if (!match) return undefined;
   
-  return descriptor.signatures.find(sig => sig.paramType === paramType);
+  const sig = match.operation.types.signatures[match.signatureIndex];
+  return {
+    paramType,
+    returnType: sig.output,
+    execute: (arg: RuntimeValue) => registry.execute(name, [arg])
+  };
 }
 
-// Check if a name is a registered function
+/**
+ * @deprecated Use registry.get() instead
+ */
 export function isRegisteredFunction(name: string): boolean {
-  return BUILTIN_FUNCTIONS.has(name);
+  return registry.getBuiltinFunctions().has(name);
+}
+
+/**
+ * @deprecated Use registry.getKeyboardItems() instead
+ */
+export function getRegisteredKeyboardItems() {
+  return registry.getKeyboardItems();
+}
+
+/**
+ * @deprecated Use registry.getKeyboardItems() instead
+ */
+export function getKeyboardItems() {
+  return registry.getKeyboardItems();
+}
+
+/**
+ * @deprecated No longer used - operations auto-register
+ */
+export function registerFunction(): void {
+  console.warn('registerFunction is deprecated - operations auto-register on import');
 }

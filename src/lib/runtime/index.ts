@@ -1,13 +1,7 @@
-// Runtime initialization - ensures all functions are registered
-import './registry'; // Core registry infrastructure
-import './coreFunctions'; // Trig and math functions
-import './listFunctions'; // List operations
-import './complexFunctions'; // Complex number functions
-import './pointFunctions'; // Point/vector functions
-import './signalFunctions'; // Signal processing
-import './calculusFunctions'; // Calculus and conditionals
-import '../computation/numericalFunctions'; // Numerical methods
-import '../computation/derivativeFunctions'; // Advanced derivatives
+// Runtime initialization - ensures all operations are registered
+import '../operations'; // Load unified operation system (auto-registers all operations)
+import './registry'; // Legacy registry wrapper for backwards compatibility
+import './higherOrderFunctions'; // Higher-order functions
 
 // Re-export core APIs
 export * from './registry';

@@ -1,5 +1,6 @@
 import { ASTNode } from '../parser';
 import { DefinitionContext } from '../definitionContext';
+import { registry } from '../operations/registry';
 import { BUILTIN_FUNCTIONS } from './registry';
 
 const BUILTIN_CONSTANTS = new Set(['pi', 'e', 'i']);
@@ -40,8 +41,14 @@ export function hasUnboundVariables(
       return hasUnboundVariables(node.left || node.right!, context);
 
     case 'call':
-      // Check all arguments
-      return node.args.some(arg => hasUnboundVariables(arg, context));
+      // Check if operation has custom variable detector
+      const descriptor = node.name ? registry.get(node.name) : undefined;
+      if (descriptor?.variables?.customDetector) {
+        return descriptor.variables.customDetector(node, context);
+      }
+      
+      // Default: check all arguments
+      return node.args?.some(arg => hasUnboundVariables(arg, context)) ?? false;
 
     case 'list':
       // Check all elements

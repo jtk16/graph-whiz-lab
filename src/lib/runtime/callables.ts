@@ -1,9 +1,12 @@
 // Defines which types can be called with parentheses
-// Now using unified registry for BUILTIN_FUNCTIONS
+// Now using unified operation registry for BUILTIN_FUNCTIONS
 
 import { MathType } from '../types';
 import { DefinitionContext } from '../definitionContext';
-import { BUILTIN_FUNCTIONS } from './registry';
+import { registry } from '../operations/registry';
+
+// Get builtin functions from unified registry
+export const BUILTIN_FUNCTIONS = registry.getBuiltinFunctions();
 
 // Types that can be "called" with parentheses
 export const CALLABLE_TYPES = new Set<MathType>([
@@ -17,8 +20,6 @@ export function isCallable(type: MathType | undefined): boolean {
   return CALLABLE_TYPES.has(type);
 }
 
-// Re-export BUILTIN_FUNCTIONS from registry
-export { BUILTIN_FUNCTIONS };
 
 // Check if an identifier can be called (either built-in or user-defined function)
 export function canCall(name: string, context?: DefinitionContext): boolean {

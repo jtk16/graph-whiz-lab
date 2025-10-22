@@ -59,6 +59,32 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- MathLive (LaTeX editor)
+- Unified Operations System (mathematical operations)
+
+## Mathematical Operations System
+
+This calculator uses a **Unified Operations System** where all mathematical operations (functions, operators, special constructs) are defined in a single source of truth. Each operation is defined once in `src/lib/operations/definitions/` with:
+
+- Syntax (LaTeX and normalized forms)
+- Type signatures
+- Runtime execution logic
+- UI metadata for keyboard display
+
+The system automatically distributes this information to:
+- **Parser**: Recognizes valid function names and syntax
+- **Normalizer**: Converts LaTeX to normalized form
+- **Type System**: Infers expression types
+- **Evaluator**: Executes operations
+- **Keyboard UI**: Displays operations to users
+
+**Benefits:**
+- Single source of truth - no duplicate definitions
+- Type-safe with TypeScript
+- Easy to extend with new operations
+- Impossible for subsystems to desynchronize
+
+See `src/lib/operations/README.md` for detailed documentation.
 
 ## How can I deploy this project?
 

@@ -2,7 +2,8 @@
 // Supports: numbers, variables, basic operators, trig functions
 
 import { DefinitionContext } from './definitionContext';
-import { canCall, BUILTIN_FUNCTIONS } from './runtime/callables';
+import { canCall } from './runtime/callables';
+import { registry } from './operations/registry';
 
 export interface ASTNode {
   type: 'number' | 'variable' | 'binary' | 'unary' | 'call' | 'list' | 'derivative' | 'partial';
@@ -17,7 +18,7 @@ export interface ASTNode {
   operand?: ASTNode;    // For derivative/partial: expression to differentiate
 }
 
-const FUNCTIONS = Array.from(BUILTIN_FUNCTIONS);
+const FUNCTIONS = Array.from(registry.getBuiltinFunctions());
 
 class Parser {
   private input: string;
