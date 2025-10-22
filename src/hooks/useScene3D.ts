@@ -54,6 +54,14 @@ export function useScene3D(
     
     renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(config.backgroundColor ?? 0x0a0a0a, 1); // Explicitly set clear color (opaque)
+    
+    console.log('[useScene3D] Canvas dimensions:', {
+      width: canvasRef.current.clientWidth,
+      height: canvasRef.current.clientHeight,
+      offsetWidth: canvasRef.current.offsetWidth,
+      offsetHeight: canvasRef.current.offsetHeight
+    });
     
     // Orbit controls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -62,16 +70,16 @@ export function useScene3D(
     controls.target.set(0, 0, 0); // Explicitly look at origin
     controls.update();
     
-    // Lighting
+    // Lighting - Increased intensity for better visibility
     const ambientLight = new THREE.AmbientLight(
       0xffffff,
-      config.ambientLightIntensity ?? 0.5
+      config.ambientLightIntensity ?? 1.0
     );
     scene.add(ambientLight);
     
     const directionalLight = new THREE.DirectionalLight(
       0xffffff,
-      config.directionalLightIntensity ?? 0.8
+      config.directionalLightIntensity ?? 1.5
     );
     directionalLight.position.set(5, 10, 7.5);
     scene.add(directionalLight);
@@ -99,11 +107,25 @@ export function useScene3D(
     console.log('[useScene3D] Scene children count:', scene.children.length);
     setIsReady(true);
     
-    // Animation loop
+    // Animation loop with periodic logging
+    let frameCount = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
+      
+      // Log every 60 frames (~1 second)
+      if (frameCount++ % 60 === 0) {
+        console.log('[useScene3D] Rendering frame', {
+          sceneChildren: scene.children.length,
+          cameraPosition: {
+            x: camera.position.x.toFixed(2),
+            y: camera.position.y.toFixed(2),
+            z: camera.position.z.toFixed(2)
+          },
+          rendererSize: renderer.getSize(new THREE.Vector2())
+        });
+      }
     };
     animate();
     

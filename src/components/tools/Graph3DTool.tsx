@@ -220,7 +220,7 @@ export const Graph3DTool = ({
   if (!isActive) return null;
   
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
       {/* Always render canvas so ref is available */}
       <canvas ref={canvasRef} className="w-full h-full" />
       

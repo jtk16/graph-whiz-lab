@@ -86,15 +86,14 @@ export function Surface3D({
       geometry.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
     }
     
-    // Create material
-    const material = new THREE.MeshPhongMaterial({
+    // Create material - Using MeshBasicMaterial for debugging (doesn't require lighting)
+    const material = new THREE.MeshBasicMaterial({
       color: new THREE.Color(resolvedColor),
       wireframe,
       opacity,
       transparent: opacity < 1,
       side: THREE.DoubleSide,
-      vertexColors: useVertexColors && data.colors ? true : false,
-      shininess: 30
+      vertexColors: useVertexColors && data.colors ? true : false
     });
     
     // Create mesh
