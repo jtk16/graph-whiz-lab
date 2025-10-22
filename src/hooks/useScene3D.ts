@@ -107,23 +107,27 @@ export function useScene3D(
     console.log('[useScene3D] Scene children count:', scene.children.length);
     setIsReady(true);
     
-    // Animation loop with periodic logging
+    // Animation loop with periodic logging - using refs to avoid closure issues
     let frameCount = 0;
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
       
-      // Log every 60 frames (~1 second)
-      if (frameCount++ % 60 === 0) {
+      // Use refs to ensure we're rendering the latest state
+      if (controlsRef.current) controlsRef.current.update();
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
+      
+      // Log every 60 frames (~1 second) using refs
+      if (frameCount++ % 60 === 0 && sceneRef.current && cameraRef.current && rendererRef.current) {
         console.log('[useScene3D] Rendering frame', {
-          sceneChildren: scene.children.length,
+          sceneChildren: sceneRef.current.children.length,
           cameraPosition: {
-            x: camera.position.x.toFixed(2),
-            y: camera.position.y.toFixed(2),
-            z: camera.position.z.toFixed(2)
+            x: cameraRef.current.position.x.toFixed(2),
+            y: cameraRef.current.position.y.toFixed(2),
+            z: cameraRef.current.position.z.toFixed(2)
           },
-          rendererSize: renderer.getSize(new THREE.Vector2())
+          rendererSize: rendererRef.current.getSize(new THREE.Vector2())
         });
       }
     };

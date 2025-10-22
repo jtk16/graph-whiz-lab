@@ -210,9 +210,14 @@ export const Graph3DTool = ({
     if (scene && isReady) {
       console.log('[Graph3DTool] Scene contents:', {
         totalChildren: scene.children.length,
-        meshes: scene.children.filter(c => c instanceof THREE.Mesh).length,
-        lights: scene.children.filter(c => c instanceof THREE.Light).length,
-        helpers: scene.children.filter(c => c instanceof THREE.GridHelper || c instanceof THREE.AxesHelper).length
+        actualMeshes: scene.children.filter(c => 
+          c instanceof THREE.Mesh && 
+          !(c instanceof THREE.GridHelper) && 
+          !(c instanceof THREE.AxesHelper)
+        ).length,
+        gridHelpers: scene.children.filter(c => c instanceof THREE.GridHelper).length,
+        axesHelpers: scene.children.filter(c => c instanceof THREE.AxesHelper).length,
+        lights: scene.children.filter(c => c instanceof THREE.Light).length
       });
     }
   }, [scene, isReady, renderableData]);

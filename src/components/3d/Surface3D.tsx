@@ -86,14 +86,16 @@ export function Surface3D({
       geometry.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
     }
     
-    // Create material - Using MeshBasicMaterial for debugging (doesn't require lighting)
-    const material = new THREE.MeshBasicMaterial({
+    // Create material - Using MeshPhongMaterial for proper lighting
+    const material = new THREE.MeshPhongMaterial({
       color: new THREE.Color(resolvedColor),
       wireframe,
       opacity,
       transparent: opacity < 1,
       side: THREE.DoubleSide,
-      vertexColors: useVertexColors && data.colors ? true : false
+      vertexColors: useVertexColors && data.colors ? true : false,
+      shininess: 30,
+      flatShading: false
     });
     
     // Create mesh
@@ -130,6 +132,18 @@ export function Surface3D({
     ]);
     
     scene.add(mesh);
+    
+    // Force scene update and disable frustum culling for debugging
+    scene.updateMatrixWorld(true);
+    mesh.updateMatrixWorld(true);
+    mesh.frustumCulled = false;
+    
+    console.log('Surface3D: Mesh render state', {
+      inScene: mesh.parent === scene,
+      matrixWorldNeedsUpdate: mesh.matrixWorldNeedsUpdate,
+      frustumCulled: mesh.frustumCulled,
+      renderOrder: mesh.renderOrder
+    });
     
     return () => {
       scene.remove(mesh);
