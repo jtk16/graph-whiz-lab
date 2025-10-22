@@ -17,15 +17,17 @@ export function hasUnboundVariables(
       return false;
 
     case 'variable':
+      const varName = node.value as string;
+      
       // Check if it's a built-in constant
-      if (BUILTIN_CONSTANTS.has(node.name)) return false;
+      if (BUILTIN_CONSTANTS.has(varName)) return false;
       
       // Check if it's a function name
-      if (BUILTIN_FUNCTIONS.has(node.name)) return false;
+      if (BUILTIN_FUNCTIONS.has(varName)) return false;
       
       // Check if it's defined in context
-      if (context?.variables?.[node.name] !== undefined) return false;
-      if (context?.functions?.[node.name] !== undefined) return false;
+      if (context?.variables?.[varName] !== undefined) return false;
+      if (context?.functions?.[varName] !== undefined) return false;
       
       // It's an unbound variable
       return true;
