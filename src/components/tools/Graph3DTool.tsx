@@ -64,24 +64,23 @@ export const Graph3DTool = ({
   
   if (!isActive) return null;
   
-  // Show loading state while scene initializes
-  if (!isReady) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-background text-muted-foreground">
-        <div className="text-center">
-          <div className="text-lg mb-2">Initializing 3D view...</div>
-          <div className="text-sm">Setting up scene</div>
-        </div>
-      </div>
-    );
-  }
-  
   return (
     <div className="w-full h-full relative">
+      {/* Always render canvas so ref is available */}
       <canvas ref={canvasRef} className="w-full h-full" />
       
-      {/* Render surfaces */}
-      {scene && surfaceData.map(({ data, color, id }) => (
+      {/* Loading overlay - shown while scene initializes */}
+      {!isReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background text-muted-foreground">
+          <div className="text-center">
+            <div className="text-lg mb-2">Initializing 3D view...</div>
+            <div className="text-sm">Setting up scene</div>
+          </div>
+        </div>
+      )}
+      
+      {/* Render surfaces only when ready */}
+      {isReady && scene && surfaceData.map(({ data, color, id }) => (
         <Surface3D
           key={id}
           scene={scene}
@@ -93,19 +92,21 @@ export const Graph3DTool = ({
       ))}
       
       {/* Controls overlay */}
-      <div className="absolute top-4 right-4">
-        <Graph3DControls
-          toolConfig={toolConfig || {}}
-          onConfigChange={(config) => {
-            if (onViewportChange) {
-              // Update viewport bounds when config changes
-              onViewportChange({ bounds: space.defaultBounds, ...config });
-            }
-          }}
-          space={space}
-          onSpaceChange={setSpaceId}
-        />
-      </div>
+      {isReady && (
+        <div className="absolute top-4 right-4">
+          <Graph3DControls
+            toolConfig={toolConfig || {}}
+            onConfigChange={(config) => {
+              if (onViewportChange) {
+                // Update viewport bounds when config changes
+                onViewportChange({ bounds: space.defaultBounds, ...config });
+              }
+            }}
+            space={space}
+            onSpaceChange={setSpaceId}
+          />
+        </div>
+      )}
     </div>
   );
 };

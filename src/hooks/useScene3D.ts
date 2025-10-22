@@ -24,7 +24,12 @@ export function useScene3D(
   const [isReady, setIsReady] = useState(false);
   
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) {
+      console.log('[useScene3D] Canvas ref not available yet');
+      return;
+    }
+    
+    console.log('[useScene3D] Initializing scene...');
     
     // Initialize Three.js scene
     const scene = new THREE.Scene();
@@ -86,6 +91,7 @@ export function useScene3D(
     rendererRef.current = renderer;
     controlsRef.current = controls;
     
+    console.log('[useScene3D] Scene initialized successfully');
     setIsReady(true);
     
     // Animation loop
