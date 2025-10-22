@@ -1,30 +1,90 @@
-import { ToolProps } from "@/lib/tools/types";
-import { Box } from "lucide-react";
+import { useRef, useState, useMemo } from 'react';
+import { ToolProps } from '@/lib/tools/types';
+import { parseExpression } from '@/lib/parser';
+import { buildDefinitionContext } from '@/lib/definitionContext';
+import { useScene3D } from '@/hooks/useScene3D';
+import { SurfaceEvaluator } from '@/lib/computation/evaluators/SurfaceEvaluator';
+import { Surface3D } from '@/components/3d/Surface3D';
+import { cartesianSpace, getSpace } from '@/lib/computation/spaces';
+import { Graph3DControls } from './Graph3DControls';
 
-/**
- * 3D Visualization Tool - Stub Implementation
- * 
- * This is a placeholder for the future 3D visualization tool.
- * Will be implemented with Three.js or React Three Fiber.
- */
-export const Graph3DTool = ({ isActive }: ToolProps) => {
+export const Graph3DTool = ({ 
+  expressions, 
+  toolkitDefinitions,
+  viewport,
+  toolConfig,
+  isActive 
+}: ToolProps) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [spaceId, setSpaceId] = useState<string>(toolConfig?.spaceId || 'cartesian');
+  const space = getSpace(spaceId) || cartesianSpace;
+  
+  const { scene, isReady } = useScene3D(canvasRef, {
+    backgroundColor: 0x0a0a0a,
+    cameraPosition: [8, 8, 8],
+    enableGrid: toolConfig?.showGrid !== false,
+    enableAxes: toolConfig?.showAxes !== false
+  });
+  
+  // Evaluate all expressions to surface data
+  const surfaceData = useMemo(() => {
+    if (!isActive || !isReady) return [];
+    
+    const definitions = [...expressions, ...toolkitDefinitions].filter(e => 
+      e.normalized.trim().includes('=')
+    );
+    const context = buildDefinitionContext(definitions);
+    
+    return expressions
+      .filter(expr => !expr.normalized.includes('='))
+      .map(expr => {
+        try {
+          const ast = parseExpression(expr.normalized, context);
+          const evaluator = new SurfaceEvaluator(ast, context, space);
+          
+          const data = evaluator.evaluateSurface({
+            resolution: toolConfig?.resolution || 50,
+            bounds: viewport?.bounds || space.defaultBounds,
+            colorMode: toolConfig?.colorMode || 'height'
+          });
+          
+          return { data, color: expr.color, id: expr.id };
+        } catch (e) {
+          console.error('Failed to evaluate surface:', expr.normalized, e);
+          return null;
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [expressions, toolkitDefinitions, space, viewport, toolConfig, isActive, isReady]);
+  
   if (!isActive) return null;
   
   return (
-    <div className="w-full h-full flex items-center justify-center bg-muted/20">
-      <div className="text-center space-y-4 max-w-md p-8">
-        <Box className="w-16 h-16 mx-auto text-muted-foreground/50" />
-        <h3 className="text-xl font-semibold">3D Visualization Coming Soon</h3>
-        <p className="text-muted-foreground">
-          The 3D graphing tool is under development and will support:
-        </p>
-        <ul className="text-sm text-muted-foreground space-y-2 text-left">
-          <li>• Surface plots: z = f(x,y)</li>
-          <li>• Parametric curves and surfaces</li>
-          <li>• 3D point clouds</li>
-          <li>• Vector field visualization</li>
-          <li>• Interactive rotation and zoom</li>
-        </ul>
+    <div className="w-full h-full relative">
+      <canvas ref={canvasRef} className="w-full h-full" />
+      
+      {/* Render surfaces */}
+      {scene && surfaceData.map(({ data, color, id }) => (
+        <Surface3D
+          key={id}
+          scene={scene}
+          data={data}
+          color={color}
+          wireframe={toolConfig?.wireframe}
+          opacity={toolConfig?.opacity ?? 0.85}
+        />
+      ))}
+      
+      {/* Controls overlay */}
+      <div className="absolute top-4 right-4">
+        <Graph3DControls
+          toolConfig={toolConfig || {}}
+          onConfigChange={(config) => {
+            // Tool config changes handled by parent
+          }}
+          space={space}
+          onSpaceChange={setSpaceId}
+        />
       </div>
     </div>
   );
