@@ -103,6 +103,7 @@ export function Surface3D({
     
     // Compute bounding box for debugging
     geometry.computeBoundingBox();
+    const bbox = geometry.boundingBox;
     
     console.log('Surface3D: Mesh created and added to scene');
     console.log('Surface3D: Mesh details', {
@@ -116,8 +117,18 @@ export function Surface3D({
         transparent: material.transparent,
         wireframe: material.wireframe
       },
-      boundingBox: geometry.boundingBox
+      boundingBox: bbox ? {
+        min: { x: bbox.min.x, y: bbox.min.y, z: bbox.min.z },
+        max: { x: bbox.max.x, y: bbox.max.y, z: bbox.max.z }
+      } : null
     });
+    
+    // Log first few vertices to verify data
+    console.log('Surface3D: First 3 vertices:', [
+      [data.vertices[0], data.vertices[1], data.vertices[2]],
+      [data.vertices[3], data.vertices[4], data.vertices[5]],
+      [data.vertices[6], data.vertices[7], data.vertices[8]]
+    ]);
     
     scene.add(mesh);
     
