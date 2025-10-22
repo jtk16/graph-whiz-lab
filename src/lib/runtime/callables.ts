@@ -5,21 +5,15 @@ import { MathType } from '../types';
 import { DefinitionContext } from '../definitionContext';
 import { registry } from '../operations/registry';
 
-// Get builtin functions from unified registry (dynamic getter to avoid initialization timing issues)
-export function getBuiltinFunctions() {
+// Get builtin functions from unified registry
+// IMPORTANT: This must be called as a function to get the current set
+export function getBuiltinFunctions(): Set<string> {
   return registry.getBuiltinFunctions();
 }
 
-// Legacy export for backwards compatibility
-export const BUILTIN_FUNCTIONS = new Proxy({} as Set<string>, {
-  has(target, prop) {
-    return registry.getBuiltinFunctions().has(prop as string);
-  },
-  get(target, prop) {
-    const funcs = registry.getBuiltinFunctions();
-    return (funcs as any)[prop];
-  }
-});
+// Legacy export - DO NOT use as constant, always call getBuiltinFunctions()
+// Kept for backwards compatibility but returns fresh Set each time
+export const BUILTIN_FUNCTIONS = getBuiltinFunctions();
 
 // Types that can be "called" with parentheses
 export const CALLABLE_TYPES = new Set<MathType>([

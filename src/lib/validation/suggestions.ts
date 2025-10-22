@@ -1,7 +1,7 @@
 // Suggestion system for undefined identifiers
 
 import { DefinitionContext, CONSTANTS, RESERVED_NAMES } from '../definitionContext';
-import { BUILTIN_FUNCTIONS } from '../runtime/callables';
+import { getBuiltinFunctions } from '../runtime/callables';
 
 // Calculate Levenshtein distance between two strings
 function levenshteinDistance(a: string, b: string): number {
@@ -36,8 +36,8 @@ export function getSuggestions(
   undefinedId: string,
   context: DefinitionContext
 ): string[] {
-  const allIdentifiers = [
-    ...Array.from(BUILTIN_FUNCTIONS),
+  const allIdentifiers: string[] = [
+    ...Array.from(getBuiltinFunctions()),
     ...RESERVED_NAMES,
     ...Object.keys(CONSTANTS),
     ...Object.keys(context.variables),
@@ -61,7 +61,7 @@ export function getSuggestions(
 
 export function getAllAvailableIdentifiers(context: DefinitionContext): string[] {
   return [
-    ...Array.from(BUILTIN_FUNCTIONS),
+    ...Array.from(getBuiltinFunctions()),
     ...RESERVED_NAMES,
     ...Object.keys(CONSTANTS),
     ...Object.keys(context.variables),

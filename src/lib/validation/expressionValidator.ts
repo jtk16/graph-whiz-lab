@@ -1,7 +1,7 @@
 // Expression validation system
 
 import { DefinitionContext, RESERVED_NAMES, CONSTANTS } from '../definitionContext';
-import { BUILTIN_FUNCTIONS } from '../runtime/callables';
+import { getBuiltinFunctions } from '../runtime/callables';
 import { UndefinedIdentifierError, CircularDependencyError } from '../errors/RuntimeError';
 import { getSuggestions } from './suggestions';
 
@@ -73,7 +73,7 @@ export function validateExpression(
     }
     
     // Skip built-in functions and reserved names
-    if (BUILTIN_FUNCTIONS.has(identifier) || RESERVED_NAMES.includes(identifier)) {
+    if (getBuiltinFunctions().has(identifier) || RESERVED_NAMES.includes(identifier)) {
       console.log(`    ✓ Skipped (builtin/reserved)`);
       continue;
     }
@@ -139,7 +139,7 @@ export function detectCircularDependency(
   const matches = rhs.matchAll(identifierRegex);
   for (const match of matches) {
     const identifier = match[1];
-    if (!BUILTIN_FUNCTIONS.has(identifier) && !RESERVED_NAMES.includes(identifier)) {
+    if (!getBuiltinFunctions().has(identifier) && !RESERVED_NAMES.includes(identifier)) {
       usedIdentifiers.add(identifier);
     }
   }
