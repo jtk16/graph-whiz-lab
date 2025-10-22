@@ -82,9 +82,18 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/\\sin/g, 'sin');
   normalized = normalized.replace(/\\cos/g, 'cos');
   normalized = normalized.replace(/\\tan/g, 'tan');
+  
+  // Mathematical functions with curly braces: \ln{x} → ln(x), \exp{x} → exp(x), etc.
+  normalized = normalized.replace(/\\ln\{([^}]+)\}/g, 'ln($1)');
   normalized = normalized.replace(/\\ln/g, 'ln');
+  normalized = normalized.replace(/\\log\{([^}]+)\}/g, 'log($1)');
   normalized = normalized.replace(/\\log/g, 'log');
+  normalized = normalized.replace(/\\exp\{([^}]+)\}/g, 'exp($1)');
   normalized = normalized.replace(/\\exp/g, 'exp');
+  
+  // Absolute value: \abs{x} → abs(x) and |x| → abs(x)
+  normalized = normalized.replace(/\\abs\{([^}]+)\}/g, 'abs($1)');
+  normalized = normalized.replace(/\|([^|]+)\|/g, 'abs($1)');
   normalized = normalized.replace(/\\abs/g, 'abs');
   
   // Square root: \sqrt{x} → sqrt(x)
