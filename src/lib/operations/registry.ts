@@ -19,15 +19,46 @@ import { DefinitionContext } from '../definitionContext';
 /**
  * Check if a provided type is compatible with an expected type
  * Handles subset relationships (e.g., Number ⊂ Complex)
+ * 
+ * @extensibility When adding new type relationships, add them here:
+ * 
+ * This function defines mathematical subset relationships that allow automatic
+ * type coercion during operation resolution. When adding new relationships:
+ * 
+ * 1. Ensure mathematical correctness - the coercion must be semantically valid
+ * 2. Document WHY the coercion is valid (mathematical basis)
+ * 3. Add corresponding promotion helpers in src/lib/runtime/value.ts if needed
+ * 4. Update affected operations to handle the new type in their runtime.evaluate
+ * 
+ * Examples of future extensions:
+ *   • Integers ⊂ Reals (if integer type is added)
+ *     Mathematical basis: ℤ ⊂ ℝ
+ *   
+ *   • Scalars ⊂ Vectors (for scalar multiplication, broadcasting)
+ *     Mathematical basis: scalar can be promoted to single-element vector
+ *   
+ *   • Single values ⊂ Lists (automatic wrapping)
+ *     Mathematical basis: any value can be treated as a singleton list
+ *   
+ *   • 2D Points ⊂ 3D Points (extend with z=0)
+ *     Mathematical basis: ℝ² ⊂ ℝ³ via embedding (x,y) → (x,y,0)
+ * 
+ * Current relationships:
+ *   • Number ⊂ Complex: Any real number r can be represented as r + 0i (ℝ ⊂ ℂ)
+ *   • Unknown matches anything: For flexibility during type inference
  */
 function isTypeCompatible(provided: MathType, expected: MathType): boolean {
   if (provided === expected) return true;
   
   // Real numbers are a subset of complex numbers
+  // Mathematical basis: ℝ ⊂ ℂ where any real r = r + 0i
   if (expected === MathType.Complex && provided === MathType.Number) return true;
   
-  // Unknown can match anything
+  // Unknown can match anything (for flexibility during type inference)
   if (expected === MathType.Unknown || provided === MathType.Unknown) return true;
+  
+  // TODO: Add more subset relationships here as needed
+  // Example: if (expected === MathType.Vector3D && provided === MathType.Point2D) return true;
   
   return false;
 }
