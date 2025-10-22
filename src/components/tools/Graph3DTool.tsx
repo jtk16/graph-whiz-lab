@@ -33,9 +33,19 @@ export const Graph3DTool = ({
       .getPropertyValue('--canvas-bg')
       .trim();
     
+    console.log('Canvas background CSS value:', canvasBg);
+    
     if (canvasBg) {
-      // THREE.Color can parse HSL strings directly
-      return new THREE.Color(`hsl(${canvasBg})`);
+      // CSS custom properties for colors are often in format "220 13% 10%"
+      // THREE.Color needs "hsl(220, 13%, 10%)" format
+      if (canvasBg.includes(' ') && !canvasBg.includes('hsl')) {
+        const parts = canvasBg.split(/\s+/);
+        if (parts.length === 3) {
+          return new THREE.Color(`hsl(${parts[0]}, ${parts[1]}, ${parts[2]})`);
+        }
+      }
+      // Try parsing as-is if it's already in a valid format
+      return new THREE.Color(canvasBg);
     }
     return new THREE.Color(0x0a0a0a);
   };
@@ -85,7 +95,17 @@ export const Graph3DTool = ({
           if (isExplicitSurface) {
             // Parse z = f(x,y) and evaluate as explicit surface
             const parts = expr.normalized.split('=');
-            const rhsAst = parseExpression(parts[1].trim(), context);
+            const rhsExpression = parts[1].trim();
+            
+            console.log('Graph3DTool: Parsing explicit surface RHS:', rhsExpression);
+            const rhsAst = parseExpression(rhsExpression, context);
+            console.log('Graph3DTool: RHS AST:', JSON.stringify(rhsAst, null, 2));
+            
+            // Check if RHS is a function call like f(x,y)
+            if (rhsAst.type === 'call' && context.functions && rhsAst.name && rhsAst.name in context.functions) {
+              const funcDef = context.functions[rhsAst.name];
+              console.log('Graph3DTool: RHS is function call to:', rhsAst.name, 'with definition:', funcDef);
+            }
             
             const evaluator = new SurfaceEvaluator(rhsAst, context, space);
             const bounds = viewport?.bounds || space.defaultBounds;
@@ -111,7 +131,7 @@ export const Graph3DTool = ({
             // Evaluate as implicit 3D surface
             const evaluator = new SurfaceEvaluator(ast, context, space);
             const bounds = viewport?.bounds || space.defaultBounds;
-            const data = evaluator.evaluateImplicitSurface({
+            const implicitOptions = {
               bounds: {
                 xMin: bounds.x?.min ?? -5,
                 xMax: bounds.x?.max ?? 5,
@@ -122,12 +142,20 @@ export const Graph3DTool = ({
               },
               resolution: toolConfig?.resolution || 30,
               isoValue: 0
-            });
+            };
+            const data = evaluator.evaluateImplicitSurface(implicitOptions);
             
             console.log('Graph3DTool: Implicit surface evaluated', {
               expression: expr.normalized,
-              vertexCount: data.vertices.length / 3
+              vertexCount: data.vertices.length / 3,
+              indexCount: data.indices.length,
+              bounds: implicitOptions.bounds,
+              resolution: implicitOptions.resolution
             });
+            
+            if (data.vertices.length === 0) {
+              console.error('Graph3DTool: ⚠️ No vertices generated for implicit surface!');
+            }
             
             return { type: 'surface' as const, data, color: expr.color, id: expr.id };
           }

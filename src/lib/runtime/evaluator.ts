@@ -216,6 +216,11 @@ export function evaluate(
           // Full application - all parameters provided
           const argValues = node.args.map(arg => evaluate(arg, variables, context));
           
+          console.log(`Evaluator: Calling user-defined function ${node.name}`, {
+            params: funcDef.params,
+            argValues: argValues.map(v => ({ kind: v.kind, value: isNumber(v) ? v.value : 'N/A' }))
+          });
+          
           // Check all arguments are numbers
           const paramBindings: Record<string, number> = {};
           funcDef.params.forEach((param, i) => {
@@ -225,8 +230,17 @@ export function evaluate(
             paramBindings[param] = argValues[i].value;
           });
           
+          console.log(`Evaluator: Parameter bindings for ${node.name}:`, paramBindings);
+          
           // Evaluate function body with all parameters bound
-          return evaluate(funcDef.body, paramBindings, context);
+          const result = evaluate(funcDef.body, paramBindings, context);
+          
+          console.log(`Evaluator: Function ${node.name} returned:`, {
+            kind: result.kind,
+            value: isNumber(result) ? result.value : 'N/A'
+          });
+          
+          return result;
         }
         
         // Partial application - fewer args than params

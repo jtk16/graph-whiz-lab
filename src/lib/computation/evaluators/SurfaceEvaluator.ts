@@ -74,8 +74,24 @@ export class SurfaceEvaluator {
         };
         
         try {
+          // Log first evaluation for debugging
+          if (i === 0 && j === 0) {
+            console.log('SurfaceEvaluator: First point evaluation', {
+              coords,
+              ast: this.ast.type
+            });
+          }
+          
           // Evaluate the function
           const result = evaluate(this.ast, coords, this.context);
+          
+          // Log first result
+          if (i === 0 && j === 0) {
+            console.log('SurfaceEvaluator: First point result:', {
+              kind: result.kind,
+              value: result.kind === 'number' ? result.value : 'N/A'
+            });
+          }
           
           // Get the output dimension value
           let outputValue: number;
@@ -223,7 +239,22 @@ export class SurfaceEvaluator {
    * For expressions like: x^2 + y^2 + z^2 = 1
    */
   evaluateImplicitSurface(options: ImplicitSurfaceOptions): SurfaceData {
+    console.log('evaluateImplicitSurface called', {
+      bounds: options.bounds,
+      resolution: options.resolution,
+      isoValue: options.isoValue
+    });
+    
     const implicitFn = this.createImplicit3DFunction();
+    
+    // Test implicit function with known values
+    console.log('Testing implicit function:', {
+      'f(0,0,0)': implicitFn(0, 0, 0),
+      'f(1,0,0)': implicitFn(1, 0, 0),
+      'f(0,1,0)': implicitFn(0, 1, 0),
+      'f(0,0,1)': implicitFn(0, 0, 1)
+    });
+    
     const { xMin, xMax, yMin, yMax, zMin, zMax } = options.bounds;
     const resolution = options.resolution;
     const isoValue = options.isoValue ?? 0;
@@ -330,6 +361,13 @@ export class SurfaceEvaluator {
     
     // Compute normals
     const normalsArray = this.computeNormals(vertices, indices);
+    
+    console.log('Marching cubes complete', {
+      totalCubes: resolution ** 3,
+      totalVertices: vertices.length / 3,
+      totalTriangles: indices.length / 3,
+      cacheSize: edgeVertexCache.size
+    });
     
     const surfaceData = {
       vertices: new Float32Array(vertices),

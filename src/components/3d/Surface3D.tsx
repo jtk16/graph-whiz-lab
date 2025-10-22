@@ -42,6 +42,14 @@ export function Surface3D({
   useEffect(() => {
     if (!scene) return;
     
+    console.log('Surface3D: Creating mesh', {
+      vertexCount: data.vertices.length / 3,
+      indexCount: data.indices.length,
+      color,
+      wireframe,
+      hasVertexColors: useVertexColors && !!data.colors
+    });
+    
     // Resolve color from CSS variables
     const resolvedColor = resolveColor(color);
     
@@ -69,6 +77,8 @@ export function Surface3D({
     // Create mesh
     const mesh = new THREE.Mesh(geometry, material);
     meshRef.current = mesh;
+    
+    console.log('Surface3D: Mesh created and added to scene');
     
     scene.add(mesh);
     
