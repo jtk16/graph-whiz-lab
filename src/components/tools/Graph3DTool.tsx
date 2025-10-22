@@ -10,6 +10,7 @@ import { Curve3D } from '@/components/3d/Curve3D';
 import { cartesianSpace, getSpace } from '@/lib/computation/spaces';
 import { Graph3DControls } from './Graph3DControls';
 import { inferType, MathType } from '@/lib/types';
+import { isImplicitRelation } from '@/lib/definitionContext';
 
 export const Graph3DTool = ({ 
   expressions, 
@@ -44,12 +45,41 @@ export const Graph3DTool = ({
     const context = buildDefinitionContext(definitions);
     
     return expressions
-      .filter(expr => !expr.normalized.includes('='))
       .map(expr => {
         try {
           // Infer expression type
           const typeInfo = inferType(expr.latex, expr.normalized);
           const ast = parseExpression(expr.normalized, context);
+          
+          // Check if this is an implicit 3D surface
+          const isImplicit3D = typeInfo.type === MathType.Surface3D && 
+                               expr.normalized.includes('=') && 
+                               !expr.normalized.includes('==');
+          
+          if (isImplicit3D) {
+            // Evaluate as implicit 3D surface
+            const evaluator = new SurfaceEvaluator(ast, context, space);
+            const bounds = viewport?.bounds || space.defaultBounds;
+            const data = evaluator.evaluateImplicitSurface({
+              bounds: {
+                xMin: bounds.x?.min ?? -5,
+                xMax: bounds.x?.max ?? 5,
+                yMin: bounds.y?.min ?? -5,
+                yMax: bounds.y?.max ?? 5,
+                zMin: bounds.z?.min ?? -5,
+                zMax: bounds.z?.max ?? 5,
+              },
+              resolution: toolConfig?.resolution || 30,
+              isoValue: 0
+            });
+            
+            return { type: 'surface' as const, data, color: expr.color, id: expr.id };
+          }
+          
+          // Skip regular definitions (not implicit)
+          if (expr.normalized.includes('=') && !isImplicit3D) {
+            return null;
+          }
           
           // Check if this is a parametric curve
           const isCurve = typeInfo.type === MathType.Function && 
@@ -68,7 +98,7 @@ export const Graph3DTool = ({
             
             return { type: 'curve' as const, data, color: expr.color, id: expr.id };
           } else {
-            // Evaluate as surface
+            // Evaluate as explicit surface
             const evaluator = new SurfaceEvaluator(ast, context, space);
             const data = evaluator.evaluateSurface({
               resolution: toolConfig?.resolution || 50,

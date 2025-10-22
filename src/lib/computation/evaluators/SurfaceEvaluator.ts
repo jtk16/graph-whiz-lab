@@ -2,6 +2,7 @@ import { ASTNode } from '@/lib/parser';
 import { evaluate } from '@/lib/runtime/evaluator';
 import { DefinitionContext } from '@/lib/definitionContext';
 import { MathSpace } from '../spaces/types';
+import { isNumber } from '@/lib/runtime/value';
 
 /**
  * Abstract evaluator for 3D surfaces
@@ -18,6 +19,12 @@ export interface EvaluationOptions {
   resolution: number;      // Grid resolution (e.g., 50 = 50x50 grid)
   bounds: Record<string, { min: number; max: number }>;
   colorMode?: 'height' | 'gradient' | 'domain' | 'custom';
+}
+
+export interface ImplicitSurfaceOptions {
+  bounds: { xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number };
+  resolution: number;
+  isoValue?: number; // Default 0
 }
 
 export class SurfaceEvaluator {
@@ -197,6 +204,117 @@ export class SurfaceEvaluator {
     }
     
     return normals;
+  }
+  
+  /**
+   * Evaluate implicit 3D surface using Marching Cubes algorithm
+   * For expressions like: x^2 + y^2 + z^2 = 1
+   */
+  evaluateImplicitSurface(options: ImplicitSurfaceOptions): SurfaceData {
+    const implicitFn = this.createImplicit3DFunction();
+    const { xMin, xMax, yMin, yMax, zMin, zMax } = options.bounds;
+    const resolution = options.resolution;
+    const isoValue = options.isoValue ?? 0;
+    
+    const stepX = (xMax - xMin) / resolution;
+    const stepY = (yMax - yMin) / resolution;
+    const stepZ = (zMax - zMin) / resolution;
+    
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    
+    // Simplified Marching Cubes - sample grid and create triangles at zero crossings
+    for (let i = 0; i < resolution; i++) {
+      for (let j = 0; j < resolution; j++) {
+        for (let k = 0; k < resolution; k++) {
+          const x = xMin + i * stepX;
+          const y = yMin + j * stepY;
+          const z = zMin + k * stepZ;
+          
+          // Sample at 8 corners of cube
+          const v000 = implicitFn(x, y, z);
+          const v100 = implicitFn(x + stepX, y, z);
+          const v010 = implicitFn(x, y + stepY, z);
+          const v110 = implicitFn(x + stepX, y + stepY, z);
+          const v001 = implicitFn(x, y, z + stepZ);
+          const v101 = implicitFn(x + stepX, y, z + stepZ);
+          const v011 = implicitFn(x, y + stepY, z + stepZ);
+          const v111 = implicitFn(x + stepX, y + stepY, z + stepZ);
+          
+          // Create cube configuration
+          let cubeIndex = 0;
+          if (v000 < isoValue) cubeIndex |= 1;
+          if (v100 < isoValue) cubeIndex |= 2;
+          if (v110 < isoValue) cubeIndex |= 4;
+          if (v010 < isoValue) cubeIndex |= 8;
+          if (v001 < isoValue) cubeIndex |= 16;
+          if (v101 < isoValue) cubeIndex |= 32;
+          if (v111 < isoValue) cubeIndex |= 64;
+          if (v011 < isoValue) cubeIndex |= 128;
+          
+          // Skip if cube is completely inside or outside
+          if (cubeIndex === 0 || cubeIndex === 255) continue;
+          
+          // Simplified: add representative triangles for this cube
+          // This is a basic implementation - a full marching cubes would use lookup tables
+          const centerX = x + stepX / 2;
+          const centerY = y + stepY / 2;
+          const centerZ = z + stepZ / 2;
+          
+          // Create a simple quad at the approximate surface location
+          const baseIdx = vertices.length / 3;
+          
+          // Add vertices for a small quad around the center
+          vertices.push(centerX - stepX/4, centerY - stepY/4, centerZ);
+          vertices.push(centerX + stepX/4, centerY - stepY/4, centerZ);
+          vertices.push(centerX + stepX/4, centerY + stepY/4, centerZ);
+          vertices.push(centerX - stepX/4, centerY + stepY/4, centerZ);
+          
+          // Add two triangles
+          indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+          indices.push(baseIdx, baseIdx + 2, baseIdx + 3);
+        }
+      }
+    }
+    
+    // Compute normals
+    const normalsArray = this.computeNormals(vertices, indices);
+    
+    return {
+      vertices: new Float32Array(vertices),
+      normals: new Float32Array(normalsArray),
+      indices: new Uint32Array(indices),
+    };
+  }
+  
+  private createImplicit3DFunction(): (x: number, y: number, z: number) => number {
+    if (this.ast.type === 'binary' && this.ast.operator === '=') {
+      return (x: number, y: number, z: number) => {
+        try {
+          const lhs = this.evaluateNode(this.ast.left!, { x, y, z });
+          const rhs = this.evaluateNode(this.ast.right!, { x, y, z });
+          return lhs - rhs;
+        } catch (e) {
+          return NaN;
+        }
+      };
+    }
+    
+    return (x: number, y: number, z: number) => {
+      try {
+        return this.evaluateNode(this.ast, { x, y, z });
+      } catch (e) {
+        return NaN;
+      }
+    };
+  }
+  
+  private evaluateNode(node: ASTNode, vars: Record<string, number>): number {
+    const result = evaluate(node, vars, this.context);
+    if (result.kind === 'number') {
+      return result.value;
+    }
+    return NaN;
   }
 }
 

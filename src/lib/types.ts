@@ -29,10 +29,40 @@ export interface TypeInfo {
 export function inferType(expr: string, normalized: string): TypeInfo {
   console.log('[inferType] expr:', expr, 'normalized:', normalized);
   
-  // Handle definitions (e.g., f(x) = x^2)
+  // Check for implicit relations FIRST (before definitions)
+  // Pattern: expression = expression (where LHS is not a valid identifier)
   if (normalized.includes('=') && !normalized.includes('==')) {
     const parts = normalized.split('=');
     const lhs = parts[0].trim();
+    
+    // If LHS contains operators or is not a simple identifier/function call,
+    // this is an implicit relation, not a definition
+    if (lhs.match(/[+\-*\/^<>]/) || 
+        (lhs.includes('(') && !lhs.match(/^[a-z_][a-z0-9_]*\(/i))) {
+      
+      // This is an implicit relation - determine dimensionality
+      const combined = lhs + parts[1]; // Check all variables
+      const hasX = /\bx\b/.test(combined);
+      const hasY = /\by\b/.test(combined);
+      const hasZ = /\bz\b/.test(combined);
+      
+      if (hasX && hasY && hasZ) {
+        // 3D implicit surface: F(x, y, z) = c
+        console.log('[inferType] Implicit 3D surface detected');
+        return { type: MathType.Surface3D };
+      } else if (hasX && hasY) {
+        // 2D implicit curve: F(x, y) = c
+        console.log('[inferType] Implicit 2D curve detected');
+        return { type: MathType.Boolean };
+      } else if (hasX || hasY || hasZ) {
+        // 1D implicit: just an equation like x = 5
+        console.log('[inferType] Implicit 1D relation detected');
+        return { type: MathType.Boolean };
+      }
+      
+      // Numeric comparison: 1 = 1
+      return { type: MathType.Boolean };
+    }
     
     // Function definition
     if (lhs.includes('(')) {

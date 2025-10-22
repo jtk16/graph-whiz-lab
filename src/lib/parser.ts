@@ -70,6 +70,11 @@ class Parser {
         this.consume();
         const right = this.parseAddSub();
         left = { type: 'binary', operator: '>', left, right };
+      } else if (ch === '=') {
+        // Handle single '=' for implicit relations
+        this.consume();
+        const right = this.parseAddSub();
+        left = { type: 'binary', operator: '=', left, right };
       } else {
         break;
       }

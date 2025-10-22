@@ -22,7 +22,8 @@ export const graph2DTool: VisualizationTool = {
     MathType.Function,
     MathType.Number,
     MathType.Point,
-    MathType.List
+    MathType.List,
+    MathType.Boolean  // For implicit 2D curves
   ],
   component: Graph2DTool,
 };

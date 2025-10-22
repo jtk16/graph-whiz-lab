@@ -29,6 +29,19 @@ export function getIdentifierType(
   return context?.types?.[name];
 }
 
+/**
+ * Check if an expression is an implicit relation (not a definition)
+ * e.g., x^2 + y^2 = 1 (implicit) vs f(x) = x^2 (definition)
+ */
+export function isImplicitRelation(normalized: string): boolean {
+  if (!normalized.includes('=') || normalized.includes('==')) return false;
+  
+  const lhs = normalized.split('=')[0].trim();
+  // If LHS has operators or is not a simple identifier/function call
+  return lhs.match(/[+\-*\/^<>]/) !== null ||
+         (lhs.includes('(') && !lhs.match(/^[a-z_][a-z0-9_]*\(/i));
+}
+
 export function buildDefinitionContext(expressions: Array<{ normalized: string }>): DefinitionContext {
   console.log('=== buildDefinitionContext START ===');
   console.log('Input expressions:', expressions.map(e => e.normalized));
@@ -53,6 +66,12 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
     console.log(`[${idx}] Processing expression:`, normalized);
     if (!normalized || !normalized.includes('=')) {
       console.log(`[${idx}] Skipped: ${!normalized ? 'empty' : 'no equals sign'}`);
+      return;
+    }
+    
+    // Skip implicit relations - they're not definitions
+    if (isImplicitRelation(normalized)) {
+      console.log(`[${idx}] Skipped: implicit relation (not a definition)`);
       return;
     }
 

@@ -26,7 +26,8 @@ export const graph3DTool: VisualizationTool = {
     MathType.Vector3D,
     MathType.Curve3D,
     MathType.Surface3D,
-    MathType.List
+    MathType.List,
+    MathType.Boolean  // For implicit 3D surfaces
   ],
   component: Graph3DTool,
 };

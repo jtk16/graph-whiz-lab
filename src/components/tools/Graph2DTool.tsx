@@ -3,6 +3,8 @@ import { parseExpression } from "@/lib/parser";
 import { parseAndEvaluate } from "@/lib/evaluator";
 import { buildDefinitionContext } from "@/lib/definitionContext";
 import { ToolProps } from "@/lib/tools/types";
+import { ImplicitCurve2DEvaluator } from "@/lib/computation/evaluators/ImplicitCurve2DEvaluator";
+import { MathType } from "@/lib/types";
 
 export const Graph2DTool = ({ 
   expressions, 
@@ -106,10 +108,24 @@ export const Graph2DTool = ({
 
     expressions.forEach((expr) => {
       const normalized = expr.normalized.trim();
-      if (!normalized || normalized.includes('=')) return;
+      if (!normalized) return;
       
       try {
-        drawExpression(ctx, rect.width, rect.height, viewport, expr, context);
+        // Check if this is an implicit relation
+        const isImplicit = normalized.includes('=') && !normalized.includes('==');
+        if (isImplicit) {
+          // Check if it's a definition or an implicit relation
+          const lhs = normalized.split('=')[0].trim();
+          const isDefinition = lhs.match(/^[a-z_][a-z0-9_]*(\([^)]*\))?$/i);
+          
+          if (!isDefinition) {
+            // This is an implicit relation, draw it
+            drawImplicitCurve(ctx, rect.width, rect.height, viewport, expr, context);
+          }
+        } else {
+          // Regular function expression
+          drawExpression(ctx, rect.width, rect.height, viewport, expr, context);
+        }
       } catch (e) {
         console.error('Error drawing expression:', normalized, e);
       }
@@ -287,6 +303,65 @@ export const Graph2DTool = ({
         ctx.fillStyle = `hsl(${foregroundColor})`;
         ctx.fillText(label, labelX, py);
       }
+    }
+  };
+
+  const drawImplicitCurve = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    vp: typeof viewport,
+    expr: any,
+    context: any
+  ) => {
+    const normalized = expr.normalized.trim();
+    if (!normalized) return;
+    
+    try {
+      const ast = parseExpression(normalized, context);
+      const evaluator = new ImplicitCurve2DEvaluator(ast, context);
+      const curveData = evaluator.evaluateCurve({
+        bounds: { xMin: vp.xMin, xMax: vp.xMax, yMin: vp.yMin, yMax: vp.yMax },
+        resolution: 100
+      });
+      
+      // Resolve color
+      let resolvedColor = expr.color;
+      if (expr.color.includes('var(--')) {
+        const varMatch = expr.color.match(/var\((--[^)]+)\)/);
+        if (varMatch) {
+          const varName = varMatch[1];
+          const computedStyle = getComputedStyle(document.documentElement);
+          const varValue = computedStyle.getPropertyValue(varName).trim();
+          if (varValue) {
+            resolvedColor = `hsl(${varValue})`;
+          }
+        }
+      }
+      
+      ctx.strokeStyle = resolvedColor;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // Render each segment
+      curveData.segments.forEach(segment => {
+        if (segment.points.length < 2) return;
+        
+        ctx.beginPath();
+        segment.points.forEach((point, i) => {
+          const px = mapX(point.x, width, vp);
+          const py = mapY(point.y, height, vp);
+          if (i === 0) {
+            ctx.moveTo(px, py);
+          } else {
+            ctx.lineTo(px, py);
+          }
+        });
+        ctx.stroke();
+      });
+    } catch (e) {
+      console.warn('Error drawing implicit curve:', e);
     }
   };
 

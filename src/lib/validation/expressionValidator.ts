@@ -1,6 +1,6 @@
 // Expression validation system
 
-import { DefinitionContext, RESERVED_NAMES, CONSTANTS } from '../definitionContext';
+import { DefinitionContext, RESERVED_NAMES, CONSTANTS, isImplicitRelation } from '../definitionContext';
 import { getBuiltinFunctions } from '../runtime/callables';
 import { UndefinedIdentifierError, CircularDependencyError } from '../errors/RuntimeError';
 import { getSuggestions } from './suggestions';
@@ -30,9 +30,16 @@ export function validateExpression(
   const localParameters = new Set<string>();
   
   if (normalized.includes('=')) {
-    const parts = normalized.split('=');
-    if (parts.length === 2) {
-      expressionToValidate = parts[1].trim(); // Only validate RHS
+    // Check if this is an implicit relation - validate entire expression
+    if (isImplicitRelation(normalized)) {
+      // For implicit relations like x^2 + y^2 = 1, validate the whole thing
+      // No LHS identifier to skip
+      expressionToValidate = normalized.replace('=', '=='); // Treat as comparison for validation
+    } else {
+      // Regular definition - only validate RHS
+      const parts = normalized.split('=');
+      if (parts.length === 2) {
+        expressionToValidate = parts[1].trim(); // Only validate RHS
       
       // Extract LHS identifier (function name or variable name)
       const lhsMatch = parts[0].match(/^([a-zA-Z][a-zA-Z0-9_]*)/);
@@ -40,13 +47,14 @@ export function validateExpression(
         lhsIdentifier = lhsMatch[1];
       }
       
-      // Extract function parameters if this is a function definition
-      // e.g., f(t,x) = ... should extract [t, x]
-      const funcDefMatch = parts[0].match(/^[a-zA-Z][a-zA-Z0-9_]*\(([^)]+)\)/);
-      if (funcDefMatch) {
-        const paramsStr = funcDefMatch[1];
-        const params = paramsStr.split(',').map(p => p.trim());
-        params.forEach(p => localParameters.add(p));
+        // Extract function parameters if this is a function definition
+        // e.g., f(t,x) = ... should extract [t, x]
+        const funcDefMatch = parts[0].match(/^[a-zA-Z][a-zA-Z0-9_]*\(([^)]+)\)/);
+        if (funcDefMatch) {
+          const paramsStr = funcDefMatch[1];
+          const params = paramsStr.split(',').map(p => p.trim());
+          params.forEach(p => localParameters.add(p));
+        }
       }
     }
   }
