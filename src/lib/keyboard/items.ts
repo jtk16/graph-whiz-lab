@@ -41,16 +41,18 @@ const STATIC_KEYBOARD_ITEMS: KeyboardItem[] = [
   { id: 'list', latex: '[#?]', normalized: '[]', description: 'List', category: KeyboardCategory.DataTypes, insertTemplate: '[#0]', example: '[1,2,3]' },
 ];
 
-// Combine static items with registered function items
-export const KEYBOARD_ITEMS: KeyboardItem[] = [
-  ...STATIC_KEYBOARD_ITEMS,
-  ...getRegisteredKeyboardItems(),
-];
+// Combine static items with registered function items (dynamic getter)
+export function getKeyboardItems(): KeyboardItem[] {
+  return [
+    ...STATIC_KEYBOARD_ITEMS,
+    ...getRegisteredKeyboardItems(),
+  ];
+}
 
 export function getItemsByCategory(category: KeyboardCategory): KeyboardItem[] {
-  return KEYBOARD_ITEMS.filter(item => item.category === category);
+  return getKeyboardItems().filter(item => item.category === category);
 }
 
 export function getAllCategories(): KeyboardCategory[] {
-  return Array.from(new Set(KEYBOARD_ITEMS.map(item => item.category)));
+  return Array.from(new Set(getKeyboardItems().map(item => item.category)));
 }
