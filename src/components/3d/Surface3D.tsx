@@ -101,7 +101,23 @@ export function Surface3D({
     const mesh = new THREE.Mesh(geometry, material);
     meshRef.current = mesh;
     
+    // Compute bounding box for debugging
+    geometry.computeBoundingBox();
+    
     console.log('Surface3D: Mesh created and added to scene');
+    console.log('Surface3D: Mesh details', {
+      vertexCount: data.vertices.length / 3,
+      position: mesh.position,
+      scale: mesh.scale,
+      visible: mesh.visible,
+      material: {
+        color: material.color.getHexString(),
+        opacity: material.opacity,
+        transparent: material.transparent,
+        wireframe: material.wireframe
+      },
+      boundingBox: geometry.boundingBox
+    });
     
     scene.add(mesh);
     

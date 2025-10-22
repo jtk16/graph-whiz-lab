@@ -205,6 +205,18 @@ export const Graph3DTool = ({
       .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [expressions, toolkitDefinitions, space, viewport, toolConfig, isActive, isReady]);
   
+  // Log scene contents for debugging
+  useEffect(() => {
+    if (scene && isReady) {
+      console.log('[Graph3DTool] Scene contents:', {
+        totalChildren: scene.children.length,
+        meshes: scene.children.filter(c => c instanceof THREE.Mesh).length,
+        lights: scene.children.filter(c => c instanceof THREE.Light).length,
+        helpers: scene.children.filter(c => c instanceof THREE.GridHelper || c instanceof THREE.AxesHelper).length
+      });
+    }
+  }, [scene, isReady, renderableData]);
+  
   if (!isActive) return null;
   
   return (

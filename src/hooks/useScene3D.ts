@@ -59,6 +59,8 @@ export function useScene3D(
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.target.set(0, 0, 0); // Explicitly look at origin
+    controls.update();
     
     // Lighting
     const ambientLight = new THREE.AmbientLight(
@@ -92,6 +94,9 @@ export function useScene3D(
     controlsRef.current = controls;
     
     console.log('[useScene3D] Scene initialized successfully');
+    console.log('[useScene3D] Camera position:', camera.position);
+    console.log('[useScene3D] Camera target:', controls.target);
+    console.log('[useScene3D] Scene children count:', scene.children.length);
     setIsReady(true);
     
     // Animation loop
