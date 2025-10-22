@@ -105,15 +105,6 @@ const Index = () => {
     saveWorkspaceState(workspaceState);
   }, [workspaceState]);
 
-  // Get current viewport from workspace state
-  const currentViewport = getToolState(workspaceState, 'graph-2d').viewport || {
-    xMin: -10, xMax: 10, yMin: -10, yMax: 10
-  };
-
-  const handleViewportChange = (newViewport: any) => {
-    setWorkspaceState(prev => updateToolState(prev, 'graph-2d', { viewport: newViewport }));
-  };
-
   const handleLayoutChange = (newLayout: WorkspaceLayout) => {
     setLayout(newLayout);
     setWorkspaceState(prev => ({ ...prev, layoutId: newLayout.id }));
@@ -342,7 +333,7 @@ const Index = () => {
                 </Button>
               )}
 
-              <GraphCanvas 
+              <Workspace
                 expressions={[
                   // Toolkit definitions first (precedence)
                   ...toolkitDefinitions.map(td => ({
@@ -355,8 +346,11 @@ const Index = () => {
                   // Then user expressions
                   ...expressions
                 ]}
-                viewport={currentViewport}
-                onViewportChange={handleViewportChange}
+                toolkitDefinitions={toolkitDefinitions}
+                layout={layout}
+                onLayoutChange={handleLayoutChange}
+                toolStates={workspaceState.toolStates}
+                onToolStateChange={handleToolStateChange}
               />
               
               {/* Keyboard Toggle Button */}
