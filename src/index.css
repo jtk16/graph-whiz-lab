@@ -117,8 +117,8 @@ All colors MUST be HSL.
     --graph-6: 199 89% 60%;
 
     /* Canvas */
-    --canvas-bg: 222 47% 7%;
-    --grid-line: 217 33% 20%;
+    --canvas-bg: 222 47% 11%;
+    --grid-line: 217 33% 30%;
     --axis-line: 215 20% 65%;
 
     /* Expression list */

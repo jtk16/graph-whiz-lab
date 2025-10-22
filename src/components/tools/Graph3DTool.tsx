@@ -64,6 +64,18 @@ export const Graph3DTool = ({
   
   if (!isActive) return null;
   
+  // Show loading state while scene initializes
+  if (!isReady) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-background text-muted-foreground">
+        <div className="text-center">
+          <div className="text-lg mb-2">Initializing 3D view...</div>
+          <div className="text-sm">Setting up scene</div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="w-full h-full relative">
       <canvas ref={canvasRef} className="w-full h-full" />

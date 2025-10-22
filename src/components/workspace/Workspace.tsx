@@ -59,7 +59,7 @@ export function Workspace({
     
     return (
       <ToolContainer
-        key={`${slot.toolId}-${index}`}
+        key={`${slot.toolId}-${layout.id}-${index}`}
         tool={tool}
         size={slot.size}
       >
