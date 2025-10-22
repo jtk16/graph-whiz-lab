@@ -19,6 +19,9 @@ import {
 import { AVAILABLE_TOOLKITS, ToolkitExpression, Toolkit } from "@/lib/toolkits";
 import { ToolkitDefinitionsPanel } from "./ToolkitDefinitionsPanel";
 import { ToolkitExpressionSelector } from "./ToolkitExpressionSelector";
+import { LayoutSelector } from "./workspace/LayoutSelector";
+import { WorkspaceLayout } from "@/lib/workspace/types";
+import { WORKSPACE_LAYOUTS } from "@/lib/workspace/layouts";
 import * as LucideIcons from "lucide-react";
 
 interface HeaderProps {
@@ -27,6 +30,8 @@ interface HeaderProps {
   onUpdateDefinition: (id: string, latex: string) => void;
   onRemoveDefinition: (id: string) => void;
   onClearAll: () => void;
+  layout: WorkspaceLayout;
+  onLayoutChange: (layout: WorkspaceLayout) => void;
 }
 
 export function Header({ 
@@ -34,7 +39,9 @@ export function Header({
   onImportToolkit, 
   onUpdateDefinition,
   onRemoveDefinition,
-  onClearAll 
+  onClearAll,
+  layout,
+  onLayoutChange
 }: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -57,8 +64,16 @@ export function Header({
     <header className="h-14 border-b bg-background flex items-center justify-between px-4 sticky top-0 z-10">
       <h1 className="text-xl font-semibold">Expression Grapher</h1>
       
-      {/* Toolkit Definitions Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <div className="flex items-center gap-2">
+        {/* Layout Selector */}
+        <LayoutSelector
+          currentLayout={layout}
+          availableLayouts={WORKSPACE_LAYOUTS}
+          onSelect={onLayoutChange}
+        />
+        
+        {/* Toolkit Definitions Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline">
@@ -112,8 +127,9 @@ export function Header({
               onClearAll={onClearAll}
             />
           </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
       
       {/* Toolkit Expression Selector Dialog */}
       <Dialog open={isSelectorOpen} onOpenChange={setIsSelectorOpen}>

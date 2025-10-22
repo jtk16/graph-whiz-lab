@@ -279,6 +279,8 @@ const Index = () => {
         onUpdateDefinition={updateToolkitDefinition}
         onRemoveDefinition={removeToolkitDefinition}
         onClearAll={clearToolkitDefinitions}
+        layout={layout}
+        onLayoutChange={handleLayoutChange}
       />
       
       <div className="flex-1 flex overflow-hidden">
