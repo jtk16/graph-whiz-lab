@@ -5,6 +5,7 @@ import { buildDefinitionContext } from "@/lib/definitionContext";
 import { ToolProps } from "@/lib/tools/types";
 import { ImplicitCurve2DEvaluator } from "@/lib/computation/evaluators/ImplicitCurve2DEvaluator";
 import { MathType } from "@/lib/types";
+import { useTheme } from "next-themes";
 
 export const Graph2DTool = ({ 
   expressions, 
@@ -13,6 +14,7 @@ export const Graph2DTool = ({
   onViewportChange,
   isActive 
 }: ToolProps) => {
+  const { theme, resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -140,7 +142,7 @@ export const Graph2DTool = ({
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-  }, [expressions, toolkitDefinitions, viewport, hoveredPoint, isActive]);
+  }, [expressions, toolkitDefinitions, viewport, hoveredPoint, isActive, theme, resolvedTheme]);
 
   const drawGrid = (
     ctx: CanvasRenderingContext2D,

@@ -1,6 +1,22 @@
 import { useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import * as THREE from 'three';
 import { SurfaceData } from '@/lib/computation/evaluators/SurfaceEvaluator';
+
+// Helper to resolve CSS color variables
+function resolveColor(color: string): string {
+  if (color.includes('var(--')) {
+    const varMatch = color.match(/var\((--[^)]+)\)/);
+    if (varMatch) {
+      const varName = varMatch[1];
+      const varValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      if (varValue) {
+        return `hsl(${varValue})`;
+      }
+    }
+  }
+  return color;
+}
 
 interface Surface3DProps {
   scene: THREE.Scene;
@@ -19,8 +35,13 @@ export function Surface3D({
 }: Surface3DProps) {
   const meshRef = useRef<THREE.Mesh>();
   
+  const { theme, resolvedTheme } = useTheme();
+  
   useEffect(() => {
     if (!scene) return;
+    
+    // Resolve color from CSS variables
+    const resolvedColor = resolveColor(color);
     
     // Create geometry
     const geometry = new THREE.BufferGeometry();
@@ -34,7 +55,7 @@ export function Surface3D({
     
     // Create material
     const material = new THREE.MeshPhongMaterial({
-      color: new THREE.Color(color),
+      color: new THREE.Color(resolvedColor),
       wireframe,
       opacity,
       transparent: opacity < 1,
@@ -54,7 +75,7 @@ export function Surface3D({
       geometry.dispose();
       material.dispose();
     };
-  }, [scene, data, color, wireframe, opacity]);
+  }, [scene, data, color, wireframe, opacity, theme, resolvedTheme]);
   
   return null;
 }
