@@ -1,4 +1,6 @@
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import * as THREE from 'three';
 import { ToolProps } from '@/lib/tools/types';
 import { parseExpression } from '@/lib/parser';
 import { buildDefinitionContext } from '@/lib/definitionContext';
@@ -21,19 +23,44 @@ export const Graph3DTool = ({
   isActive 
 }: ToolProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { theme, resolvedTheme } = useTheme();
   const [spaceId, setSpaceId] = useState<string>(toolConfig?.spaceId || 'cartesian');
   const space = getSpace(spaceId) || cartesianSpace;
+  
+  // Get background color from theme
+  const getBackgroundColor = () => {
+    const canvasBg = getComputedStyle(document.documentElement)
+      .getPropertyValue('--canvas-bg')
+      .trim();
+    
+    if (canvasBg) {
+      const [h, s, l] = canvasBg.split(' ').map(v => v.replace('%', ''));
+      const hue = parseInt(h) / 360;
+      const sat = parseInt(s) / 100;
+      const light = parseInt(l) / 100;
+      return Math.round(hue * 360) * 0x10000 + Math.round(sat * 255) * 0x100 + Math.round(light * 255);
+    }
+    return 0x0a0a0a;
+  };
   
   // Only initialize 3D scene when active
   const { scene, isReady } = useScene3D(
     isActive ? canvasRef : { current: null }, 
     isActive ? {
-      backgroundColor: 0x0a0a0a,
+      backgroundColor: getBackgroundColor(),
       cameraPosition: [8, 8, 8],
       enableGrid: toolConfig?.showGrid !== false,
       enableAxes: toolConfig?.showAxes !== false
     } : {}
   );
+  
+  // Update scene background when theme changes
+  useEffect(() => {
+    if (scene && isActive) {
+      const bgColor = getBackgroundColor();
+      scene.background = new THREE.Color(bgColor);
+    }
+  }, [scene, theme, resolvedTheme, isActive]);
   
   // Evaluate all expressions to renderable data (surfaces or curves)
   const renderableData = useMemo(() => {

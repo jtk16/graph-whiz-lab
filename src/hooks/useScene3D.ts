@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useTheme } from 'next-themes';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -23,27 +22,6 @@ export function useScene3D(
   const animationFrameRef = useRef<number>();
   
   const [isReady, setIsReady] = useState(false);
-  const { theme, resolvedTheme } = useTheme();
-  
-  // Helper to get background color based on theme
-  const getBackgroundColor = () => {
-    const canvasBg = getComputedStyle(document.documentElement)
-      .getPropertyValue('--canvas-bg')
-      .trim();
-    
-    if (canvasBg) {
-      // Parse HSL string like "222 47% 20%"
-      const [h, s, l] = canvasBg.split(' ').map(v => v.replace('%', ''));
-      const hue = parseInt(h) / 360;
-      const sat = parseInt(s) / 100;
-      const light = parseInt(l) / 100;
-      
-      return new THREE.Color().setHSL(hue, sat, light);
-    }
-    
-    // Fallback
-    return new THREE.Color(config.backgroundColor || 0x0a0a0a);
-  };
   
   useEffect(() => {
     if (!canvasRef.current) {
@@ -55,8 +33,7 @@ export function useScene3D(
     
     // Initialize Three.js scene
     const scene = new THREE.Scene();
-    const bgColor = getBackgroundColor();
-    scene.background = bgColor;
+    scene.background = new THREE.Color(config.backgroundColor ?? 0x0a0a0a);
     sceneRef.current = scene;
     
     const camera = new THREE.PerspectiveCamera(
@@ -149,14 +126,6 @@ export function useScene3D(
       renderer.dispose();
     };
   }, [canvasRef, config.backgroundColor, config.ambientLightIntensity, config.directionalLightIntensity, config.cameraPosition, config.enableGrid, config.enableAxes]);
-  
-  // Update background color when theme changes
-  useEffect(() => {
-    if (sceneRef.current) {
-      const bgColor = getBackgroundColor();
-      sceneRef.current.background = bgColor;
-    }
-  }, [theme, resolvedTheme]);
   
   return {
     scene: sceneRef.current,
