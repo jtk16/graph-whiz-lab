@@ -1,5 +1,5 @@
 import { KeyboardCategory } from './categories';
-import { getKeyboardItems as getRegisteredKeyboardItems, KeyboardItem } from '../runtime/registry';
+import { registry, KeyboardItem } from '../operations/registry';
 
 // Re-export KeyboardItem for convenience
 export type { KeyboardItem };
@@ -45,7 +45,7 @@ const STATIC_KEYBOARD_ITEMS: KeyboardItem[] = [
 export function getKeyboardItems(): KeyboardItem[] {
   return [
     ...STATIC_KEYBOARD_ITEMS,
-    ...getRegisteredKeyboardItems(),
+    ...registry.getKeyboardItems(),
   ];
 }
 
