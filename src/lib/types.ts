@@ -29,11 +29,48 @@ export interface TypeInfo {
 export function inferType(expr: string, normalized: string): TypeInfo {
   console.log('[inferType] expr:', expr, 'normalized:', normalized);
   
-  // Check for implicit relations FIRST (before definitions)
-  // Pattern: expression = expression (where LHS is not a valid identifier)
+  // Check for equations (expressions with = that aren't ==)
   if (normalized.includes('=') && !normalized.includes('==')) {
     const parts = normalized.split('=');
     const lhs = parts[0].trim();
+    const rhs = parts[1].trim();
+    
+    // Check for axis variable definitions FIRST: z = f(x,y), y = f(x), etc.
+    if (lhs === 'z' || lhs === 'y' || lhs === 'x') {
+      const hasX = /\bx\b/.test(rhs);
+      const hasY = /\by\b/.test(rhs);
+      const hasZ = /\bz\b/.test(rhs);
+      
+      if (lhs === 'z' && hasX && hasY && !hasZ) {
+        // z = f(x,y) → Explicit Surface3D
+        console.log('[inferType] Explicit surface z=f(x,y) detected');
+        return { type: MathType.Surface3D };
+      }
+      
+      if (lhs === 'y' && hasX && !hasY && !hasZ) {
+        // y = f(x) → Explicit 2D curve (Function)
+        console.log('[inferType] Explicit curve y=f(x) detected');
+        return { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number };
+      }
+      
+      if (lhs === 'z' && hasX && !hasY && !hasZ) {
+        // z = f(x) → Curve3D (curve in xz-plane)
+        console.log('[inferType] 3D curve z=f(x) detected');
+        return { type: MathType.Curve3D };
+      }
+      
+      if (lhs === 'z' && hasY && !hasX && !hasZ) {
+        // z = f(y) → Curve3D (curve in yz-plane)
+        console.log('[inferType] 3D curve z=f(y) detected');
+        return { type: MathType.Curve3D };
+      }
+      
+      if (lhs === 'x' || (lhs === 'y' && !hasX) || (lhs === 'z' && !hasX && !hasY)) {
+        // x = constant, y = constant, z = constant
+        console.log('[inferType] Constant axis definition detected');
+        return { type: MathType.Number };
+      }
+    }
     
     // If LHS contains operators or is not a simple identifier/function call,
     // this is an implicit relation, not a definition
@@ -41,7 +78,7 @@ export function inferType(expr: string, normalized: string): TypeInfo {
         (lhs.includes('(') && !lhs.match(/^[a-z_][a-z0-9_]*\(/i))) {
       
       // This is an implicit relation - determine dimensionality
-      const combined = lhs + parts[1]; // Check all variables
+      const combined = lhs + rhs; // Check all variables
       const hasX = /\bx\b/.test(combined);
       const hasY = /\by\b/.test(combined);
       const hasZ = /\bz\b/.test(combined);
@@ -159,16 +196,8 @@ function inferExpressionType(expr: string): TypeInfo {
     return { type: MathType.Point3D };
   }
   
-  if (hasX && hasY && hasZ) {
-    // Three variables: implicit 3D surface or relation
-    return { type: MathType.Surface3D };
-  }
-  
-  if (hasX && hasY) {
-    // Implicit relation like x^2 + y^2 - both variables present
-    return { type: MathType.Boolean };
-  }
-  
+  // Standalone expressions with variables are functions, not geometric objects
+  // Geometric typing happens only in axis variable definitions or implicit relations
   if (hasX || hasY || hasZ) {
     // Expression with x, y, or z is a function
     return {

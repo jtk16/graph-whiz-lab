@@ -113,15 +113,24 @@ export const Graph2DTool = ({
       if (!normalized) return;
       
       try {
-        // Check if this is an implicit relation
-        const isImplicit = normalized.includes('=') && !normalized.includes('==');
-        if (isImplicit) {
-          // Check if it's a definition or an implicit relation
+        // Check if this is an equation (has = but not ==)
+        const hasEquals = normalized.includes('=') && !normalized.includes('==');
+        
+        if (hasEquals) {
           const lhs = normalized.split('=')[0].trim();
-          const isDefinition = lhs.match(/^[a-z_][a-z0-9_]*(\([^)]*\))?$/i);
           
-          if (!isDefinition) {
-            // This is an implicit relation, draw it
+          // Check if it's an explicit curve: y = f(x)
+          if (lhs === 'y') {
+            const rhs = normalized.split('=')[1].trim();
+            drawExpression(ctx, rect.width, rect.height, viewport, { ...expr, normalized: rhs }, context);
+          }
+          // Check if it's a regular definition (variable or function)
+          else if (lhs.match(/^[a-z_][a-z0-9_]*(\([^)]*\))?$/i)) {
+            // Skip definitions
+            return;
+          }
+          // Otherwise, it's an implicit relation
+          else {
             drawImplicitCurve(ctx, rect.width, rect.height, viewport, expr, context);
           }
         } else {

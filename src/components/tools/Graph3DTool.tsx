@@ -78,10 +78,32 @@ export const Graph3DTool = ({
           const typeInfo = inferType(expr.latex, expr.normalized);
           const ast = parseExpression(expr.normalized, context);
           
-          // Check if this is an implicit 3D surface
-          const isImplicit3D = typeInfo.type === MathType.Surface3D && 
-                               expr.normalized.includes('=') && 
-                               !expr.normalized.includes('==');
+          const hasEquals = expr.normalized.includes('=') && !expr.normalized.includes('==');
+          const isImplicit3D = typeInfo.type === MathType.Surface3D && hasEquals && !expr.normalized.startsWith('z=');
+          
+          // Check if this is an explicit surface: z = f(x,y)
+          const isExplicitSurface = typeInfo.type === MathType.Surface3D && 
+                                    hasEquals &&
+                                    expr.normalized.startsWith('z=');
+          
+          if (isExplicitSurface) {
+            // Parse z = f(x,y) and evaluate as explicit surface
+            const parts = expr.normalized.split('=');
+            const rhsAst = parseExpression(parts[1].trim(), context);
+            
+            const evaluator = new SurfaceEvaluator(rhsAst, context, space);
+            const bounds = viewport?.bounds || space.defaultBounds;
+            const data = evaluator.evaluateSurface({
+              bounds: {
+                x: bounds.x || { min: -5, max: 5 },
+                y: bounds.y || { min: -5, max: 5 },
+              },
+              resolution: toolConfig?.resolution || 30,
+              colorMode: 'height'
+            });
+            
+            return { type: 'surface' as const, data, color: expr.color, id: expr.id };
+          }
           
           if (isImplicit3D) {
             // Evaluate as implicit 3D surface
@@ -103,8 +125,8 @@ export const Graph3DTool = ({
             return { type: 'surface' as const, data, color: expr.color, id: expr.id };
           }
           
-          // Skip regular definitions (not implicit)
-          if (expr.normalized.includes('=') && !isImplicit3D) {
+          // Skip other definitions (variable assignments, function definitions)
+          if (hasEquals && !isImplicit3D && !isExplicitSurface) {
             return null;
           }
           
