@@ -22,6 +22,7 @@ import { ToolkitExpressionSelector } from "./ToolkitExpressionSelector";
 import { LayoutSelector } from "./workspace/LayoutSelector";
 import { WorkspaceLayout } from "@/lib/workspace/types";
 import { WORKSPACE_LAYOUTS } from "@/lib/workspace/layouts";
+import { ThemeToggle } from "./ThemeToggle";
 import * as LucideIcons from "lucide-react";
 
 interface HeaderProps {
@@ -65,6 +66,9 @@ export function Header({
       <h1 className="text-xl font-semibold">Expression Grapher</h1>
       
       <div className="flex items-center gap-2">
+        {/* Theme Toggle */}
+        <ThemeToggle />
+        
         {/* Layout Selector */}
         <LayoutSelector
           currentLayout={layout}
