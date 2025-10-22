@@ -12,6 +12,7 @@ export const Graph3DTool = ({
   expressions, 
   toolkitDefinitions,
   viewport,
+  onViewportChange,
   toolConfig,
   isActive 
 }: ToolProps) => {
@@ -19,12 +20,16 @@ export const Graph3DTool = ({
   const [spaceId, setSpaceId] = useState<string>(toolConfig?.spaceId || 'cartesian');
   const space = getSpace(spaceId) || cartesianSpace;
   
-  const { scene, isReady } = useScene3D(canvasRef, {
-    backgroundColor: 0x0a0a0a,
-    cameraPosition: [8, 8, 8],
-    enableGrid: toolConfig?.showGrid !== false,
-    enableAxes: toolConfig?.showAxes !== false
-  });
+  // Only initialize 3D scene when active
+  const { scene, isReady } = useScene3D(
+    isActive ? canvasRef : { current: null }, 
+    isActive ? {
+      backgroundColor: 0x0a0a0a,
+      cameraPosition: [8, 8, 8],
+      enableGrid: toolConfig?.showGrid !== false,
+      enableAxes: toolConfig?.showAxes !== false
+    } : {}
+  );
   
   // Evaluate all expressions to surface data
   const surfaceData = useMemo(() => {
@@ -80,7 +85,10 @@ export const Graph3DTool = ({
         <Graph3DControls
           toolConfig={toolConfig || {}}
           onConfigChange={(config) => {
-            // Tool config changes handled by parent
+            if (onViewportChange) {
+              // Update viewport bounds when config changes
+              onViewportChange({ bounds: space.defaultBounds, ...config });
+            }
           }}
           space={space}
           onSpaceChange={setSpaceId}

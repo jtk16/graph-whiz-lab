@@ -27,6 +27,14 @@ export function Workspace({
   toolStates,
   onToolStateChange
 }: WorkspaceProps) {
+  // Track which tools are actually rendered in current layout
+  const [activeToolIds, setActiveToolIds] = useState<Set<string>>(new Set());
+  
+  useEffect(() => {
+    const currentToolIds = new Set(layout.slots.map(slot => slot.toolId));
+    setActiveToolIds(currentToolIds);
+  }, [layout]);
+  
   const renderTool = (slot: ToolSlot, index: number) => {
     const tool = toolRegistry.get(slot.toolId);
     if (!tool) {
@@ -46,6 +54,9 @@ export function Workspace({
       onToolStateChange(slot.toolId, { ...toolState, config });
     };
     
+    // Tool is active only if it's in the current layout
+    const isToolActive = activeToolIds.has(slot.toolId);
+    
     return (
       <ToolContainer
         key={`${slot.toolId}-${index}`}
@@ -58,12 +69,12 @@ export function Workspace({
             toolkitDefinitions={toolkitDefinitions}
             viewport={toolState.viewport || slot.viewport}
             onViewportChange={handleViewportChange}
-            isActive={true}
+            isActive={isToolActive}
             toolConfig={toolState.config || slot.config}
           />
           
-          {/* Render controls if available */}
-          {ControlsComponent && toolState.viewport && (
+          {/* Render controls if available and tool is active */}
+          {ControlsComponent && isToolActive && toolState.viewport && (
             <ControlsComponent
               toolConfig={toolState.config || slot.config || {}}
               onConfigChange={handleConfigChange}
@@ -71,7 +82,7 @@ export function Workspace({
           )}
           
           {/* Special case: 2D graph controls */}
-          {slot.toolId === 'graph-2d' && toolState.viewport && (
+          {slot.toolId === 'graph-2d' && isToolActive && toolState.viewport && (
             <Graph2DControls
               viewport={toolState.viewport}
               onViewportChange={handleViewportChange}

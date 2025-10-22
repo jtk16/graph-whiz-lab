@@ -63,18 +63,26 @@ export const Graph2DTool = ({
 
   // Main render effect
   useEffect(() => {
-    if (!isActive) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // If not active, clear the canvas and return
+    if (!isActive) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     
     const definitions = [...expressions, ...toolkitDefinitions].filter(e => 
       e.normalized.trim().includes('=')
     );
     const context = buildDefinitionContext(definitions);
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
