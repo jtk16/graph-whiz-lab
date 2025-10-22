@@ -18,7 +18,7 @@ export interface SurfaceData {
 export interface EvaluationOptions {
   resolution: number;      // Grid resolution (e.g., 50 = 50x50 grid)
   bounds: Record<string, { min: number; max: number }>;
-  colorMode?: 'height' | 'gradient' | 'domain' | 'custom';
+  colorMode?: 'height' | 'gradient' | 'domain' | 'custom' | 'none';
 }
 
 export interface ImplicitSurfaceOptions {
@@ -127,6 +127,9 @@ export class SurfaceEvaluator {
         colors[i + 1] = 0.5;
         colors[i + 2] = 1 - normalized;
       }
+    } else if (options.colorMode === 'none') {
+      // Clear colors array if we don't want vertex colors
+      colors.length = 0;
     }
     
     // Generate triangle indices
@@ -146,12 +149,20 @@ export class SurfaceEvaluator {
     // Compute normals
     const normalsArray = this.computeNormals(vertices, indices);
     
-    return {
+    const surfaceData = {
       vertices: new Float32Array(vertices),
       normals: new Float32Array(normalsArray),
       colors: colors.length > 0 ? new Float32Array(colors) : undefined,
       indices: new Uint32Array(indices),
     };
+    
+    console.log('SurfaceEvaluator: Generated surface data', {
+      vertexCount: surfaceData.vertices.length / 3,
+      indexCount: surfaceData.indices.length,
+      hasColors: !!surfaceData.colors
+    });
+    
+    return surfaceData;
   }
   
   private computeNormals(vertices: number[], indices: number[]): number[] {
@@ -280,11 +291,18 @@ export class SurfaceEvaluator {
     // Compute normals
     const normalsArray = this.computeNormals(vertices, indices);
     
-    return {
+    const surfaceData = {
       vertices: new Float32Array(vertices),
       normals: new Float32Array(normalsArray),
       indices: new Uint32Array(indices),
     };
+    
+    console.log('SurfaceEvaluator (implicit): Generated surface data', {
+      vertexCount: surfaceData.vertices.length / 3,
+      indexCount: surfaceData.indices.length
+    });
+    
+    return surfaceData;
   }
   
   private createImplicit3DFunction(): (x: number, y: number, z: number) => number {

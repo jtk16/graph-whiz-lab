@@ -99,7 +99,13 @@ export const Graph3DTool = ({
                 y: bounds.y || { min: -5, max: 5 },
               },
               resolution: toolConfig?.resolution || 30,
-              colorMode: 'height'
+              colorMode: 'none' // Don't use vertex colors for explicit surfaces
+            });
+            
+            console.log('Graph3DTool: Explicit surface evaluated', {
+              expression: expr.normalized,
+              vertexCount: data.vertices.length / 3,
+              hasColors: !!data.colors
             });
             
             return { type: 'surface' as const, data, color: expr.color, id: expr.id };
@@ -120,6 +126,11 @@ export const Graph3DTool = ({
               },
               resolution: toolConfig?.resolution || 30,
               isoValue: 0
+            });
+            
+            console.log('Graph3DTool: Implicit surface evaluated', {
+              expression: expr.normalized,
+              vertexCount: data.vertices.length / 3
             });
             
             return { type: 'surface' as const, data, color: expr.color, id: expr.id };
@@ -152,7 +163,12 @@ export const Graph3DTool = ({
             const data = evaluator.evaluateSurface({
               resolution: toolConfig?.resolution || 50,
               bounds: viewport?.bounds || space.defaultBounds,
-              colorMode: toolConfig?.colorMode || 'height'
+              colorMode: 'none' // Use expression color, not vertex colors
+            });
+            
+            console.log('Graph3DTool: Generic surface evaluated', {
+              expression: expr.normalized,
+              vertexCount: data.vertices.length / 3
             });
             
             return { type: 'surface' as const, data, color: expr.color, id: expr.id };

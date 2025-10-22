@@ -24,6 +24,7 @@ interface Surface3DProps {
   color?: string;
   wireframe?: boolean;
   opacity?: number;
+  useVertexColors?: boolean; // Whether to use vertex colors instead of expression color
 }
 
 export function Surface3D({ 
@@ -31,7 +32,8 @@ export function Surface3D({
   data, 
   color = '#3b82f6', 
   wireframe = false, 
-  opacity = 0.85 
+  opacity = 0.85,
+  useVertexColors = false
 }: Surface3DProps) {
   const meshRef = useRef<THREE.Mesh>();
   
@@ -60,7 +62,7 @@ export function Surface3D({
       opacity,
       transparent: opacity < 1,
       side: THREE.DoubleSide,
-      vertexColors: data.colors ? true : false,
+      vertexColors: useVertexColors && data.colors ? true : false,
       shininess: 30
     });
     
@@ -75,7 +77,7 @@ export function Surface3D({
       geometry.dispose();
       material.dispose();
     };
-  }, [scene, data, color, wireframe, opacity, theme, resolvedTheme]);
+  }, [scene, data, color, wireframe, opacity, useVertexColors, theme, resolvedTheme]);
   
   return null;
 }
