@@ -8,6 +8,50 @@ import { getFunctionSignature } from './registry';
 import { evaluateConditional } from './functions';
 import './higherOrderFunctions'; // Initialize higher-order functions
 import { symbolicDerivativeAST, symbolicPartialAST } from '../computation/symbolic';
+import { hasUnboundVariables } from './variableDetector';
+import { MathType } from '../types';
+
+// Helper to extract variable names from an AST node
+function extractVariables(node: ASTNode, context?: DefinitionContext): string[] {
+  const vars = new Set<string>();
+  
+  function walk(n: ASTNode): void {
+    switch (n.type) {
+      case 'variable':
+        // Only include if not a constant or defined function
+        const varName = String(n.value);
+        if (varName !== 'pi' && varName !== 'e' && varName !== 'i') {
+          if (!context?.functions || !(varName in context.functions)) {
+            vars.add(varName);
+          }
+        }
+        break;
+      case 'binary':
+        if (n.left) walk(n.left);
+        if (n.right) walk(n.right);
+        break;
+      case 'unary':
+        if (n.left) walk(n.left);
+        if (n.right) walk(n.right);
+        break;
+      case 'call':
+        n.args?.forEach(walk);
+        break;
+      case 'list':
+        n.elements?.forEach(walk);
+        break;
+      case 'derivative':
+      case 'partial':
+        // Don't include the differentiation variable
+        if (n.operand) walk(n.operand);
+        break;
+    }
+  }
+  
+  walk(node);
+  return Array.from(vars);
+}
+
 
 export function evaluate(
   node: ASTNode,
@@ -204,6 +248,26 @@ export function evaluate(
         throw new Error(`Function ${node.name} requires arguments`);
       }
       
+      // Check if the argument has unbound variables (should remain symbolic)
+      const argHasVariables = hasUnboundVariables(node.args[0], context);
+      
+      if (argHasVariables) {
+        // Keep as symbolic function - try Function signature first
+        const funcType = MathType.Function;
+        const funcSig = getFunctionSignature(node.name!, funcType);
+        
+        if (funcSig) {
+          // Return a function that wraps this call
+          const callNode = node;
+          return createFunction({
+            name: node.name!,
+            params: extractVariables(node.args[0], context),
+            body: callNode
+          });
+        }
+      }
+      
+      // Evaluate argument to concrete value
       const arg = evaluate(node.args[0], variables, context);
       const argType = kindToMathType(arg.kind);
       const funcSig = getFunctionSignature(node.name!, argType);

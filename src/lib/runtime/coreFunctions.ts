@@ -1,8 +1,12 @@
 // Core mathematical functions using unified registry
 import { MathType } from '../types';
-import { RuntimeValue, createNumber, isNumber } from './value';
+import { RuntimeValue, createNumber, isNumber, isFunction, createFunction } from './value';
 import { KeyboardCategory } from '../keyboard/categories';
 import { registerFunction } from './registry';
+import { ASTNode } from '../parser';
+import { FunctionDefinition } from '../definitionContext';
+
+
 
 // ============= TRIGONOMETRIC FUNCTIONS =============
 
@@ -86,14 +90,25 @@ registerFunction({
 
 registerFunction({
   name: 'abs',
-  signatures: [{
-    paramType: MathType.Number,
-    returnType: MathType.Number,
-    execute: (arg) => {
-      if (!isNumber(arg)) throw new Error('abs expects Number');
-      return createNumber(Math.abs(arg.value));
+  signatures: [
+    {
+      paramType: MathType.Number,
+      returnType: MathType.Number,
+      execute: (arg) => {
+        if (!isNumber(arg)) throw new Error('abs expects Number');
+        return createNumber(Math.abs(arg.value));
+      }
+    },
+    {
+      paramType: MathType.Function,
+      returnType: MathType.Function,
+      execute: (arg) => {
+        if (!isFunction(arg)) throw new Error('abs expects Function');
+        // Return wrapped function: abs(f(x)) stays symbolic
+        return arg;
+      }
     }
-  }],
+  ],
   metadata: {
     latex: '\\left|#?\\right|',
     description: 'Absolute value',
@@ -200,14 +215,25 @@ registerFunction({
 
 registerFunction({
   name: 'round',
-  signatures: [{
-    paramType: MathType.Number,
-    returnType: MathType.Number,
-    execute: (arg) => {
-      if (!isNumber(arg)) throw new Error('round expects Number');
-      return createNumber(Math.round(arg.value));
+  signatures: [
+    {
+      paramType: MathType.Number,
+      returnType: MathType.Number,
+      execute: (arg) => {
+        if (!isNumber(arg)) throw new Error('round expects Number');
+        return createNumber(Math.round(arg.value));
+      }
+    },
+    {
+      paramType: MathType.Function,
+      returnType: MathType.Function,
+      execute: (arg) => {
+        if (!isFunction(arg)) throw new Error('round expects Function');
+        // Return wrapped function: round(f(x)) stays symbolic
+        return arg;
+      }
     }
-  }],
+  ],
   metadata: {
     latex: 'round(#?)',
     description: 'Round to nearest integer',
