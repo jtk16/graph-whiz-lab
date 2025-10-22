@@ -91,9 +91,8 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.replace(/\\exp\{([^}]+)\}/g, 'exp($1)');
   normalized = normalized.replace(/\\exp/g, 'exp');
   
-  // Absolute value: \abs{x} → abs(x) and |x| → abs(x)
+  // Absolute value: \abs{x} → abs(x)
   normalized = normalized.replace(/\\abs\{([^}]+)\}/g, 'abs($1)');
-  normalized = normalized.replace(/\|([^|]+)\|/g, 'abs($1)');
   normalized = normalized.replace(/\\abs/g, 'abs');
   
   // Square root: \sqrt{x} → sqrt(x)
