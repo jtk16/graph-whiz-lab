@@ -4,7 +4,7 @@
 
 import { registry } from '../registry';
 import { MathType } from '../../types';
-import { isComplex, createNumber, createComplex } from '../../runtime/value';
+import { isComplex, isNumber, createNumber, createComplex } from '../../runtime/value';
 import { KeyboardCategory } from '../../keyboard/categories';
 
 // Argument (phase angle)
@@ -20,7 +20,8 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Complex], output: MathType.Number }
+      { input: [MathType.Complex], output: MathType.Number },
+      { input: [MathType.Number], output: MathType.Number }
     ]
   },
   runtime: {
@@ -29,7 +30,11 @@ registry.register({
       if (isComplex(arg)) {
         return createNumber(Math.atan2(arg.imag, arg.real));
       }
-      throw new Error('arg expects Complex');
+      if (isNumber(arg)) {
+        // Phase angle of real number: 0 for positive, π for negative
+        return createNumber(arg.value >= 0 ? 0 : Math.PI);
+      }
+      throw new Error('arg expects Complex or Number');
     }
   },
   ui: {
@@ -52,7 +57,8 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Complex], output: MathType.Number }
+      { input: [MathType.Complex], output: MathType.Number },
+      { input: [MathType.Number], output: MathType.Number }
     ]
   },
   runtime: {
@@ -61,7 +67,11 @@ registry.register({
       if (isComplex(arg)) {
         return createNumber(arg.real);
       }
-      throw new Error('real expects Complex');
+      if (isNumber(arg)) {
+        // Real part of a real number is itself
+        return arg;
+      }
+      throw new Error('real expects Complex or Number');
     }
   },
   ui: {
@@ -84,7 +94,8 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Complex], output: MathType.Number }
+      { input: [MathType.Complex], output: MathType.Number },
+      { input: [MathType.Number], output: MathType.Number }
     ]
   },
   runtime: {
@@ -93,7 +104,11 @@ registry.register({
       if (isComplex(arg)) {
         return createNumber(arg.imag);
       }
-      throw new Error('imag expects Complex');
+      if (isNumber(arg)) {
+        // Imaginary part of a real number is zero
+        return createNumber(0);
+      }
+      throw new Error('imag expects Complex or Number');
     }
   },
   ui: {
@@ -116,7 +131,8 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Complex], output: MathType.Complex }
+      { input: [MathType.Complex], output: MathType.Complex },
+      { input: [MathType.Number], output: MathType.Number }
     ]
   },
   runtime: {
@@ -125,7 +141,11 @@ registry.register({
       if (isComplex(arg)) {
         return createComplex(arg.real, -arg.imag);
       }
-      throw new Error('conj expects Complex');
+      if (isNumber(arg)) {
+        // Conjugate of a real number is itself
+        return arg;
+      }
+      throw new Error('conj expects Complex or Number');
     }
   },
   ui: {

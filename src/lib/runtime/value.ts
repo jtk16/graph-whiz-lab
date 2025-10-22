@@ -39,6 +39,12 @@ export function createComplex(real: number, imag: number): RuntimeValue {
   return { kind: 'complex', real, imag };
 }
 
+export function promoteToComplex(value: RuntimeValue): RuntimeValue {
+  if (isComplex(value)) return value;
+  if (isNumber(value)) return createComplex(value.value, 0);
+  throw new Error(`Cannot promote ${value.kind} to Complex`);
+}
+
 // Type guards
 export function isNumber(value: RuntimeValue): value is { kind: 'number'; value: number } {
   return value.kind === 'number';

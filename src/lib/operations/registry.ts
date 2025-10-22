@@ -16,6 +16,22 @@ import { MathType } from '../types';
 import { RuntimeValue } from '../runtime/value';
 import { DefinitionContext } from '../definitionContext';
 
+/**
+ * Check if a provided type is compatible with an expected type
+ * Handles subset relationships (e.g., Number ⊂ Complex)
+ */
+function isTypeCompatible(provided: MathType, expected: MathType): boolean {
+  if (provided === expected) return true;
+  
+  // Real numbers are a subset of complex numbers
+  if (expected === MathType.Complex && provided === MathType.Number) return true;
+  
+  // Unknown can match anything
+  if (expected === MathType.Unknown || provided === MathType.Unknown) return true;
+  
+  return false;
+}
+
 export interface KeyboardItem {
   id: string;
   latex: string;
@@ -133,9 +149,9 @@ class OperationRegistry {
       
       if (argTypes.length !== inputTypes.length) continue;
       
-      // Check if all argument types match
+      // Check if all argument types are compatible
       const matches = argTypes.every((argType, idx) => {
-        return argType === inputTypes[idx] || inputTypes[idx] === MathType.Unknown;
+        return isTypeCompatible(argType, inputTypes[idx]);
       });
       
       if (matches) {
