@@ -5,16 +5,35 @@ import { SurfaceData } from '@/lib/computation/evaluators/SurfaceEvaluator';
 
 // Helper to resolve CSS color variables
 function resolveColor(color: string): string {
-  if (color.includes('var(--')) {
-    const varMatch = color.match(/var\((--[^)]+)\)/);
-    if (varMatch) {
-      const varName = varMatch[1];
-      const varValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-      if (varValue) {
-        return `hsl(${varValue})`;
+  // Handle hsl(var(--variable)) pattern
+  const hslVarMatch = color.match(/hsl\(var\((--[^)]+)\)\)/);
+  if (hslVarMatch) {
+    const varName = hslVarMatch[1];
+    const varValue = getComputedStyle(document.documentElement)
+      .getPropertyValue(varName)
+      .trim();
+    if (varValue) {
+      // CSS custom properties for colors are in format "220 13% 10%"
+      // Convert to proper HSL format for THREE.Color
+      const parts = varValue.split(/\s+/);
+      if (parts.length === 3) {
+        return `hsl(${parts[0]}, ${parts[1]}, ${parts[2]})`;
       }
     }
   }
+  
+  // Handle direct var(--variable) pattern
+  const varMatch = color.match(/var\((--[^)]+)\)/);
+  if (varMatch) {
+    const varName = varMatch[1];
+    const varValue = getComputedStyle(document.documentElement)
+      .getPropertyValue(varName)
+      .trim();
+    if (varValue) {
+      return `hsl(${varValue})`;
+    }
+  }
+  
   return color;
 }
 
@@ -52,6 +71,10 @@ export function Surface3D({
     
     // Resolve color from CSS variables
     const resolvedColor = resolveColor(color);
+    console.log('Surface3D: Color resolution', { 
+      original: color, 
+      resolved: resolvedColor 
+    });
     
     // Create geometry
     const geometry = new THREE.BufferGeometry();
