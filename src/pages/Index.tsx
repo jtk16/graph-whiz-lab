@@ -17,6 +17,10 @@ import { ToolkitExpression, getToolkitById } from "@/lib/toolkits";
 import { toast } from "@/hooks/use-toast";
 import { KeyboardItem } from "@/lib/keyboard/items";
 import { MathInputRef } from "@/components/MathInput";
+import { Workspace } from "@/components/workspace/Workspace";
+import { WorkspaceLayout } from "@/lib/workspace/types";
+import { getDefaultLayout, WORKSPACE_LAYOUTS } from "@/lib/workspace/layouts";
+import { loadWorkspaceState, saveWorkspaceState, updateToolState, getToolState } from "@/lib/workspace/manager";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -71,11 +75,12 @@ const Index = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [viewport, setViewport] = useState({
-    xMin: -10,
-    xMax: 10,
-    yMin: -10,
-    yMax: 10,
+  
+  // Workspace state management
+  const [workspaceState, setWorkspaceState] = useState(() => loadWorkspaceState());
+  const [layout, setLayout] = useState<WorkspaceLayout>(() => {
+    const loaded = loadWorkspaceState();
+    return WORKSPACE_LAYOUTS.find(l => l.id === loaded.layoutId) || getDefaultLayout();
   });
 
   // Ref to store active MathInput for keyboard insertions
@@ -94,6 +99,29 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem('graph-expressions', JSON.stringify(expressions));
   }, [expressions]);
+
+  // Persist workspace state
+  useEffect(() => {
+    saveWorkspaceState(workspaceState);
+  }, [workspaceState]);
+
+  // Get current viewport from workspace state
+  const currentViewport = getToolState(workspaceState, 'graph-2d').viewport || {
+    xMin: -10, xMax: 10, yMin: -10, yMax: 10
+  };
+
+  const handleViewportChange = (newViewport: any) => {
+    setWorkspaceState(prev => updateToolState(prev, 'graph-2d', { viewport: newViewport }));
+  };
+
+  const handleLayoutChange = (newLayout: WorkspaceLayout) => {
+    setLayout(newLayout);
+    setWorkspaceState(prev => ({ ...prev, layoutId: newLayout.id }));
+  };
+
+  const handleToolStateChange = (toolId: string, state: any) => {
+    setWorkspaceState(prev => updateToolState(prev, toolId, state));
+  };
 
   const addExpression = () => {
     const newId = Date.now().toString();
@@ -182,43 +210,6 @@ const Index = () => {
   const clearAllExpressions = () => {
     setExpressions([]);
     setActiveId(null);
-  };
-
-  const handleZoomIn = () => {
-    const xCenter = (viewport.xMin + viewport.xMax) / 2;
-    const yCenter = (viewport.yMin + viewport.yMax) / 2;
-    const xRange = (viewport.xMax - viewport.xMin) / 2;
-    const yRange = (viewport.yMax - viewport.yMin) / 2;
-
-    setViewport({
-      xMin: xCenter - xRange / 2,
-      xMax: xCenter + xRange / 2,
-      yMin: yCenter - yRange / 2,
-      yMax: yCenter + yRange / 2,
-    });
-  };
-
-  const handleZoomOut = () => {
-    const xCenter = (viewport.xMin + viewport.xMax) / 2;
-    const yCenter = (viewport.yMin + viewport.yMax) / 2;
-    const xRange = (viewport.xMax - viewport.xMin) * 2;
-    const yRange = (viewport.yMax - viewport.yMin) * 2;
-
-    setViewport({
-      xMin: xCenter - xRange / 2,
-      xMax: xCenter + xRange / 2,
-      yMin: yCenter - yRange / 2,
-      yMax: yCenter + yRange / 2,
-    });
-  };
-
-  const handleResetView = () => {
-    setViewport({
-      xMin: -10,
-      xMax: 10,
-      yMin: -10,
-      yMax: 10,
-    });
   };
 
   // Toolkit management functions
@@ -362,13 +353,8 @@ const Index = () => {
                   // Then user expressions
                   ...expressions
                 ]}
-                viewport={viewport}
-                onViewportChange={setViewport}
-              />
-              <GraphControls
-                onZoomIn={handleZoomIn}
-                onZoomOut={handleZoomOut}
-                onResetView={handleResetView}
+                viewport={currentViewport}
+                onViewportChange={handleViewportChange}
               />
               
               {/* Keyboard Toggle Button */}
