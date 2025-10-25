@@ -3,6 +3,12 @@
 import { ASTNode, parseExpression } from './parser';
 import { MathType, TypeInfo, inferType } from './types';
 
+const DEBUG_DEFINITION_CONTEXT = false;
+const debug = (...args: unknown[]) => {
+  if (!DEBUG_DEFINITION_CONTEXT) return;
+  console.log(...args);
+};
+
 export const RESERVED_NAMES = ['x', 'y', 'z', 'pi', 'e', 'i'];
 
 export const CONSTANTS: Record<string, number> = {
@@ -43,8 +49,8 @@ export function isImplicitRelation(normalized: string): boolean {
 }
 
 export function buildDefinitionContext(expressions: Array<{ normalized: string }>): DefinitionContext {
-  console.log('=== buildDefinitionContext START ===');
-  console.log('Input expressions:', expressions.map(e => e.normalized));
+  debug('=== buildDefinitionContext START ===');
+  debug('Input expressions:', expressions.map(e => e.normalized));
   
   const context: DefinitionContext = {
     variables: { ...CONSTANTS },
@@ -63,15 +69,15 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
   expressions.forEach((expr, idx) => {
     const normalized = expr.normalized.trim();
-    console.log(`[${idx}] Processing expression:`, normalized);
+    debug(`[${idx}] Processing expression:`, normalized);
     if (!normalized || !normalized.includes('=')) {
-      console.log(`[${idx}] Skipped: ${!normalized ? 'empty' : 'no equals sign'}`);
+      debug(`[${idx}] Skipped: ${!normalized ? 'empty' : 'no equals sign'}`);
       return;
     }
     
     // Skip implicit relations - they're not definitions
     if (isImplicitRelation(normalized)) {
-      console.log(`[${idx}] Skipped: implicit relation (not a definition)`);
+      debug(`[${idx}] Skipped: implicit relation (not a definition)`);
       return;
     }
 
@@ -80,17 +86,17 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
     const lhs = parts[0].trim();
     const rhs = parts[1].trim();
-    console.log('buildDefinitionContext: lhs=', lhs, 'rhs=', rhs);
+    debug('buildDefinitionContext: lhs=', lhs, 'rhs=', rhs);
 
     // Function definition: f(x) = ... or f_1(x,y) = ... (multi-parameter)
     const funcMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)\(([^)]+)\)$/);
-    console.log(`[${idx}] funcMatch result:`, funcMatch);
+    debug(`[${idx}] funcMatch result:`, funcMatch);
     if (funcMatch) {
       const funcName = funcMatch[1];
       const paramsStr = funcMatch[2];
       const params = paramsStr.split(',').map(p => p.trim());
       
-      console.log(`[${idx}] Function detected: ${funcName}, params:`, params);
+      debug(`[${idx}] Function detected: ${funcName}, params:`, params);
       
       if (RESERVED_NAMES.includes(funcName)) {
         console.warn(`[${idx}] ❌ Cannot define function with reserved name: ${funcName}`);
@@ -106,7 +112,7 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       processing.add(funcName);
 
       try {
-        console.log(`[${idx}] Parsing function body:`, rhs);
+        debug(`[${idx}] Parsing function body:`, rhs);
         const body = parseExpression(rhs, context);
         context.functions[funcName] = { name: funcName, params, body };
         
@@ -114,8 +120,8 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         const typeInfo = inferType(normalized, normalized);
         context.types[funcName] = typeInfo;
         
-        console.log(`[${idx}] ✅ Successfully added function '${funcName}' with params`, params);
-        console.log(`[${idx}] Current functions in context:`, Object.keys(context.functions));
+        debug(`[${idx}] ✅ Successfully added function '${funcName}' with params`, params);
+        debug(`[${idx}] Current functions in context:`, Object.keys(context.functions));
       } catch (e) {
         console.error(`[${idx}] ❌ Failed to parse function body:`, e);
       } finally {
@@ -126,11 +132,11 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
 
     // Variable definition: a = ... or a_1 = ...
     const varMatch = lhs.match(/^([a-zA-Z][a-zA-Z0-9_]*)$/);
-    console.log(`[${idx}] varMatch result:`, varMatch);
+    debug(`[${idx}] varMatch result:`, varMatch);
     if (varMatch) {
       const varName = varMatch[1];
       
-      console.log(`[${idx}] Variable detected: ${varName}`);
+      debug(`[${idx}] Variable detected: ${varName}`);
       
       if (RESERVED_NAMES.includes(varName)) {
         console.warn(`[${idx}] ❌ Cannot define variable with reserved name: ${varName}`);
@@ -154,12 +160,12 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
             // Store list as AST node for runtime evaluation
             context.variables[varName] = ast;
             context.types[varName] = { type: MathType.List };
-            console.log(`[${idx}] ✅ Added list variable ${varName} with ${ast.elements?.length} elements`);
+            debug(`[${idx}] ✅ Added list variable ${varName} with ${ast.elements?.length} elements`);
             processing.delete(varName);
             return;
           }
         } catch (e) {
-          console.log(`[${idx}] ⚠️  Failed to parse list ${varName}: ${e}`);
+          debug(`[${idx}] ⚠️  Failed to parse list ${varName}: ${e}`);
           processing.delete(varName);
           return;
         }
@@ -179,22 +185,22 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         if (isFinite(value)) {
           context.variables[varName] = value;
           context.types[varName] = { type: MathType.Number };
-          console.log(`[${idx}] ✅ Added variable ${varName} = ${value}`);
+          debug(`[${idx}] ✅ Added variable ${varName} = ${value}`);
         }
       } catch (e) {
-        console.log(`[${idx}] ⚠️  Skipped variable ${varName}: ${e}`);
+        debug(`[${idx}] ⚠️  Skipped variable ${varName}: ${e}`);
       } finally {
         processing.delete(varName);
       }
     } else {
-      console.log(`[${idx}] ⚠️  No match for function or variable pattern`);
+      debug(`[${idx}] ⚠️  No match for function or variable pattern`);
     }
   });
 
-  console.log('=== buildDefinitionContext RESULT ===');
-  console.log('Functions:', Object.keys(context.functions));
-  console.log('Variables:', Object.keys(context.variables));
-  console.log('=====================================');
+  debug('=== buildDefinitionContext RESULT ===');
+  debug('Functions:', Object.keys(context.functions));
+  debug('Variables:', Object.keys(context.variables));
+  debug('=====================================');
 
   return context;
 }

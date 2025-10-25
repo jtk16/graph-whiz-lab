@@ -1,14 +1,10 @@
-import { Toolkit } from './types';
 import { signalProcessingToolkit } from './signalProcessing';
 import { geometry3dToolkit } from './geometry3d';
+import { registerToolkit, listToolkits, getToolkitById } from './store';
 
 export * from './types';
+export { registerToolkit, listToolkits, getToolkitById } from './store';
 
-export const AVAILABLE_TOOLKITS: Toolkit[] = [
-  signalProcessingToolkit,
-  geometry3dToolkit
-];
-
-export function getToolkitById(id: string): Toolkit | undefined {
-  return AVAILABLE_TOOLKITS.find(toolkit => toolkit.id === id);
-}
+// Register built-in toolkits at module load so additional modules can
+// register their own toolkits via registerToolkit without mutating globals.
+[signalProcessingToolkit, geometry3dToolkit].forEach(registerToolkit);

@@ -26,8 +26,14 @@ export interface TypeInfo {
   dimensions?: number; // For lists/points
 }
 
+const DEBUG_TYPE_INFER = false;
+const debugType = (...args: unknown[]): void => {
+  if (!DEBUG_TYPE_INFER) return;
+  console.log(...args);
+};
+
 export function inferType(expr: string, normalized: string): TypeInfo {
-  console.log('[inferType] expr:', expr, 'normalized:', normalized);
+  debugType('[inferType] expr:', expr, 'normalized:', normalized);
   
   // Check for equations (expressions with = that aren't ==)
   if (normalized.includes('=') && !normalized.includes('==')) {
@@ -43,57 +49,67 @@ export function inferType(expr: string, normalized: string): TypeInfo {
       
       if (lhs === 'z' && hasX && hasY && !hasZ) {
         // z = f(x,y) → Explicit Surface3D
-        console.log('[inferType] Explicit surface z=f(x,y) detected');
+        debugType('[inferType] Explicit surface z=f(x,y) detected');
         return { type: MathType.Surface3D };
       }
       
       if (lhs === 'y' && hasX && !hasY && !hasZ) {
         // y = f(x) → Explicit 2D curve (Function)
-        console.log('[inferType] Explicit curve y=f(x) detected');
+        debugType('[inferType] Explicit curve y=f(x) detected');
         return { type: MathType.Function, domain: MathType.Number, codomain: MathType.Number };
       }
       
       if (lhs === 'z' && hasX && !hasY && !hasZ) {
         // z = f(x) → Curve3D (curve in xz-plane)
-        console.log('[inferType] 3D curve z=f(x) detected');
+        debugType('[inferType] 3D curve z=f(x) detected');
         return { type: MathType.Curve3D };
       }
       
       if (lhs === 'z' && hasY && !hasX && !hasZ) {
         // z = f(y) → Curve3D (curve in yz-plane)
-        console.log('[inferType] 3D curve z=f(y) detected');
+        debugType('[inferType] 3D curve z=f(y) detected');
         return { type: MathType.Curve3D };
       }
       
       if (lhs === 'x' || (lhs === 'y' && !hasX) || (lhs === 'z' && !hasX && !hasY)) {
         // x = constant, y = constant, z = constant
-        console.log('[inferType] Constant axis definition detected');
+        debugType('[inferType] Constant axis definition detected');
         return { type: MathType.Number };
       }
     }
     
     // If LHS contains operators or is not a simple identifier/function call,
     // this is an implicit relation, not a definition
-    if (lhs.match(/[+\-*\/^<>]/) || 
-        (lhs.includes('(') && !lhs.match(/^[a-z_][a-z0-9_]*\(/i))) {
+    const simpleIdentifier = /^[a-z_][a-z0-9_]*$/i;
+    const functionPattern = /^[a-z_][a-z0-9_]*\([^)]*\)$/i;
+    const isImplicitRelation =
+      lhs.match(/[+\-*\/^<>]/) !== null ||
+      (lhs.includes('(') && !functionPattern.test(lhs)) ||
+      (!simpleIdentifier.test(lhs) && !functionPattern.test(lhs) && !['x', 'y', 'z'].includes(lhs));
+
+    if (isImplicitRelation) {
       
       // This is an implicit relation - determine dimensionality
-      const combined = lhs + rhs; // Check all variables
-      const hasX = /\bx\b/.test(combined);
-      const hasY = /\by\b/.test(combined);
-      const hasZ = /\bz\b/.test(combined);
+      const tokenPool = `${lhs} ${rhs}`
+        .replace(/[^a-z0-9_]/gi, ' ')
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(Boolean);
+      const hasX = tokenPool.includes('x');
+      const hasY = tokenPool.includes('y');
+      const hasZ = tokenPool.includes('z');
       
       if (hasX && hasY && hasZ) {
         // 3D implicit surface: F(x, y, z) = c
-        console.log('[inferType] Implicit 3D surface detected');
+        debugType('[inferType] Implicit 3D surface detected');
         return { type: MathType.Surface3D };
       } else if (hasX && hasY) {
         // 2D implicit curve: F(x, y) = c
-        console.log('[inferType] Implicit 2D curve detected');
+        debugType('[inferType] Implicit 2D curve detected');
         return { type: MathType.Boolean };
       } else if (hasX || hasY || hasZ) {
         // 1D implicit: just an equation like x = 5
-        console.log('[inferType] Implicit 1D relation detected');
+        debugType('[inferType] Implicit 1D relation detected');
         return { type: MathType.Boolean };
       }
       
@@ -125,24 +141,24 @@ export function inferType(expr: string, normalized: string): TypeInfo {
         domain,
         codomain: codomainType
       };
-      console.log('[inferType] Function definition result:', result);
+      debugType('[inferType] Function definition result:', result);
       return result;
     }
     
     // Variable definition
     const result = inferExpressionType(parts[1].trim());
-    console.log('[inferType] Variable definition result:', result);
+    debugType('[inferType] Variable definition result:', result);
     return result;
   }
   
   // Boolean expressions (relations)
   if (normalized.match(/<|>|<=|>=|==|!=/)) {
-    console.log('[inferType] Boolean expression');
+    debugType('[inferType] Boolean expression');
     return { type: MathType.Boolean };
   }
   
   const result = inferExpressionType(normalized);
-  console.log('[inferType] Expression result:', result);
+  debugType('[inferType] Expression result:', result);
   return result;
 }
 
@@ -209,14 +225,14 @@ function inferExpressionType(expr: string): TypeInfo {
   
   // Pure number literal (includes decimals and negatives)
   if (expr.match(/^-?\d+(\.\d+)?$/)) {
-    console.log('[inferExpressionType] Pure number match for:', expr);
+    debugType('[inferExpressionType] Pure number match for:', expr);
     return { type: MathType.Number };
   }
   
   // Arithmetic expression with only numbers and operators (no variables)
   // This catches things like "7+8", "2*3", "10/2", etc.
   if (expr.match(/^[\d\+\-\*\/\^\(\)\.\s]+$/)) {
-    console.log('[inferExpressionType] Arithmetic expression match for:', expr);
+    debugType('[inferExpressionType] Arithmetic expression match for:', expr);
     return { type: MathType.Number };
   }
   

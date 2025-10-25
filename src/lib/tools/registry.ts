@@ -19,7 +19,9 @@ class ToolRegistry {
       console.warn(`Tool ${tool.id} is already registered, overwriting`);
     }
     this.tools.set(tool.id, tool);
-    console.log(`✅ Registered tool: ${tool.id}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.info(`[tools] registered: ${tool.id}`);
+    }
   }
   
   /**
@@ -67,3 +69,5 @@ class ToolRegistry {
  * Import this to access registered tools
  */
 export const toolRegistry = new ToolRegistry();
+
+

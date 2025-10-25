@@ -96,7 +96,7 @@ export const Graph2DTool = ({
 
     ctx.scale(dpr, dpr);
 
-    const computedStyle = getComputedStyle(canvas);
+    const computedStyle = getComputedStyle(document.documentElement);
     const canvasBg = computedStyle.getPropertyValue('--canvas-bg').trim();
     const gridLine = computedStyle.getPropertyValue('--grid-line').trim();
     const axisLine = computedStyle.getPropertyValue('--axis-line').trim();
@@ -142,16 +142,7 @@ export const Graph2DTool = ({
       }
     });
 
-    if (hoveredPoint) {
-      ctx.beginPath();
-      ctx.arc(hoveredPoint.screenX, hoveredPoint.screenY, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = hoveredPoint.expr.color;
-      ctx.fill();
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-  }, [expressions, toolkitDefinitions, viewport, hoveredPoint, isActive, theme, resolvedTheme]);
+  }, [expressions, toolkitDefinitions, viewport, isActive, theme, resolvedTheme]);
 
   const drawGrid = (
     ctx: CanvasRenderingContext2D,

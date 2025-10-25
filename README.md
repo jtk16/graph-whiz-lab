@@ -66,6 +66,28 @@ This project is built with:
 
 This calculator uses a **Unified Operations System** where all mathematical operations (functions, operators, special constructs) are defined in a single source of truth. Each operation is defined once in `src/lib/operations/definitions/` with:
 
+## Expression Engine
+
+All parsing, normalization, and evaluation now flow through `src/lib/expression/engine.ts`. Importing `@/lib/expression` boots the operation registry, visualization tools, and toolkits so every feature module shares the same environment. The engine exposes:
+
+- `normalize()` middleware pipeline (LaTeX → parser-friendly)
+- `buildContext()` with pluggable augmenters for shared definitions
+- Cached `parse()`/`evaluate()` helpers plus `inspect()` for token-level debugging
+- A lightweight module API (`registerExpressionModule`) for future extensions
+
+Use the engine instead of direct `parseExpression`/`buildDefinitionContext` calls to ensure new modules scale with the registry.
+
+## Testing & Audits
+
+The deep clean added Vitest coverage for the expression engine, tokenizer, toolkits, and viewport math. Run:
+
+```sh
+npm run test   # Executes vitest suite
+npm run audit  # Same suite with verbose reporter
+```
+
+Keep these tests green before shipping major parser/runtime changes.
+
 - Syntax (LaTeX and normalized forms)
 - Type signatures
 - Runtime execution logic
@@ -97,3 +119,4 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+

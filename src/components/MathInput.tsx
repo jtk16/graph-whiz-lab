@@ -1,5 +1,6 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { MathfieldElement } from "mathlive";
+import "mathlive/fonts.css";
 
 interface MathInputProps {
   value: string;
@@ -14,6 +15,21 @@ export interface MathInputRef {
   insert: (latex: string) => void;
   focus: () => void;
 }
+
+const SHORTCUTS: Record<string, string> = {
+  sqrt: "\\sqrt{#0}",
+  int: "\\int",
+  pi: "\\pi",
+  theta: "\\theta",
+  alpha: "\\alpha",
+  beta: "\\beta",
+  gamma: "\\gamma",
+  sin: "\\sin",
+  cos: "\\cos",
+  tan: "\\tan",
+  ln: "\\ln",
+  log: "\\log",
+};
 
 export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
   value,
@@ -43,27 +59,7 @@ export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
   useEffect(() => {
     if (!containerRef.current || mathFieldRef.current) return;
 
-    const mf = new MathfieldElement({
-      defaultMode: "math",
-      smartFence: true,
-      smartSuperscript: true,
-      readOnly: disabled,
-      inlineShortcuts: {
-        sqrt: "\\sqrt{#0}",
-        int: "\\int",
-        pi: "\\pi",
-        theta: "\\theta",
-        alpha: "\\alpha",
-        beta: "\\beta",
-        gamma: "\\gamma",
-        sin: "\\sin",
-        cos: "\\cos",
-        tan: "\\tan",
-        ln: "\\ln",
-        log: "\\log",
-      },
-    });
-
+    const mf = new MathfieldElement();
     mf.value = value;
     
     const handleInput = () => onChange(mf.value);
@@ -74,6 +70,23 @@ export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
 
     containerRef.current.appendChild(mf);
     mathFieldRef.current = mf;
+
+    const applyInitialConfig = () => {
+      if (!mathFieldRef.current) return;
+      const field = mathFieldRef.current;
+      field.defaultMode = "math";
+      field.smartFence = true;
+      field.smartSuperscript = true;
+      field.inlineShortcuts = SHORTCUTS;
+      field.placeholder = placeholder;
+      field.readOnly = disabled;
+    };
+
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(applyInitialConfig);
+    } else {
+      requestAnimationFrame(applyInitialConfig);
+    }
 
     // Cleanup function
     return () => {
@@ -99,6 +112,12 @@ export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
       mathFieldRef.current.readOnly = disabled;
     }
   }, [disabled]);
+
+  useEffect(() => {
+    if (mathFieldRef.current) {
+      mathFieldRef.current.placeholder = placeholder;
+    }
+  }, [placeholder]);
 
   return <div className={className} ref={containerRef} />;
 });

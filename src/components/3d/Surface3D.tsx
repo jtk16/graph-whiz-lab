@@ -38,7 +38,8 @@ function resolveColor(color: string): string {
 }
 
 interface Surface3DProps {
-  scene: THREE.Scene;
+  scene: THREE.Scene | null;
+  sceneVersion: number;
   data: SurfaceData;
   color?: string;
   wireframe?: boolean;
@@ -48,6 +49,7 @@ interface Surface3DProps {
 
 export function Surface3D({ 
   scene, 
+  sceneVersion,
   data, 
   color = '#3b82f6', 
   wireframe = false, 
@@ -71,16 +73,19 @@ export function Surface3D({
     
     // Resolve color from CSS variables
     const resolvedColor = resolveColor(color);
-    console.log('Surface3D: Color resolution', { 
-      original: color, 
-      resolved: resolvedColor 
-    });
+    const baseColor = new THREE.Color();
+    try {
+      baseColor.setStyle(resolvedColor);
+    } catch {
+      baseColor.setStyle('#3b82f6');
+    }
     
     // Create geometry
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(data.vertices, 3));
     geometry.setAttribute('normal', new THREE.BufferAttribute(data.normals, 3));
     geometry.setIndex(new THREE.BufferAttribute(data.indices, 1));
+    geometry.computeBoundingBox();
     
     if (data.colors) {
       geometry.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
@@ -88,7 +93,7 @@ export function Surface3D({
     
     // Create material - Using MeshPhongMaterial for proper lighting
     const material = new THREE.MeshPhongMaterial({
-      color: new THREE.Color(resolvedColor),
+      color: baseColor,
       wireframe,
       opacity,
       transparent: opacity < 1,
@@ -134,9 +139,8 @@ export function Surface3D({
     scene.add(mesh);
     
     // Force scene update and disable frustum culling for debugging
-    scene.updateMatrixWorld(true);
-    mesh.updateMatrixWorld(true);
     mesh.frustumCulled = false;
+    mesh.matrixWorldNeedsUpdate = true;
     
     console.log('Surface3D: Mesh render state', {
       inScene: mesh.parent === scene,
@@ -150,7 +154,7 @@ export function Surface3D({
       geometry.dispose();
       material.dispose();
     };
-  }, [scene, data, color, wireframe, opacity, useVertexColors, theme, resolvedTheme]);
+  }, [scene, sceneVersion, data, color, wireframe, opacity, useVertexColors, theme, resolvedTheme]);
   
   return null;
 }

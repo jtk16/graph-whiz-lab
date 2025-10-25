@@ -299,7 +299,7 @@ export class SurfaceEvaluator {
           // Build cube index (which corners are inside the isosurface)
           let cubeIndex = 0;
           for (let ci = 0; ci < 8; ci++) {
-            if (cornerValues[ci] < isoValue) {
+            if (isFinite(cornerValues[ci]) && cornerValues[ci] < isoValue) {
               cubeIndex |= (1 << ci);
             }
           }
@@ -389,13 +389,18 @@ export class SurfaceEvaluator {
         try {
           const lhs = this.evaluateNode(this.ast.left!, { x, y, z });
           const rhs = this.evaluateNode(this.ast.right!, { x, y, z });
-          return lhs - rhs;
+          if (Number.isFinite(lhs) && Number.isFinite(rhs)) {
+            return lhs - rhs;
+          }
+          if (Number.isFinite(lhs)) return lhs;
+          if (Number.isFinite(rhs)) return rhs;
+          return NaN;
         } catch (e) {
           return NaN;
         }
       };
     }
-    
+
     return (x: number, y: number, z: number) => {
       try {
         return this.evaluateNode(this.ast, { x, y, z });

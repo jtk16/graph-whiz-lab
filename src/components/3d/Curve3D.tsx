@@ -19,7 +19,8 @@ function resolveColor(color: string): string {
 }
 
 interface Curve3DProps {
-  scene: THREE.Scene;
+  scene: THREE.Scene | null;
+  sceneVersion: number;
   data: CurveData;
   color?: string;
   lineWidth?: number;
@@ -28,6 +29,7 @@ interface Curve3DProps {
 
 export function Curve3D({ 
   scene, 
+  sceneVersion,
   data, 
   color = '#3b82f6', 
   lineWidth = 2,
@@ -42,6 +44,12 @@ export function Curve3D({
     
     // Resolve color from CSS variables
     const resolvedColor = resolveColor(color);
+    const lineColor = new THREE.Color();
+    try {
+      lineColor.setStyle(resolvedColor);
+    } catch {
+      lineColor.setStyle('#3b82f6');
+    }
     
     // Create geometry from points
     const geometry = new THREE.BufferGeometry();
@@ -49,7 +57,7 @@ export function Curve3D({
     
     // Create line material
     const material = new THREE.LineBasicMaterial({
-      color: new THREE.Color(resolvedColor),
+      color: lineColor,
       linewidth: lineWidth,
       transparent: opacity < 1,
       opacity: opacity
@@ -66,7 +74,7 @@ export function Curve3D({
       geometry.dispose();
       material.dispose();
     };
-  }, [scene, data, color, lineWidth, opacity, theme, resolvedTheme]);
+  }, [scene, sceneVersion, data, color, lineWidth, opacity, theme, resolvedTheme]);
   
   return null;
 }

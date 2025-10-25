@@ -14,4 +14,7 @@ import './definitions/graph2d';
 import './definitions/graph3d';
 
 // Tools will auto-register when their definition files are imported
-console.log('🛠️ Tools system initialized');
+if (process.env.NODE_ENV === 'development') {
+  console.info('[tools] system initialized');
+}
+

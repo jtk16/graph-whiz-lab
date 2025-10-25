@@ -1,14 +1,12 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { MathInput, MathInputRef } from "@/components/MathInput";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { parseExpression } from "@/lib/parser";
-import { buildDefinitionContext } from "@/lib/definitionContext";
-import { evaluate } from "@/lib/runtime/evaluator";
 import { RuntimeValue } from "@/lib/runtime/value";
-import { hasUnboundVariables } from "@/lib/runtime/variableDetector";
 import { MathType, TypeInfo } from "@/lib/types";
+import { expressionEngine } from "@/lib/expression";
+
 import "@/components/MathInput.css";
 
 const GRAPH_COLORS = [
@@ -72,6 +70,10 @@ export const ExpressionInput = ({
 }: ExpressionInputProps) => {
   const mathInputRef = useRef<MathInputRef>(null);
   const hasErrors = errors.length > 0;
+  const evaluationContext = useMemo(
+    () => expressionEngine.buildContext(allExpressions),
+    [allExpressions]
+  );
 
   // Update parent with our ref when focused
   useEffect(() => {
@@ -100,42 +102,28 @@ export const ExpressionInput = ({
   // Calculate scalar value if applicable
   const getScalarValue = (): string | null => {
     if (!normalized) return null;
-    
-    // Check if it's a variable definition (e.g., "s = 5 + 2")
     const isDefinition = normalized.includes('=') && !normalized.includes('==');
-    
-    // Only show scalar for Number or Complex types
-    if (typeInfo.type !== MathType.Number && typeInfo.type !== MathType.Complex) return null;
-    
+
+    if (typeInfo.type !== MathType.Number && typeInfo.type !== MathType.Complex) {
+      return null;
+    }
+
     try {
-      const context = buildDefinitionContext(allExpressions);
-      
-      // For definitions, evaluate the RHS
       if (isDefinition) {
         const parts = normalized.split('=');
-        if (parts.length === 2) {
-          const rhs = parts[1].trim();
-          const ast = parseExpression(rhs, context);
-          
-          // Check if RHS has unbound variables
-          if (hasUnboundVariables(ast, context)) return null;
-          
-          const result = evaluate(ast, {}, context);
-          return formatRuntimeValue(result);
-        }
-        return null;
+        if (parts.length !== 2) return null;
+        const rhs = parts[1].trim();
+        const ast = expressionEngine.parseNormalized(rhs, evaluationContext);
+        if (expressionEngine.hasFreeVariables(ast, evaluationContext)) return null;
+        const result = expressionEngine.evaluate(ast, {}, evaluationContext);
+        return formatRuntimeValue(result);
       }
-      
-      // For regular expressions, evaluate directly
-      const ast = parseExpression(normalized, context);
-      
-      // Check if expression has unbound variables
-      if (hasUnboundVariables(ast, context)) return null;
-      
-      const result = evaluate(ast, {}, context);
+
+      const ast = expressionEngine.parseNormalized(normalized, evaluationContext);
+      if (expressionEngine.hasFreeVariables(ast, evaluationContext)) return null;
+      const result = expressionEngine.evaluate(ast, {}, evaluationContext);
       return formatRuntimeValue(result);
-    } catch (e) {
-      // If evaluation fails, don't show a result
+    } catch {
       return null;
     }
   };
@@ -242,3 +230,4 @@ export const ExpressionInput = ({
     </div>
   );
 };
+

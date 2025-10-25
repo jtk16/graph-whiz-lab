@@ -6,9 +6,7 @@ import { TypeTable } from "@/components/TypeTable";
 import { Header } from "@/components/Header";
 import { ToolkitDefinitionsPanel } from "@/components/ToolkitDefinitionsPanel";
 import { MathKeyboard } from "@/components/MathKeyboard";
-import { normalizeExpression } from "@/lib/normalizeExpression";
 import { inferType, TypeInfo, MathType } from "@/lib/types";
-import { buildDefinitionContext } from "@/lib/definitionContext";
 import { validateExpression, detectCircularDependency } from "@/lib/validation/expressionValidator";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { ChevronLeft, ChevronRight, Keyboard } from "lucide-react";
@@ -21,6 +19,7 @@ import { Workspace } from "@/components/workspace/Workspace";
 import { WorkspaceLayout } from "@/lib/workspace/types";
 import { getDefaultLayout, WORKSPACE_LAYOUTS } from "@/lib/workspace/layouts";
 import { loadWorkspaceState, saveWorkspaceState, updateToolState, getToolState } from "@/lib/workspace/manager";
+import { expressionEngine } from "@/lib/expression";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -132,7 +131,7 @@ const Index = () => {
   };
 
   const updateExpression = (id: string, latex: string) => {
-    const normalized = normalizeExpression(latex);
+    const normalized = expressionEngine.normalize(latex);
     const typeInfo = inferType(latex, normalized);
     
     setExpressions((prev) => {
@@ -146,9 +145,6 @@ const Index = () => {
           return { ...expr, errors: [] };
         }
         
-        console.log(`\n🔍 Validating expression: ${expr.normalized}`);
-        console.log('Toolkit definitions count:', toolkitDefinitions.length);
-        console.log('Toolkit normalized expressions:', toolkitDefinitions.map(td => td.normalized));
         
         // Build context with toolkit definitions FIRST, then ALL expressions up to and including current
         // This allows expressions to reference earlier definitions in order
@@ -157,15 +153,11 @@ const Index = () => {
           ...updated.slice(0, index + 1).map(e => ({ normalized: e.normalized }))
         ];
         
-        console.log('Building context with expressions:', allContextExpressions.map(e => e.normalized));
-        const context = buildDefinitionContext(allContextExpressions);
+        const context = expressionEngine.buildContext(allContextExpressions);
         
-        console.log('Context after build - Functions:', Object.keys(context.functions));
-        console.log('Context after build - Variables:', Object.keys(context.variables));
         
         const errors = validateExpression(expr.normalized, context, expr.id, index);
         
-        console.log('Validation errors:', errors);
         
         // Check for circular dependencies
         const cycle = detectCircularDependency(expr.normalized, updated, expr.id);
@@ -235,7 +227,7 @@ const Index = () => {
   };
 
   const updateToolkitDefinition = (id: string, latex: string) => {
-    const normalized = normalizeExpression(latex);
+    const normalized = expressionEngine.normalize(latex);
     setToolkitDefinitions(prev =>
       prev.map(def =>
         def.id === id ? { ...def, latex, normalized, isModified: true } : def
@@ -379,3 +371,5 @@ const Index = () => {
 };
 
 export default Index;
+
+
