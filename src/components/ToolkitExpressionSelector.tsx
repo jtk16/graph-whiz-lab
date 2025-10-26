@@ -5,7 +5,6 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Toolkit, ToolkitExpression } from "@/lib/toolkits/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MathInput } from "./MathInput";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ToolkitExpressionSelectorProps {
   toolkit: Toolkit;
@@ -154,10 +153,9 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
-        <ScrollArea className="h-full">
-          <div className="space-y-3 pb-20 px-4">
-            {toolkit.expressions.map((expr, index) => {
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+        <div className="space-y-3 pb-16">
+          {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);
             const isSelected = selected.has(index);
             const hasDeps = expr.dependencies && expr.dependencies.length > 0;
@@ -217,8 +215,7 @@ export function ToolkitExpressionSelector({
               </div>
             );
           })}
-          </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <div className="p-4 border-t bg-muted/30 flex items-center justify-between gap-2 shrink-0">
