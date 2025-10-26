@@ -154,9 +154,10 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="space-y-3 pb-16 p-4">
-          {toolkit.expressions.map((expr, index) => {
+      <div className="flex-1 min-h-0">
+        <ScrollArea className="h-full">
+          <div className="space-y-3 pb-20 px-4">
+            {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);
             const isSelected = selected.has(index);
             const hasDeps = expr.dependencies && expr.dependencies.length > 0;
@@ -216,8 +217,9 @@ export function ToolkitExpressionSelector({
               </div>
             );
           })}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+      </div>
 
       <div className="p-4 border-t bg-muted/30 flex items-center justify-between gap-2 shrink-0">
         {hasSelection && autoImportDeps && neededDeps.length > 0 && (
