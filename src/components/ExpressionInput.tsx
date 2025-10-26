@@ -3,6 +3,7 @@ import { MathInput, MathInputRef } from "@/components/MathInput";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RuntimeValue } from "@/lib/runtime/value";
 import { MathType, TypeInfo } from "@/lib/types";
 import { expressionEngine } from "@/lib/expression";
