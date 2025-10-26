@@ -154,8 +154,8 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-3 pb-16">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="space-y-3 pb-16 p-4">
           {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);
             const isSelected = selected.has(index);

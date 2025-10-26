@@ -128,5 +128,10 @@ export function normalizeExpression(latex: string): string {
   // Note: We DON'T handle letter(paren) → letter*(paren) because that's function call syntax
   // For multiplication, users should write c*(x) explicitly
   
+  normalized = normalized.replace(
+    /(^|[^a-zA-Z0-9_])i(?=[xyztrXYZTR][a-zA-Z0-9_]*)/g,
+    '$1i*'
+  );
+  
   return normalized;
 }
