@@ -12,6 +12,7 @@ export { toolRegistry } from './registry';
 // Import all tool definitions to trigger auto-registration
 import './definitions/graph2d';
 import './definitions/graph3d';
+import './definitions/complexPlane';
 
 // Tools will auto-register when their definition files are imported
 if (process.env.NODE_ENV === 'development') {

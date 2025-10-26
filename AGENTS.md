@@ -1,8 +1,9 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/components` hosts UI primitives: rendering tools such as `Graph2DTool` (layered canvases + worker bridge), `Graph3DTool` (Three.js scene consumers), and the dockable workspace (`DockWorkspace`, `ModuleSelector`). Keep math + evaluator logic in `src/lib/**` (expression engine, evaluators, toolkits) so rendering layers stay dumb.
-- Hooks such as `useScene3D` and computation workers live under `src/hooks` and `src/workers`; they power render-on-demand scenes and heavy math offloading. Shared types/utilities stay under `src/lib`, routes in `src/pages`, assets in `public/`, and Supabase config in `supabase/config.toml`.
+- `src/components` hosts visualization modules: `Graph2DTool` (layered canvases + worker), `Graph3DTool` (Three.js scene consumers), `ComplexPlaneTool` (domain coloring + Re/Im surfaces), and the dockable workspace (`DockWorkspace`, `ModuleSelector`). Keep math/expression logic in `src/lib/**` so components stay dumb.
+- Hooks (`useScene3D`) and heavy evaluators/workers (`src/workers/implicitCurve.worker.ts`) power render-on-demand scenes; shared utilities live under `src/lib`, routes in `src/pages`, assets in `public/`, and Supabase config in `supabase/config.toml`.
+- The app now ships with the Visual-Studio-style dock layout only; tool tabs persist via `workspaceState` (layout ID + dock tree) in `localStorage`.
 - Prefer the `@/` alias for local imports to keep module graphs shallow and tooling happy.
 
 ## Build, Test, and Development Commands

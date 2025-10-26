@@ -146,7 +146,7 @@ export function Surface3D({
     };
 
     const positions = ensureFloat32(vertexBufferRef, data.vertices);
-    const normals = ensureFloat32(normalBufferRef, data.normals);
+    const normals = data.normals ? ensureFloat32(normalBufferRef, data.normals) : null;
     const indices = ensureUint32(indexBufferRef, data.indices);
     const colors = data.colors ? ensureFloat32(colorBufferRef, data.colors) : null;
 
@@ -159,13 +159,17 @@ export function Surface3D({
       positionAttr.needsUpdate = true;
     }
 
-    let normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
-    if (!normalAttr || normalAttr.array.length !== normals.length) {
-      normalAttr = new THREE.BufferAttribute(normals, 3);
-      geometry.setAttribute('normal', normalAttr);
+    if (normals) {
+      let normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
+      if (!normalAttr || normalAttr.array.length !== normals.length) {
+        normalAttr = new THREE.BufferAttribute(normals, 3);
+        geometry.setAttribute('normal', normalAttr);
+      } else {
+        normalAttr.array.set(normals);
+        normalAttr.needsUpdate = true;
+      }
     } else {
-      normalAttr.array.set(normals);
-      normalAttr.needsUpdate = true;
+      geometry.deleteAttribute('normal');
     }
 
     if (colors) {
@@ -186,6 +190,10 @@ export function Surface3D({
     } else if (geometry.index) {
       geometry.index.array.set(indices);
       geometry.index.needsUpdate = true;
+    }
+
+    if (!normals) {
+      geometry.computeVertexNormals();
     }
 
     geometry.computeBoundingSphere();

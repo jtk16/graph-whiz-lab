@@ -36,7 +36,6 @@ export const Graph3DTool = ({
   expressions,
   toolkitDefinitions,
   viewport,
-  onViewportChange,
   toolConfig,
   onConfigChange,
   isActive,

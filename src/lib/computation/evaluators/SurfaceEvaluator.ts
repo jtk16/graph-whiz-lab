@@ -11,7 +11,7 @@ import { EDGE_TABLE, TRI_TABLE, EDGE_CONNECTIONS, CUBE_CORNERS } from '../marchi
  */
 export interface SurfaceData {
   vertices: Float32Array;  // [x, y, z, x, y, z, ...]
-  normals: Float32Array;   // [nx, ny, nz, nx, ny, nz, ...]
+  normals?: Float32Array;   // [nx, ny, nz, nx, ny, nz, ...]
   colors?: Float32Array;   // [r, g, b, r, g, b, ...] (optional for domain coloring)
   indices: Uint32Array;    // Triangle indices
 }
