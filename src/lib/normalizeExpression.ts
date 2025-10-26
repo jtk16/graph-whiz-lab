@@ -129,7 +129,7 @@ export function normalizeExpression(latex: string): string {
   // For multiplication, users should write c*(x) explicitly
   
   normalized = normalized.replace(
-    /(^|[^a-zA-Z0-9_])i(?=[xyztrXYZTR][a-zA-Z0-9_]*)/g,
+    /(^|[^a-zA-Z0-9_])i\s*(?=[xyztrXYZTR][a-zA-Z0-9_]*)/g,
     '$1i*'
   );
   
