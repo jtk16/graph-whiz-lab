@@ -289,7 +289,7 @@ export function solveSymbolicCircuit(components: CircuitComponent[]): SymbolicCi
   nodeList.forEach(node => {
     let totalCurrent = ZERO;
     sanitized.forEach(component => {
-      if (component.kind === "resistor" || component.kind === "wire" || component.kind === "capacitor") {
+      if (component.kind === "resistor" || component.kind === "wire" || component.kind === "capacitor" || component.kind === "inductor") {
         if (component.from === node || component.to === node) {
           const adm = admittanceForComponent(component);
           if (isZero(adm)) return;

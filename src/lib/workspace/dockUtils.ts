@@ -186,8 +186,8 @@ export function moveTab(
     return node;
   }
 
-  const { root: afterDetach, tab } = detachTab(node, sourcePanelId, tabId);
-  if (!tab) {
+  const { root: afterDetach, removedTab } = detachTab(node, sourcePanelId, tabId);
+  if (!removedTab) {
     return node;
   }
 
@@ -198,17 +198,17 @@ export function moveTab(
     return {
       id: createId(),
       type: 'tabs',
-      tabs: [tab],
-      activeTabId: tab.id,
+      tabs: [removedTab],
+      activeTabId: removedTab.id,
     };
   }
 
   if (position === 'center') {
-    const inserted = insertTab(workingRoot, targetPanelId, tab);
+    const inserted = insertTab(workingRoot, targetPanelId, removedTab);
     return inserted ?? workingRoot;
   }
 
-  const splitted = splitPanelWithTab(workingRoot, targetPanelId, tab, position as Exclude<DockDropPosition, 'center'>);
+  const splitted = splitPanelWithTab(workingRoot, targetPanelId, removedTab, position as Exclude<DockDropPosition, 'center'>);
   return splitted ?? workingRoot;
 }
 
