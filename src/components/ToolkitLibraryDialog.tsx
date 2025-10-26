@@ -105,9 +105,9 @@ export function ToolkitLibraryDialog({
             <TabsTrigger value="imported">Imported ({toolkitDefinitions.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="library" className="flex-1 min-h-0 px-6 pb-6 overflow-hidden">
+          <TabsContent value="library" className="flex-1 min-h-0 px-6 pb-6">
             <div className="flex h-full min-h-0 gap-4">
-              <div className="w-72 border rounded-lg bg-muted/30 flex flex-col">
+              <div className="w-72 border rounded-lg bg-muted/30 flex flex-col min-h-0">
                 <div className="p-4 border-b space-y-3">
                   <div className="relative">
                     <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
