@@ -1,6 +1,7 @@
 export enum TokenType {
   Number = 'Number',
   Identifier = 'Identifier',
+  Imaginary = 'Imaginary',
   Operator = 'Operator',
   ParenthesisOpen = 'ParenthesisOpen',
   ParenthesisClose = 'ParenthesisClose',
@@ -149,7 +150,7 @@ export function tokenize(source: string): Token[] {
     }
   }
 
-  return tokens;
+  return insertImplicitMultiplication(splitImaginaryIdentifiers(tokens));
 }
 
 function runPlugins(state: DefaultTokenizerState): Token | null {
@@ -200,6 +201,14 @@ function readIdentifier(state: DefaultTokenizerState): Token {
   }
 
   const value = state.source.slice(start, state.position);
+  if (value === 'i') {
+    return {
+      type: TokenType.Imaginary,
+      value,
+      start,
+      end: state.position,
+    };
+  }
   return {
     type: TokenType.Identifier,
     value,
@@ -229,4 +238,97 @@ function isIdentifierStart(char: string): boolean {
 
 function isIdentifierPart(char: string): boolean {
   return isIdentifierStart(char) || isDigit(char) || char === '.';
+}
+
+function isAtomToken(token: Token): boolean {
+  switch (token.type) {
+    case TokenType.Number:
+    case TokenType.Identifier:
+    case TokenType.Imaginary:
+    case TokenType.ParenthesisClose:
+    case TokenType.BracketClose:
+    case TokenType.BraceClose:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function startsAtom(token: Token): boolean {
+  switch (token.type) {
+    case TokenType.Number:
+    case TokenType.Identifier:
+    case TokenType.Imaginary:
+    case TokenType.ParenthesisOpen:
+    case TokenType.BracketOpen:
+    case TokenType.BraceOpen:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function insertImplicitMultiplication(tokens: Token[]): Token[] {
+  if (tokens.length === 0) return tokens;
+  const result: Token[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const current = tokens[i];
+    const next = tokens[i + 1];
+    result.push(current);
+    if (!next) continue;
+    const identifierBeforeCall =
+      current.type === TokenType.Identifier && next.type === TokenType.ParenthesisOpen;
+    const consecutiveIdentifiers =
+      current.type === TokenType.Identifier && next.type === TokenType.Identifier;
+
+    if (
+      !identifierBeforeCall &&
+      !consecutiveIdentifiers &&
+      isAtomToken(current) &&
+      startsAtom(next)
+    ) {
+      result.push({
+        type: TokenType.Operator,
+        value: '*',
+        start: current.end,
+        end: current.end,
+      });
+    }
+  }
+  return result;
+}
+
+function splitImaginaryIdentifiers(tokens: Token[]): Token[] {
+  const result: Token[] = [];
+  tokens.forEach(token => {
+    if (
+      token.type === TokenType.Identifier &&
+      token.value.length === 2 &&
+      token.value[0].toLowerCase() === 'i' &&
+      /[a-zA-Z_]/.test(token.value[1])
+    ) {
+      const [, secondChar] = token.value;
+      result.push({
+        type: TokenType.Imaginary,
+        value: token.value[0],
+        start: token.start,
+        end: token.start + 1,
+      });
+      result.push({
+        type: TokenType.Operator,
+        value: '*',
+        start: token.start + 1,
+        end: token.start + 1,
+      });
+      result.push({
+        type: TokenType.Identifier,
+        value: secondChar,
+        start: token.start + 1,
+        end: token.end,
+      });
+    } else {
+      result.push(token);
+    }
+  });
+  return result;
 }

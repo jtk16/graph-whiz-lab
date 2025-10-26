@@ -84,7 +84,7 @@ export function ToolkitLibraryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-full max-h-[85vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="w-[min(100%,960px)] max-w-5xl h-[85vh] overflow-hidden p-0 flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-3 border-b bg-muted/40">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Package2 className="h-5 w-5 text-primary" />
@@ -105,8 +105,8 @@ export function ToolkitLibraryDialog({
             <TabsTrigger value="imported">Imported ({toolkitDefinitions.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="library" className="flex-1 min-h-0 px-6 pb-6">
-            <div className="flex h-full min-h-0 gap-4">
+          <TabsContent value="library" className="flex flex-1 min-h-0 px-6 pb-6">
+            <div className="flex flex-1 min-h-0 gap-4">
               <div className="w-72 border rounded-lg bg-muted/30 flex flex-col min-h-0">
                 <div className="p-4 border-b space-y-3">
                   <div className="relative">
@@ -208,8 +208,8 @@ export function ToolkitLibraryDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="imported" className="flex-1 min-h-0 px-6 pb-6 overflow-hidden">
-            <div className="h-full border rounded-lg bg-muted/20 overflow-hidden">
+          <TabsContent value="imported" className="flex flex-1 min-h-0 px-6 pb-6 overflow-hidden">
+            <div className="flex-1 border rounded-lg bg-muted/20 overflow-hidden">
               <ToolkitDefinitionsPanel
                 definitions={toolkitDefinitions}
                 onUpdate={onUpdateDefinition}

@@ -1,3 +1,5 @@
+import { tokenize, Token, TokenType } from './parser/tokenizer';
+
 /**
  * Normalization Layer: LaTeX → Calculator Shorthand
  * 
@@ -118,20 +120,36 @@ export function normalizeExpression(latex: string): string {
   // Clean up whitespace
   normalized = normalized.trim();
   
-  // Handle implicit multiplication (e.g., 2x → 2*x, 2sin(x) → 2*sin(x))
-  // Number followed by letter
-  normalized = normalized.replace(/(\d)([a-zA-Z])/g, '$1*$2');
-  // Closing paren followed by opening paren
-  normalized = normalized.replace(/\)(\()/g, ')*$1');
-  // Closing paren followed by letter (identifier or function): (x)y → (x)*y, (x-2)sqrt(x) → (x-2)*sqrt(x)
-  normalized = normalized.replace(/\)([a-zA-Z])/g, ')*$1');
-  // Note: We DON'T handle letter(paren) → letter*(paren) because that's function call syntax
-  // For multiplication, users should write c*(x) explicitly
-  
-  normalized = normalized.replace(
-    /(^|[^a-zA-Z0-9_])i\s*(?=[xyztrXYZTR][a-zA-Z0-9_]*)/g,
-    '$1i*'
-  );
-  
-  return normalized;
+  // Final pass: re-tokenize to enforce explicit multiplication (e.g., i*z) and emit a canonical form.
+  return tokensToExpression(tokenize(normalized));
+}
+
+function tokensToExpression(tokens: Token[]): string {
+  return tokens
+    .map(token => {
+      switch (token.type) {
+        case TokenType.Number:
+        case TokenType.Identifier:
+        case TokenType.Operator:
+        case TokenType.Imaginary:
+          return token.value;
+        case TokenType.ParenthesisOpen:
+          return '(';
+        case TokenType.ParenthesisClose:
+          return ')';
+        case TokenType.BracketOpen:
+          return '[';
+        case TokenType.BracketClose:
+          return ']';
+        case TokenType.BraceOpen:
+          return '{';
+        case TokenType.BraceClose:
+          return '}';
+        case TokenType.Comma:
+          return ',';
+        default:
+          return token.value;
+      }
+    })
+    .join('');
 }

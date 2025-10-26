@@ -176,93 +176,95 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 pb-4"
-        onWheelCapture={handleWheelCapture}
-      >
-        <div className="space-y-3 pb-16">
-          {toolkit.expressions.map((expr, index) => {
-            const isImported = isAlreadyImported(expr.normalized);
-            const isSelected = selected.has(index);
-            const hasDeps = expr.dependencies && expr.dependencies.length > 0;
-            const currentLatex = editedExpressions.get(index) || expr.latex;
-            
-            return (
-              <div
-                key={index}
-                className={`border rounded-lg p-3 transition-colors ${
-                  isImported ? 'bg-muted/50 opacity-60' : 
-                  isSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-accent/50'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => !isImported && toggleExpression(index)}
-                    disabled={isImported}
-                    className="mt-1"
-                  />
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="flex-1">
-                        <MathInput
-                          value={currentLatex}
-                          onChange={(latex) => handleLatexChange(index, latex)}
-                          className="text-sm"
-                          disabled={isImported}
-                        />
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4 pb-4"
+          onWheelCapture={handleWheelCapture}
+        >
+          <div className="space-y-3 pb-24">
+            {toolkit.expressions.map((expr, index) => {
+              const isImported = isAlreadyImported(expr.normalized);
+              const isSelected = selected.has(index);
+              const hasDeps = expr.dependencies && expr.dependencies.length > 0;
+              const currentLatex = editedExpressions.get(index) || expr.latex;
+              
+              return (
+                <div
+                  key={index}
+                  className={`border rounded-lg p-3 transition-colors ${
+                    isImported ? 'bg-muted/50 opacity-60' : 
+                    isSelected ? 'bg-primary/5 border-primary/30' : 'hover:bg-accent/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => !isImported && toggleExpression(index)}
+                      disabled={isImported}
+                      className="mt-1"
+                    />
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex-1">
+                          <MathInput
+                            value={currentLatex}
+                            onChange={(latex) => handleLatexChange(index, latex)}
+                            className="text-sm"
+                            disabled={isImported}
+                          />
+                        </div>
+                        {isImported && (
+                          <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 shrink-0">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Imported
+                          </span>
+                        )}
                       </div>
-                      {isImported && (
-                        <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 shrink-0">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Imported
+                      
+                      <p className="text-sm text-muted-foreground mb-1">
+                        {expr.description}
+                      </p>
+                      
+                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                        <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded">
+                          {expr.category}
                         </span>
-                      )}
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground mb-1">
-                      {expr.description}
-                    </p>
-                    
-                    <div className="flex items-center gap-2 text-xs flex-wrap">
-                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary rounded">
-                        {expr.category}
-                      </span>
-                      {hasDeps && (
-                        <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                          <AlertCircle className="h-3 w-3" />
-                          Requires: {expr.dependencies!.map(d => `${d}()`).join(', ')}
-                        </span>
-                      )}
+                        {hasDeps && (
+                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                            <AlertCircle className="h-3 w-3" />
+                            Requires: {expr.dependencies!.map(d => `${d}()`).join(', ')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+          <div className="sticky bottom-0 left-0 -mx-4 mt-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              {hasSelection && autoImportDeps && neededDeps.length > 0 ? (
+                <Alert className="flex-1">
+                  <AlertDescription className="text-xs">
+                    Auto-importing dependencies: {neededDeps.map(d => `${d}()`).join(', ')}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="flex-1" />
+              )}
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" onClick={onCancel}>
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirm} disabled={!hasSelection}>
+                  Import {hasSelection && `(${selectedCount})`}
+                </Button>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="p-4 border-t bg-muted/30 flex items-center justify-between gap-2 shrink-0">
-        {hasSelection && autoImportDeps && neededDeps.length > 0 && (
-          <Alert className="flex-1">
-            <AlertDescription className="text-xs">
-              Auto-importing dependencies: {neededDeps.map(d => `${d}()`).join(', ')}
-            </AlertDescription>
-          </Alert>
-        )}
-        {(!hasSelection || !autoImportDeps || neededDeps.length === 0) && (
-          <div className="flex-1" />
-        )}
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button onClick={handleConfirm} disabled={!hasSelection}>
-            Import {hasSelection && `(${selectedCount})`}
-          </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

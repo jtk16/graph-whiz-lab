@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { parseExpression } from "@/lib/parser";
 import { parseAndEvaluate } from "@/lib/evaluator";
 import { buildDefinitionContext, isImplicitRelation } from "@/lib/definitionContext";
@@ -149,6 +149,7 @@ export const Graph2DTool = ({
     canvas.height = rect.height * dpr;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
 
     const computed = getComputedStyle(document.documentElement);
     const colors = {
@@ -176,9 +177,19 @@ export const Graph2DTool = ({
       rect.height,
       viewport,
       implicitSegmentsRef.current,
-      implicitExpressions.map(({ id, color }) => ({ id, color }))
+      implicitExpressions.map(({ id, color }) => ({ id, color })),
+      dpr
     );
-    drawExplicitCurves(ctx, rect.width, rect.height, viewport, parsedExplicit, pathCacheRef.current, definitionContext);
+    drawExplicitCurves(
+      ctx,
+      rect.width,
+      rect.height,
+      viewport,
+      parsedExplicit,
+      pathCacheRef.current,
+      definitionContext,
+      dpr
+    );
   }, [viewport, parsedExplicit, definitionContext, implicitExpressions]);
 
   const scheduleRender = useCallback(() => {
@@ -192,6 +203,30 @@ export const Graph2DTool = ({
       drawScene();
     });
   }, [isActive, drawScene]);
+
+  useLayoutEffect(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => {
+      staticDirtyRef.current = true;
+      scheduleRender();
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [scheduleRender]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => {
+      staticDirtyRef.current = true;
+      scheduleRender();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [scheduleRender]);
 
   const disposeWorker = useCallback(() => {
     if (workerRef.current) {
@@ -669,7 +704,8 @@ const drawExplicitCurves = (
   viewport: typeof DEFAULT_VIEWPORT,
   parsedExpressions: Map<string, ParsedExpression>,
   cache: Map<string, { key: string; path: Path2D }>,
-  context: ReturnType<typeof buildDefinitionContext>
+  context: ReturnType<typeof buildDefinitionContext>,
+  dpr: number
 ) => {
   const computed = getComputedStyle(document.documentElement);
   parsedExpressions.forEach((expr, exprId) => {
@@ -722,7 +758,7 @@ const drawExplicitCurves = (
     }
     ctx.save();
     ctx.strokeStyle = resolveColor(expr.color, computed);
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = Math.max(1.2, 2 / dpr);
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.stroke(cached.path);
@@ -736,7 +772,8 @@ const drawImplicitCurves = (
   height: number,
   viewport: typeof DEFAULT_VIEWPORT,
   segments: Record<string, WorkerResponse["segments"]>,
-  expressions: Array<{ id: string; color: string }>
+  expressions: Array<{ id: string; color: string }>,
+  dpr: number
 ) => {
   const computed = getComputedStyle(document.documentElement);
   expressions.forEach((expr) => {
@@ -744,7 +781,7 @@ const drawImplicitCurves = (
     if (!data) return;
     ctx.save();
     ctx.strokeStyle = resolveColor(expr.color, computed);
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(1.2, 2 / dpr);
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     data.forEach((segment) => {

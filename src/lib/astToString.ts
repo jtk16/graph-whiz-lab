@@ -14,6 +14,11 @@ export function astToString(node: ASTNode): string {
       const right = astToString(node.right!);
       const op = node.operator;
       
+      if (!op || op.length === 0) {
+        const joiner = needsImplicitMultiplication(node.left!, node.right!) ? '*' : '';
+        return `(${left})${joiner}(${right})`;
+      }
+      
       // Handle special operators for math.js compatibility
       if (op === '^') return `(${left})^(${right})`;
       if (op === '*') return `(${left}) * (${right})`;
@@ -50,4 +55,12 @@ export function astToString(node: ASTNode): string {
     default:
       throw new Error(`Cannot convert AST node type: ${(node as any).type}`);
   }
+}
+
+function isAtomNode(node: ASTNode): boolean {
+  return node.type === 'number' || node.type === 'variable';
+}
+
+function needsImplicitMultiplication(left: ASTNode, right: ASTNode): boolean {
+  return isAtomNode(left) && isAtomNode(right);
 }
