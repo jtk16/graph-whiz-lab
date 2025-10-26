@@ -186,10 +186,11 @@ export function moveTab(
     return node;
   }
 
-  const { root: afterDetach, removedTab } = detachTab(node, sourcePanelId, tabId);
-  if (!removedTab) {
+  const { root: afterDetach, tab } = detachTab(node, sourcePanelId, tabId);
+  if (!tab) {
     return node;
   }
+  const removedTab = tab;
 
   let workingRoot = afterDetach;
 

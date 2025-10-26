@@ -309,13 +309,6 @@ export function solveSymbolicCircuit(components: CircuitComponent[]): SymbolicCi
         } else if (component.to === node) {
           totalCurrent = sub(totalCurrent, branchCurrent);
         }
-      } else if (component.kind === "inductor") {
-        const branchCurrent = branchCurrents[component.id] ?? ZERO;
-        if (component.from === node) {
-          totalCurrent = add(totalCurrent, branchCurrent);
-        } else if (component.to === node) {
-          totalCurrent = sub(totalCurrent, branchCurrent);
-        }
       }
     });
     nodeResults[node].current = totalCurrent;

@@ -151,7 +151,7 @@ export function ComplexPlaneTool({
       <div className="flex-1 min-h-0 overflow-auto space-y-6 pr-1">
         {renderables.length === 0 ? (
           <Card className="p-8 text-center text-muted-foreground">
-            Add an expression (e.g., <code>e^{iz}</code> or <code>z^2 + 1 / z</code>) to explore its
+            Add an expression (e.g., <code>e^&#123;iz&#125;</code> or <code>z^2 + 1 / z</code>) to explore its
             domain coloring and component surfaces.
           </Card>
         ) : (
