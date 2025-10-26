@@ -84,8 +84,8 @@ export function ToolkitLibraryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(100%,960px)] max-w-5xl h-[85vh] overflow-hidden p-0 flex flex-col">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b bg-muted/40">
+      <DialogContent className="flex h-[85vh] w-[min(100%,960px)] max-w-5xl flex-col overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b bg-muted/40 px-6 pt-6 pb-3">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Package2 className="h-5 w-5 text-primary" />
             Toolkit Library
@@ -98,14 +98,14 @@ export function ToolkitLibraryDialog({
         <Tabs
           value={activeTab}
           onValueChange={value => setActiveTab(value as "library" | "imported")}
-          className="flex flex-col flex-1 min-h-0"
+          className="flex min-h-0 flex-1 flex-col"
         >
           <TabsList className="mx-6 mt-4 w-fit">
             <TabsTrigger value="library">Library</TabsTrigger>
             <TabsTrigger value="imported">Imported ({toolkitDefinitions.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="library" className="flex flex-1 min-h-0 px-6 pb-6">
+          <TabsContent value="library" className="flex flex-1 min-h-0 flex-col px-6 pb-6">
             <div className="flex flex-1 min-h-0 gap-4">
               <div className="w-72 border rounded-lg bg-muted/30 flex flex-col min-h-0">
                 <div className="p-4 border-b space-y-3">
@@ -187,7 +187,7 @@ export function ToolkitLibraryDialog({
                 </ScrollArea>
               </div>
 
-              <div className="flex-1 border rounded-lg bg-muted/10 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/10">
                 {selectedToolkit ? (
                   <ToolkitExpressionSelector
                     toolkit={selectedToolkit}
@@ -208,8 +208,8 @@ export function ToolkitLibraryDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="imported" className="flex flex-1 min-h-0 px-6 pb-6 overflow-hidden">
-            <div className="flex-1 border rounded-lg bg-muted/20 overflow-hidden">
+          <TabsContent value="imported" className="flex flex-1 min-h-0 flex-col px-6 pb-6">
+            <div className="flex-1 overflow-hidden rounded-lg border bg-muted/20">
               <ToolkitDefinitionsPanel
                 definitions={toolkitDefinitions}
                 onUpdate={onUpdateDefinition}

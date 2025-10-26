@@ -143,12 +143,12 @@ export function ComplexPlaneTool({
   }
 
   return (
-    <div className="relative h-full w-full bg-canvas-bg">
-      <div className="absolute top-4 right-4 z-10">
+    <div className="flex h-full w-full gap-4 bg-canvas-bg p-4 overflow-hidden">
+      <div className="w-72 shrink-0 overflow-auto">
         <ComplexPlaneControls config={mergedConfig} onChange={handleConfigChange} />
       </div>
 
-      <div className="h-full overflow-auto space-y-6 p-4">
+      <div className="flex-1 min-h-0 overflow-auto space-y-6 pr-1">
         {renderables.length === 0 ? (
           <Card className="p-8 text-center text-muted-foreground">
             Add an expression (e.g., <code>e^{iz}</code> or <code>z^2 + 1 / z</code>) to explore its
@@ -633,7 +633,7 @@ const ComplexPlaneControls = ({
   const [open, setOpen] = useState(true);
 
   return (
-    <Card className="w-72 space-y-4 bg-background/95 p-4 backdrop-blur">
+    <Card className="w-full space-y-4 bg-background/95 p-4 backdrop-blur">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold">Complex plane</p>
