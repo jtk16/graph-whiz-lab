@@ -26,7 +26,7 @@ const cacheOrder: string[] = [];
 const MAX_CACHE_ENTRIES = 400;
 
 const postResult = (message: WorkerResponse) => {
-  (self as DedicatedWorkerGlobalScope).postMessage(message);
+  (self as unknown as DedicatedWorkerGlobalScope).postMessage(message);
 };
 
 const addToCache = (key: string, segments: SegmentBatch) => {

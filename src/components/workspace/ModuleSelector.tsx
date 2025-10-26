@@ -45,7 +45,7 @@ export function ModuleSelector({
           </>
         )}
         {tools.map(tool => {
-          const Icon = (LucideIcons as Record<string, React.ComponentType<{ className?: string }>>)[tool.icon];
+          const Icon = LucideIcons[tool.icon as keyof typeof LucideIcons] as React.ComponentType<{ className?: string }> | undefined;
           return (
             <DropdownMenuItem key={tool.id} onClick={() => onSelect(tool.id)} className="cursor-pointer">
               {Icon && <Icon className="mr-2 h-4 w-4" />}
