@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { WheelEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
@@ -22,6 +23,7 @@ export function ToolkitExpressionSelector({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [autoImportDeps, setAutoImportDeps] = useState(true);
   const [editedExpressions, setEditedExpressions] = useState<Map<number, string>>(new Map());
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const toggleExpression = (index: number) => {
     const newSelected = new Set(selected);
@@ -118,6 +120,27 @@ export function ToolkitExpressionSelector({
   
   const neededDeps = getNeededDeps();
 
+  // MathLive swallows wheel events, so manually scroll the container on vertical gestures.
+  const handleWheelCapture = (event: WheelEvent<HTMLDivElement>) => {
+    const container = scrollContainerRef.current;
+    if (!container || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+      return;
+    }
+
+    const targetElement = event.target as HTMLElement | null;
+    const isMathFieldInteraction = targetElement?.closest("math-field") !== null;
+    if (!isMathFieldInteraction) {
+      return;
+    }
+
+    const previousScrollTop = container.scrollTop;
+    container.scrollTop += event.deltaY;
+    if (container.scrollTop !== previousScrollTop) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="p-4 border-b shrink-0">
@@ -153,7 +176,11 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto px-4 pb-4"
+        onWheelCapture={handleWheelCapture}
+      >
         <div className="space-y-3 pb-16">
           {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);

@@ -89,7 +89,12 @@ export function ComplexPlaneTool({
   };
 
   const definitionSources = useMemo(
-    () => [...expressions, ...toolkitDefinitions].filter(expr => expr.normalized.trim().includes("=")),
+    () =>
+      [...expressions, ...toolkitDefinitions]
+        .filter(expr => expr.normalized.trim().includes("="))
+        .map(expr => ({
+          normalized: expressionEngine.normalize(expr.latex || expr.normalized),
+        })),
     [expressions, toolkitDefinitions]
   );
 
