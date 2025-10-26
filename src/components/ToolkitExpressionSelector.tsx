@@ -141,7 +141,7 @@ export function ToolkitExpressionSelector({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="grid h-full grid-rows-[auto_1fr_auto]">
       {/* Header */}
       <div className="border-b bg-background p-4">
         <div className="mb-3 flex items-start justify-between">
@@ -186,100 +186,98 @@ export function ToolkitExpressionSelector({
       </div>
 
       {/* Expression List */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-2">
-          {Array.from(expressionsByCategory.entries()).map(([category, items]) => {
-            const stats = getCategoryStats(category);
-            const isExpanded = expandedCategories.has(category);
+      <div className="overflow-y-auto p-4 space-y-2">
+        {Array.from(expressionsByCategory.entries()).map(([category, items]) => {
+          const stats = getCategoryStats(category);
+          const isExpanded = expandedCategories.has(category);
 
-            return (
-              <Collapsible
-                key={category}
-                open={isExpanded}
-                onOpenChange={() => toggleCategory(category)}
-              >
-                <CollapsibleTrigger className="w-full">
-                  <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 hover:bg-muted/60 transition-colors">
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span className="font-medium capitalize">{category}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {stats.total}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {stats.selected > 0 && (
-                        <span className="text-primary font-medium">{stats.selected} selected</span>
-                      )}
-                      <span>{stats.available} available</span>
-                    </div>
+          return (
+            <Collapsible
+              key={category}
+              open={isExpanded}
+              onOpenChange={() => toggleCategory(category)}
+            >
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 hover:bg-muted/60 transition-colors">
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="font-medium capitalize">{category}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {stats.total}
+                    </Badge>
                   </div>
-                </CollapsibleTrigger>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {stats.selected > 0 && (
+                      <span className="text-primary font-medium">{stats.selected} selected</span>
+                    )}
+                    <span>{stats.available} available</span>
+                  </div>
+                </div>
+              </CollapsibleTrigger>
 
-                <CollapsibleContent className="mt-2 space-y-2 pl-2">
-                  {items.map(({ expr, index }) => {
-                    const isImported = isAlreadyImported(expr.normalized);
-                    const isSelected = selected.has(index);
-                    const hasDeps = Boolean(expr.dependencies?.length);
-                    const currentLatex = editedExpressions.get(index) || expr.latex;
+              <CollapsibleContent className="mt-2 space-y-2 pl-2">
+                {items.map(({ expr, index }) => {
+                  const isImported = isAlreadyImported(expr.normalized);
+                  const isSelected = selected.has(index);
+                  const hasDeps = Boolean(expr.dependencies?.length);
+                  const currentLatex = editedExpressions.get(index) || expr.latex;
 
-                    return (
-                      <div
-                        key={index}
-                        className={cn(
-                          "rounded-lg border bg-card p-3 transition-all",
-                          isImported && "opacity-50 cursor-not-allowed",
-                          !isImported && isSelected && "border-primary bg-primary/5 shadow-sm",
-                          !isImported && !isSelected && "hover:border-muted-foreground/20"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => !isImported && toggleExpression(index)}
-                            disabled={isImported}
-                            className="mt-1"
-                          />
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm text-muted-foreground">{expr.description}</p>
-                              {isImported && (
-                                <Badge variant="outline" className="gap-1 text-xs text-emerald-600 border-emerald-600/20">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Imported
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="rounded-md border bg-muted/30 p-2">
-                              <MathInput
-                                value={currentLatex}
-                                onChange={latex => handleLatexChange(index, latex)}
-                                disabled={isImported}
-                              />
-                            </div>
-
-                            {hasDeps && (
-                              <div className="flex items-center gap-1 text-xs text-amber-600">
-                                <AlertCircle className="h-3 w-3" />
-                                <span>Requires: {expr.dependencies!.join(", ")}</span>
-                              </div>
+                  return (
+                    <div
+                      key={index}
+                      className={cn(
+                        "rounded-lg border bg-card p-3 transition-all",
+                        isImported && "opacity-50 cursor-not-allowed",
+                        !isImported && isSelected && "border-primary bg-primary/5 shadow-sm",
+                        !isImported && !isSelected && "hover:border-muted-foreground/20"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => !isImported && toggleExpression(index)}
+                          disabled={isImported}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm text-muted-foreground">{expr.description}</p>
+                            {isImported && (
+                              <Badge variant="outline" className="gap-1 text-xs text-emerald-600 border-emerald-600/20">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Imported
+                              </Badge>
                             )}
                           </div>
+
+                          <div className="rounded-md border bg-muted/30 p-2">
+                            <MathInput
+                              value={currentLatex}
+                              onChange={latex => handleLatexChange(index, latex)}
+                              disabled={isImported}
+                            />
+                          </div>
+
+                          {hasDeps && (
+                            <div className="flex items-center gap-1 text-xs text-amber-600">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>Requires: {expr.dependencies!.join(", ")}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
-        </div>
-      </ScrollArea>
+                    </div>
+                  );
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
 
       {/* Footer */}
       <div className="border-t bg-muted/20 px-4 py-3 flex items-center justify-between gap-3">

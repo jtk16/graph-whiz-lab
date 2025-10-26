@@ -59,7 +59,7 @@ export function ToolkitDefinitionsPanel({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="grid h-full grid-rows-[auto_1fr]">
       {/* Header */}
       <div className="border-b bg-background px-4 py-3">
         <div className="flex items-center justify-between">
@@ -81,82 +81,80 @@ export function ToolkitDefinitionsPanel({
       </div>
 
       {/* Definitions List */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-2">
-          {Array.from(definitionsBySource.entries()).map(([source, defs]) => {
-            const isExpanded = expandedSources.has(source);
+      <div className="overflow-y-auto p-4 space-y-2">
+        {Array.from(definitionsBySource.entries()).map(([source, defs]) => {
+          const isExpanded = expandedSources.has(source);
 
-            return (
-              <Collapsible
-                key={source}
-                open={isExpanded}
-                onOpenChange={() => toggleSource(source)}
-              >
-                <CollapsibleTrigger className="w-full">
-                  <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 hover:bg-muted/60 transition-colors">
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span className="font-medium capitalize">{source.replace(/-/g, " ")}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {defs.length}
-                      </Badge>
-                    </div>
+          return (
+            <Collapsible
+              key={source}
+              open={isExpanded}
+              onOpenChange={() => toggleSource(source)}
+            >
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 hover:bg-muted/60 transition-colors">
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="font-medium capitalize">{source.replace(/-/g, " ")}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {defs.length}
+                    </Badge>
                   </div>
-                </CollapsibleTrigger>
+                </div>
+              </CollapsibleTrigger>
 
-                <CollapsibleContent className="mt-2 space-y-2 pl-2">
-                  {defs.map((def) => (
-                    <div
-                      key={def.id}
-                      className={cn(
-                        "group relative rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-xs text-muted-foreground">{def.description}</p>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => onRemove(def.id)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
+              <CollapsibleContent className="mt-2 space-y-2 pl-2">
+                {defs.map((def) => (
+                  <div
+                    key={def.id}
+                    className={cn(
+                      "group relative rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">{def.description}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => onRemove(def.id)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
 
-                          <div className="rounded-md border bg-muted/30 p-2">
-                            <MathInput
-                              value={def.latex}
-                              onChange={(latex) => onUpdate(def.id, latex)}
-                            />
-                          </div>
+                        <div className="rounded-md border bg-muted/30 p-2">
+                          <MathInput
+                            value={def.latex}
+                            onChange={(latex) => onUpdate(def.id, latex)}
+                          />
+                        </div>
 
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px] capitalize">
-                              {def.category}
-                            </Badge>
-                            {def.isModified && (
-                              <span className="text-[10px] text-amber-600 italic">
-                                Modified
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] capitalize">
+                            {def.category}
+                          </Badge>
+                          {def.isModified && (
+                            <span className="text-[10px] text-amber-600 italic">
+                              Modified
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
-        </div>
-      </ScrollArea>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
+      </div>
     </div>
   );
 }
