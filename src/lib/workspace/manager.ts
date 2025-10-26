@@ -1,4 +1,4 @@
-import { WorkspaceState, ToolState } from './types';
+import { WorkspaceState, ToolState, DockNode } from './types';
 import { getDefaultLayout } from './layouts';
 
 const STORAGE_KEY = 'workspace-state';
@@ -6,10 +6,20 @@ const STORAGE_KEY = 'workspace-state';
 /**
  * Create a default workspace state
  */
+const cloneDockLayout = (layout?: DockNode): DockNode | undefined => {
+  if (!layout) return undefined;
+  if (typeof structuredClone === 'function') {
+    return structuredClone(layout);
+  }
+  return JSON.parse(JSON.stringify(layout));
+};
+
 export function createDefaultState(): WorkspaceState {
+  const defaultLayout = getDefaultLayout();
   return {
-    layoutId: getDefaultLayout().id,
-    toolStates: {}
+    layoutId: defaultLayout.id,
+    toolStates: {},
+    dockLayout: cloneDockLayout(defaultLayout.dockLayout),
   };
 }
 
@@ -31,7 +41,11 @@ export function loadWorkspaceState(): WorkspaceState {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed: WorkspaceState = JSON.parse(saved);
+      if (!parsed.dockLayout) {
+        parsed.dockLayout = cloneDockLayout(getDefaultLayout().dockLayout);
+      }
+      return parsed;
     }
   } catch (error) {
     console.error('Failed to load workspace state:', error);

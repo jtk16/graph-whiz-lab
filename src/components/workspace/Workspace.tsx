@@ -92,6 +92,7 @@ export function Workspace({
             onViewportChange={handleViewportChange}
             isActive={isActive}
             toolConfig={config}
+            onConfigChange={handleConfigChange}
           />
 
           {ControlsComponent && isActive && viewport && (

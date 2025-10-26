@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
@@ -84,11 +84,15 @@ const Index = () => {
   
   // Workspace state management
   const [workspaceState, setWorkspaceState] = useState(() => loadWorkspaceState());
-  const [layout, setLayout] = useState<WorkspaceLayout>(() => {
-    const loaded = loadWorkspaceState();
-    const found = WORKSPACE_LAYOUTS.find(l => l.id === loaded.layoutId) || getDefaultLayout();
-    return cloneWorkspaceLayout(found);
-  });
+  const layoutDefinition =
+    WORKSPACE_LAYOUTS.find(l => l.id === workspaceState.layoutId) || getDefaultLayout();
+  const layout: WorkspaceLayout = useMemo(() => {
+    const cloned = cloneWorkspaceLayout(layoutDefinition);
+    if (workspaceState.dockLayout) {
+      cloned.dockLayout = workspaceState.dockLayout;
+    }
+    return cloned;
+  }, [layoutDefinition, workspaceState.dockLayout]);
 
   // Ref to store active MathInput for keyboard insertions
   const activeMathInputRef = useRef<MathInputRef | null>(null);
@@ -114,8 +118,11 @@ const Index = () => {
 
   const handleLayoutChange = (newLayout: WorkspaceLayout) => {
     const cloned = cloneWorkspaceLayout(newLayout);
-    setLayout(cloned);
-    setWorkspaceState(prev => ({ ...prev, layoutId: newLayout.id }));
+    setWorkspaceState(prev => ({
+      ...prev,
+      layoutId: cloned.id,
+      dockLayout: cloned.dockLayout,
+    }));
   };
 
   const handleToolStateChange = (toolId: string, state: any) => {
@@ -271,8 +278,6 @@ const Index = () => {
         onUpdateDefinition={updateToolkitDefinition}
         onRemoveDefinition={removeToolkitDefinition}
         onClearAll={clearToolkitDefinitions}
-        layout={layout}
-        onLayoutChange={handleLayoutChange}
       />
       
       <div className="flex-1 flex overflow-hidden">

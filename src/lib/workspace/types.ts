@@ -64,6 +64,7 @@ export type DockDropPosition = 'left' | 'right' | 'top' | 'bottom' | 'center';
 export interface WorkspaceState {
   layoutId: string; // Currently active layout
   toolStates: Record<string, ToolState>; // Per-tool state
+  dockLayout?: DockNode;
 }
 
 /**

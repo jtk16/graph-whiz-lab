@@ -16,6 +16,7 @@ export interface ToolProps {
   onViewportChange?: (viewport: any) => void;
   isActive: boolean; // For optimization - tool can skip updates when inactive
   toolConfig?: Record<string, any>; // Tool-specific configuration
+  onConfigChange?: (config: Record<string, any>) => void;
 }
 
 /**

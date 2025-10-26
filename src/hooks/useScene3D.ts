@@ -92,7 +92,7 @@ export function useScene3D(
     const ambient = new THREE.AmbientLight(0xffffff, 1.0);
     const directional = new THREE.DirectionalLight(0xffffff, 1.25);
     directional.position.set(5, 10, 7.5);
-    scene.add(ambient, directional, new THREE.GridHelper(10, 10), new THREE.AxesHelper(5));
+    scene.add(ambient, directional);
 
     sceneRef.current = scene;
     cameraRef.current = camera;

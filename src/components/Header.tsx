@@ -2,9 +2,6 @@ import { useState } from "react";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToolkitExpression } from "@/lib/toolkits";
-import { LayoutSelector } from "./workspace/LayoutSelector";
-import { WorkspaceLayout } from "@/lib/workspace/types";
-import { WORKSPACE_LAYOUTS } from "@/lib/workspace/layouts";
 import { ThemeToggle } from "./ThemeToggle";
 import { ToolkitLibraryDialog } from "./ToolkitLibraryDialog";
 
@@ -14,8 +11,6 @@ interface HeaderProps {
   onUpdateDefinition: (id: string, latex: string) => void;
   onRemoveDefinition: (id: string) => void;
   onClearAll: () => void;
-  layout: WorkspaceLayout;
-  onLayoutChange: (layout: WorkspaceLayout) => void;
 }
 
 export function Header({ 
@@ -23,9 +18,7 @@ export function Header({
   onImportToolkit, 
   onUpdateDefinition,
   onRemoveDefinition,
-  onClearAll,
-  layout,
-  onLayoutChange
+  onClearAll
 }: HeaderProps) {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
@@ -36,13 +29,6 @@ export function Header({
       <div className="flex items-center gap-2">
         {/* Theme Toggle */}
         <ThemeToggle />
-        
-        {/* Layout Selector */}
-        <LayoutSelector
-          currentLayout={layout}
-          availableLayouts={WORKSPACE_LAYOUTS}
-          onSelect={onLayoutChange}
-        />
         
         <Button variant="outline" onClick={() => setIsLibraryOpen(true)}>
           <Package className="mr-2 h-4 w-4" />

@@ -127,7 +127,7 @@ export function ToolkitExpressionSelector({
   const neededDeps = getNeededDeps();
 
   return (
-    <div className="flex flex-col h-full max-h-[85vh]">
+    <div className="flex flex-col h-full min-h-0">
       <div className="p-4 border-b shrink-0">
         <h3 className="text-lg font-semibold">{toolkit.name}</h3>
         <p className="text-sm text-muted-foreground mt-1">{toolkit.description}</p>

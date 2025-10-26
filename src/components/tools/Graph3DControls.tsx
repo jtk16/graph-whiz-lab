@@ -76,7 +76,7 @@ export function Graph3DControls({
             <Label>Resolution: {resolution}</Label>
             <Slider
               value={[resolution]}
-              onValueChange={([value]) => onConfigChange({ ...toolConfig, resolution: value })}
+              onValueChange={([value]) => onConfigChange?.({ ...toolConfig, resolution: value })}
               min={20}
               max={100}
               step={10}
@@ -88,7 +88,7 @@ export function Graph3DControls({
             <Label>Wireframe</Label>
             <Switch
               checked={toolConfig.wireframe || false}
-              onCheckedChange={(checked) => onConfigChange({ ...toolConfig, wireframe: checked })}
+              onCheckedChange={(checked) => onConfigChange?.({ ...toolConfig, wireframe: checked })}
             />
           </div>
 
@@ -97,7 +97,7 @@ export function Graph3DControls({
             <Label>Show Grid</Label>
             <Switch
               checked={toolConfig.showGrid !== false}
-              onCheckedChange={(checked) => onConfigChange({ ...toolConfig, showGrid: checked })}
+              onCheckedChange={(checked) => onConfigChange?.({ ...toolConfig, showGrid: checked })}
             />
           </div>
 
@@ -106,7 +106,7 @@ export function Graph3DControls({
             <Label>Show Axes</Label>
             <Switch
               checked={toolConfig.showAxes !== false}
-              onCheckedChange={(checked) => onConfigChange({ ...toolConfig, showAxes: checked })}
+              onCheckedChange={(checked) => onConfigChange?.({ ...toolConfig, showAxes: checked })}
             />
           </div>
 
@@ -115,7 +115,7 @@ export function Graph3DControls({
             <Label>Color Mode</Label>
             <Select
               value={toolConfig.colorMode || "height"}
-              onValueChange={(value) => onConfigChange({ ...toolConfig, colorMode: value })}
+              onValueChange={(value) => onConfigChange?.({ ...toolConfig, colorMode: value })}
             >
               <SelectTrigger>
                 <SelectValue />

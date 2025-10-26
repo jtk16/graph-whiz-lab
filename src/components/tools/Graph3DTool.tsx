@@ -12,19 +12,50 @@ import { Graph3DControls } from './Graph3DControls';
 import { inferType, MathType } from '@/lib/types';
 import { expressionEngine } from '@/lib/expression';
 
-export const Graph3DTool = ({ 
-  expressions, 
+type Graph3DConfig = {
+  resolution: number;
+  wireframe: boolean;
+  showGrid: boolean;
+  showAxes: boolean;
+  colorMode: 'height' | 'domain' | 'gradient' | 'none';
+  spaceId: string;
+  opacity: number;
+};
+
+const DEFAULT_CONFIG: Graph3DConfig = {
+  resolution: 50,
+  wireframe: false,
+  showGrid: true,
+  showAxes: true,
+  colorMode: 'height',
+  spaceId: 'cartesian',
+  opacity: 0.85,
+};
+
+export const Graph3DTool = ({
+  expressions,
   toolkitDefinitions,
   viewport,
   onViewportChange,
   toolConfig,
-  isActive 
+  onConfigChange,
+  isActive,
 }: ToolProps) => {
   const { theme, resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { scene, renderer, sceneVersion, isReady, requestRender } = useScene3D(canvasRef, isActive);
-  const [spaceId, setSpaceId] = useState<string>(toolConfig?.spaceId || 'cartesian');
+  const [localConfig, setLocalConfig] = useState<Graph3DConfig>(DEFAULT_CONFIG);
+  const mergedConfig = useMemo<Graph3DConfig>(() => {
+    return {
+      ...DEFAULT_CONFIG,
+      ...localConfig,
+      ...(toolConfig as Graph3DConfig | undefined),
+    };
+  }, [localConfig, toolConfig]);
+  const [spaceId, setSpaceId] = useState<string>(mergedConfig.spaceId);
   const space = getSpace(spaceId) || cartesianSpace;
+  const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  const axesHelperRef = useRef<THREE.AxesHelper | null>(null);
   const definitionSources = useMemo(
     () => [...expressions, ...toolkitDefinitions].filter(e => e.normalized.trim().includes('=')),
     [expressions, toolkitDefinitions]
@@ -55,6 +86,18 @@ export const Graph3DTool = ({
     return new THREE.Color(0x0a0a0a);
   };
   
+  useEffect(() => {
+    setSpaceId(mergedConfig.spaceId);
+  }, [mergedConfig.spaceId]);
+  
+  const emitConfigChange = (nextConfig: Graph3DConfig) => {
+    if (onConfigChange) {
+      onConfigChange(nextConfig);
+    } else {
+      setLocalConfig(nextConfig);
+    }
+  };
+  
   // Only initialize 3D scene when active
   useEffect(() => {
     if (!scene) return;
@@ -81,10 +124,13 @@ export const Graph3DTool = ({
   };
 
   // Evaluate all expressions to renderable data (surfaces or curves)
+  const resolutionSetting = mergedConfig.resolution || 30;
+  const colorModeSetting = mergedConfig.colorMode ?? 'height';
+
   const renderableData = useMemo(() => {
     if (!isActive || !isReady) return { surfaces: [], curves: [] };
 
-    const surfaces: Array<{ data: any; color?: string; id: string }> = [];
+    const surfaces: Array<{ data: any; color?: string; id: string; useVertexColors: boolean }> = [];
     const curves: Array<{ data: any; color?: string; id: string }> = [];
 
     expressions.forEach(expr => {
@@ -120,10 +166,15 @@ export const Graph3DTool = ({
                 x: bounds.x || { min: -5, max: 5 },
                 y: bounds.y || { min: -5, max: 5 },
               },
-              resolution: toolConfig?.resolution || 30,
-              colorMode: 'none' // Don't use vertex colors for explicit surfaces
+              resolution: resolutionSetting,
+              colorMode: colorModeSetting
             });
-            surfaces.push({ data, color: expr.color, id: expr.id });
+            surfaces.push({
+              data,
+              color: expr.color,
+              id: expr.id,
+              useVertexColors: Boolean(data.colors && colorModeSetting !== 'none'),
+            });
             return;
           }
           
@@ -139,11 +190,11 @@ export const Graph3DTool = ({
                 zMin: bounds.z?.min ?? -5,
                 zMax: bounds.z?.max ?? 5,
               },
-              resolution: toolConfig?.resolution || 30,
+              resolution: resolutionSetting,
               isoValue: 0
             };
             const data = evaluator.evaluateImplicitSurface(implicitOptions);
-            surfaces.push({ data, color: expr.color, id: expr.id });
+            surfaces.push({ data, color: expr.color, id: expr.id, useVertexColors: false });
             return;
           }
           
@@ -164,7 +215,7 @@ export const Graph3DTool = ({
             const data = evaluator.evaluateCurve({
               parameterName: 't',
               parameterRange: { min: -5, max: 5 },
-              resolution: toolConfig?.resolution || 100
+              resolution: Math.max(50, resolutionSetting * 2)
             });
             
             curves.push({ data, color: expr.color, id: expr.id });
@@ -172,11 +223,16 @@ export const Graph3DTool = ({
           } else {
             const evaluator = new SurfaceEvaluator(ast, context, space);
             const data = evaluator.evaluateSurface({
-              resolution: toolConfig?.resolution || 50,
+              resolution: resolutionSetting,
               bounds: viewport?.bounds || space.defaultBounds,
-              colorMode: 'none'
+              colorMode: colorModeSetting
             });
-            surfaces.push({ data, color: expr.color, id: expr.id });
+            surfaces.push({
+              data,
+              color: expr.color,
+              id: expr.id,
+              useVertexColors: Boolean(data.colors && colorModeSetting !== 'none'),
+            });
             return;
           }
         } catch (e) {
@@ -186,7 +242,44 @@ export const Graph3DTool = ({
       });
 
     return { surfaces, curves };
-  }, [expressions, context, space, viewport, toolConfig, isActive, isReady]);
+  }, [expressions, context, space, viewport, resolutionSetting, colorModeSetting, isActive, isReady]);
+  
+  const showGrid = mergedConfig.showGrid !== false;
+  const showAxes = mergedConfig.showAxes !== false;
+  
+  useEffect(() => {
+    if (!scene) return;
+    const grid = new THREE.GridHelper(20, 20, 0x666666, 0x444444);
+    grid.material.depthWrite = false;
+    scene.add(grid);
+    gridHelperRef.current = grid;
+    
+    const axes = new THREE.AxesHelper(5);
+    axes.material.depthWrite = false;
+    scene.add(axes);
+    axesHelperRef.current = axes;
+    
+    return () => {
+      scene.remove(grid);
+      scene.remove(axes);
+      gridHelperRef.current = null;
+      axesHelperRef.current = null;
+    };
+  }, [scene]);
+  
+  useEffect(() => {
+    if (gridHelperRef.current) {
+      gridHelperRef.current.visible = showGrid;
+      requestRender();
+    }
+  }, [showGrid, requestRender]);
+  
+  useEffect(() => {
+    if (axesHelperRef.current) {
+      axesHelperRef.current.visible = showAxes;
+      requestRender();
+    }
+  }, [showAxes, requestRender]);
   
   if (!isActive) return null;
   
@@ -208,16 +301,17 @@ export const Graph3DTool = ({
       {/* Render surfaces and curves only when ready */}
       {isReady && scene && (
         <>
-          {renderableData.surfaces.map(({ data, color, id }) => (
+          {renderableData.surfaces.map(({ data, color, id, useVertexColors }) => (
             <Surface3D
               key={id}
               scene={scene}
               sceneVersion={sceneVersion}
               data={data}
               color={color}
-              wireframe={toolConfig?.wireframe}
-              opacity={toolConfig?.opacity ?? 0.85}
+              wireframe={mergedConfig.wireframe}
+              opacity={mergedConfig.opacity ?? 0.85}
               requestRender={requestRender}
+              useVertexColors={useVertexColors}
             />
           ))}
           {renderableData.curves.length > 0 && (
@@ -236,19 +330,16 @@ export const Graph3DTool = ({
       {isReady && (
         <div className="absolute top-4 right-4">
           <Graph3DControls
-            toolConfig={toolConfig || {}}
-            onConfigChange={(config) => {
-              if (onViewportChange) {
-                // Update viewport bounds when config changes
-                onViewportChange({ bounds: space.defaultBounds, ...config });
-              }
-            }}
+            toolConfig={mergedConfig}
+            onConfigChange={(config) => emitConfigChange(config as Graph3DConfig)}
             space={space}
-            onSpaceChange={setSpaceId}
+            onSpaceChange={(nextSpaceId) => {
+              setSpaceId(nextSpaceId);
+              emitConfigChange({ ...mergedConfig, spaceId: nextSpaceId });
+            }}
           />
         </div>
       )}
     </div>
   );
 };
-
