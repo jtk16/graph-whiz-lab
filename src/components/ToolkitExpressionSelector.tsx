@@ -153,8 +153,8 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-        <div className="space-y-3 pb-16">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="space-y-3 pb-4">
           {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);
             const isSelected = selected.has(index);
