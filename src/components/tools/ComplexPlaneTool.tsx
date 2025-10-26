@@ -164,7 +164,40 @@ function buildComplexRenderable(
   context: ReturnType<typeof expressionEngine.buildContext>,
   config: ComplexPlaneConfig
 ): ComplexRenderable {
-  const ast = expressionEngine.parseNormalized(expr.normalized, context);
+  const normalizedExpr = expressionEngine.normalize(expr.latex || expr.normalized);
+
+  let ast;
+  try {
+    ast = expressionEngine.parseNormalized(normalizedExpr, context);
+  } catch (error) {
+    console.error("[ComplexPlane] Failed to parse expression", {
+      id: expr.id,
+      latex: expr.latex,
+      previousNormalized: expr.normalized,
+      normalizedExpr,
+    }, error);
+    return {
+      id: expr.id,
+      color: expr.color,
+      latex: expr.latex,
+      normalized: normalizedExpr,
+      resolution: Math.max(32, Math.min(256, Math.floor(config.resolution))),
+      domainImage: null,
+      realSurface: null,
+      imagSurface: null,
+      stats: {
+        minReal: 0,
+        maxReal: 0,
+        minImag: 0,
+        maxImag: 0,
+        minMagnitude: 0,
+        maxMagnitude: 0,
+        validPoints: 0,
+        invalidPoints: 0,
+      },
+      error: error instanceof Error ? error.message : "Failed to parse expression",
+    };
+  }
   const resolution = Math.max(32, Math.min(256, Math.floor(config.resolution)));
   const count = resolution * resolution;
 
@@ -311,7 +344,7 @@ function buildComplexRenderable(
     id: expr.id,
     color: expr.color,
     latex: expr.latex,
-    normalized: expr.normalized,
+    normalized: normalizedExpr,
     resolution,
     domainImage,
     realSurface,
