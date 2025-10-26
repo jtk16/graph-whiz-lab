@@ -106,9 +106,8 @@ class Parser {
         const right = this.parsePower();
         left = { type: 'binary', operator, left, right };
       }
-      // Implicit multiplication: variable followed by '('
-      else if (ch === '(' && left.type === 'variable') {
-        const right = this.parsePower(); // This will parse the parenthetical
+      else if (this.startsImplicitMultiplication()) {
+        const right = this.parsePower();
         left = { type: 'binary', operator: '*', left, right };
       }
       else {
@@ -303,6 +302,18 @@ class Parser {
 
   private startsWith(sequence: string): boolean {
     return this.input.startsWith(sequence, this.pos);
+  }
+
+  private startsImplicitMultiplication(): boolean {
+    const ch = this.peek();
+    if (!ch) return false;
+
+    if (ch === '(' || ch === '[') return true;
+    if (this.isIdentifierStart(ch)) return true;
+    if (this.isDigit(ch)) return true;
+    if (ch === '.') return true;
+
+    return false;
   }
 
   private parseDerivativeOperator(type: 'derivative' | 'partial', prefix?: string): ASTNode {

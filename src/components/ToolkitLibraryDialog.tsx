@@ -187,7 +187,7 @@ export function ToolkitLibraryDialog({
                 </ScrollArea>
               </div>
 
-              <div className="flex-1 border rounded-lg bg-muted/10 min-h-0">
+              <div className="flex-1 border rounded-lg bg-muted/10 min-h-0 flex flex-col overflow-hidden">
                 {selectedToolkit ? (
                   <ToolkitExpressionSelector
                     toolkit={selectedToolkit}
