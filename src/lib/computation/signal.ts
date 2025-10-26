@@ -103,13 +103,18 @@ export function computeFFT(signal: number[]): [number, number][] {
   // Pad to power of 2
   const size = nextPowerOf2(signal.length);
   const padded = [...signal, ...new Array(size - signal.length).fill(0)];
-  
+
   const fft = new FFT(size);
   const out = fft.createComplexArray();
-  const input = fft.toComplexArray(padded, new Array(size).fill(0));
-  
+  const input = fft.createComplexArray();
+
+  for (let i = 0; i < size; i++) {
+    input[i * 2] = padded[i];
+    input[i * 2 + 1] = 0;
+  }
+
   fft.transform(out, input);
-  
+
   // Convert to array of [real, imaginary] pairs
   const result: [number, number][] = [];
   for (let i = 0; i < out.length; i += 2) {
@@ -123,23 +128,21 @@ export function computeFFT(signal: number[]): [number, number][] {
 export function computeIFFT(spectrum: [number, number][]): number[] {
   const size = spectrum.length;
   const fft = new FFT(size);
+  const input = fft.createComplexArray();
   const out = fft.createComplexArray();
-  
-  // Flatten complex array
-  const input = new Array(size * 2);
+
   for (let i = 0; i < spectrum.length; i++) {
     input[i * 2] = spectrum[i][0];
     input[i * 2 + 1] = spectrum[i][1];
   }
-  
+
   fft.inverseTransform(out, input);
-  
-  // Extract real parts
+
   const result: number[] = [];
   for (let i = 0; i < out.length; i += 2) {
     result.push(out[i]);
   }
-  
+
   return result;
 }
 
@@ -178,3 +181,4 @@ function nextPowerOf2(n: number): number {
 
 // Initialize on module load
 registerSignalFunctions();
+
