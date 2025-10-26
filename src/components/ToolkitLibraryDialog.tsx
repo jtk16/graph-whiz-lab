@@ -3,7 +3,6 @@ import { listToolkits, ToolkitExpression } from "@/lib/toolkits";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Search, Package2 } from "lucide-react";
@@ -105,10 +104,10 @@ export function ToolkitLibraryDialog({
             <TabsTrigger value="imported">Imported ({toolkitDefinitions.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="library" className="flex flex-1 min-h-0 flex-col px-6 pb-6">
-            <div className="flex flex-1 min-h-0 gap-4">
-              <div className="w-72 border rounded-lg bg-muted/30 flex flex-col min-h-0">
-                <div className="p-4 border-b space-y-3">
+          <TabsContent value="library" className="flex flex-1 min-h-0 flex-col gap-4 px-6 pb-6">
+            <div className="flex flex-1 min-h-0 flex-col gap-4 lg:flex-row">
+              <div className="w-full rounded-lg border bg-muted/30 lg:w-72">
+                <div className="border-b p-4 space-y-3">
                   <div className="relative">
                     <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
                     <Input
@@ -142,49 +141,39 @@ export function ToolkitLibraryDialog({
                     ))}
                   </div>
                 </div>
-                <ScrollArea className="flex-1">
-                  <div className="p-3 space-y-2">
-                    {filteredToolkits.length === 0 && (
-                      <div className="text-sm text-muted-foreground text-center py-6">
-                        No toolkits match your filters.
-                      </div>
-                    )}
-                    {filteredToolkits.map(toolkit => {
-                      const importedCount = toolkitDefinitions.filter(def => def.source === toolkit.id).length;
-                      const isActive = selectedToolkitId === toolkit.id;
-                      return (
-                        <button
-                          key={toolkit.id}
-                          className={cn(
-                            "w-full text-left border rounded-lg p-3 transition-colors",
-                            isActive ? "border-primary bg-primary/5" : "bg-background hover:bg-muted"
+                <div className="max-h-64 overflow-y-auto border-t bg-background/40 p-3 lg:max-h-none lg:border-t-0 lg:flex-1">
+                  {filteredToolkits.length === 0 && (
+                    <div className="py-6 text-center text-sm text-muted-foreground">No toolkits match your filters.</div>
+                  )}
+                  {filteredToolkits.map(toolkit => {
+                    const importedCount = toolkitDefinitions.filter(def => def.source === toolkit.id).length;
+                    const isActive = selectedToolkitId === toolkit.id;
+                    return (
+                      <button
+                        key={toolkit.id}
+                        className={cn(
+                          "w-full text-left rounded-lg border p-3 transition-colors",
+                          isActive ? "border-primary bg-primary/5" : "bg-card hover:bg-muted"
+                        )}
+                        onClick={() => handleToolkitSelect(toolkit.id)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium">{toolkit.name}</div>
+                          <span className="text-xs text-muted-foreground">{toolkit.expressions.length} items</span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{toolkit.description}</p>
+                        <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                          {importedCount > 0 && (
+                            <span className="text-emerald-600 dark:text-emerald-400">{importedCount} imported</span>
                           )}
-                          onClick={() => handleToolkitSelect(toolkit.id)}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium">{toolkit.name}</div>
-                            <span className="text-xs text-muted-foreground">
-                              {toolkit.expressions.length} items
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                            {toolkit.description}
-                          </p>
-                          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-                            {importedCount > 0 && (
-                              <span className="text-emerald-600 dark:text-emerald-400">
-                                {importedCount} imported
-                              </span>
-                            )}
-                            <span className="px-1.5 py-0.5 rounded bg-muted">
-                              {toolkit.expressions[0]?.category ?? "Mixed"}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
+                          <span className="rounded bg-muted px-1.5 py-0.5">
+                            {toolkit.expressions[0]?.category ?? "Mixed"}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/10">
@@ -208,7 +197,7 @@ export function ToolkitLibraryDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="imported" className="flex flex-1 min-h-0 flex-col px-6 pb-6">
+          <TabsContent value="imported" className="flex flex-1 min-h-0 flex-col gap-4 px-6 pb-6">
             <div className="flex-1 overflow-hidden rounded-lg border bg-muted/20">
               <ToolkitDefinitionsPanel
                 definitions={toolkitDefinitions}

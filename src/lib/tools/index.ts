@@ -14,6 +14,7 @@ import './definitions/graph2d';
 import './definitions/graph3d';
 import './definitions/complexPlane';
 import './definitions/circuit';
+import './definitions/transforms';
 
 // Tools will auto-register when their definition files are imported
 if (process.env.NODE_ENV === 'development') {
