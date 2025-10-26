@@ -20,7 +20,9 @@ export const WORKSPACE_LAYOUTS: WorkspaceLayout[] = [
       activeTabId: 'dock-tab-graph-2d',
       tabs: [
         { id: 'dock-tab-graph-2d', toolId: 'graph-2d', title: '2D Graph' },
-        { id: 'dock-tab-graph-3d', toolId: 'graph-3d', title: '3D Graph' }
+        { id: 'dock-tab-graph-3d', toolId: 'graph-3d', title: '3D Graph' },
+        { id: 'dock-tab-complex', toolId: 'complex-plane', title: 'Complex Plane' },
+        { id: 'dock-tab-circuit', toolId: 'circuit', title: 'Circuit' }
       ]
     }
   }

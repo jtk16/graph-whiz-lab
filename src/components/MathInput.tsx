@@ -71,8 +71,11 @@ export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
     containerRef.current.appendChild(mf);
     mathFieldRef.current = mf;
 
-    const applyInitialConfig = () => {
-      if (!mathFieldRef.current) return;
+    let cancelled = false;
+    let pendingFrame: number | null = null;
+
+    const configureField = () => {
+      if (!mathFieldRef.current || cancelled) return;
       const field = mathFieldRef.current;
       field.defaultMode = "math";
       field.smartFence = true;
@@ -82,14 +85,40 @@ export const MathInput = forwardRef<MathInputRef, MathInputProps>(({
       field.readOnly = disabled;
     };
 
-    if (typeof queueMicrotask === 'function') {
-      queueMicrotask(applyInitialConfig);
+    const configureWithRetry = (attempt = 0) => {
+      if (cancelled) return;
+      try {
+        configureField();
+      } catch (error) {
+        if (attempt < 5) {
+          pendingFrame = requestAnimationFrame(() => {
+            pendingFrame = null;
+            configureWithRetry(attempt + 1);
+          });
+        } else {
+          console.error("MathInput: failed to configure mathfield", error);
+        }
+      }
+    };
+
+    const readyListener: EventListener = () => configureWithRetry();
+    mf.addEventListener("mathfield-ready", readyListener);
+
+    if (typeof queueMicrotask === "function") {
+      queueMicrotask(() => configureWithRetry());
     } else {
-      requestAnimationFrame(applyInitialConfig);
+      pendingFrame = requestAnimationFrame(() => {
+        pendingFrame = null;
+        configureWithRetry();
+      });
     }
 
-    // Cleanup function
     return () => {
+      cancelled = true;
+      if (pendingFrame !== null) {
+        cancelAnimationFrame(pendingFrame);
+      }
+      mf.removeEventListener("mathfield-ready", readyListener);
       mf.removeEventListener("input", handleInput);
       if (onFocus) mf.removeEventListener("focus", handleFocus);
       if (containerRef.current?.contains(mf)) {

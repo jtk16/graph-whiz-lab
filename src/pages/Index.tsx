@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { ExpressionList } from "@/components/ExpressionList";
 import { GraphCanvas } from "@/components/GraphCanvas";
 import { GraphControls } from "@/components/GraphControls";
@@ -129,21 +129,38 @@ const Index = () => {
     setWorkspaceState(prev => updateToolState(prev, toolId, state));
   };
 
-  const addExpression = () => {
+  const insertExpression = useCallback((latex: string, normalized: string) => {
     const newId = Date.now().toString();
-    const colorIndex = expressions.length % GRAPH_COLORS.length;
-    const newColor = GRAPH_COLORS[colorIndex];
-    setExpressions([
-      ...expressions,
-      { 
-        id: newId, 
-        latex: "", 
-        normalized: "", 
-        color: newColor, 
-        typeInfo: { type: MathType.Unknown } 
-      },
-    ]);
+    const typeInfo = inferType(latex, normalized);
+    setExpressions(prev => {
+      const colorIndex = prev.length % GRAPH_COLORS.length;
+      const newColor = GRAPH_COLORS[colorIndex];
+      return [
+        ...prev,
+        {
+          id: newId,
+          latex,
+          normalized,
+          color: newColor,
+          typeInfo,
+        },
+      ];
+    });
     setActiveId(newId);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ latex: string; normalized: string }>).detail;
+      if (!detail) return;
+      insertExpression(detail.latex, detail.normalized);
+    };
+    window.addEventListener("circuit:add-expression", handler as EventListener);
+    return () => window.removeEventListener("circuit:add-expression", handler as EventListener);
+  }, [insertExpression]);
+
+  const addExpression = () => {
+    insertExpression("", "");
   };
 
   const updateExpression = (id: string, latex: string) => {

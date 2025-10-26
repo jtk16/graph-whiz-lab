@@ -28,7 +28,7 @@ export function ToolkitDefinitionsPanel({
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <Badge className="h-12 w-12 mb-4 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">No toolkit definitions imported yet.</p>
-        <p className="text-xs text-muted-foreground mt-1">Import a toolkit to get started.</p>
+        <p className="text-xs text-muted-foreground mt-1">Use the Toolkit Library button in the header to browse and import.</p>
       </div>
     );
   }

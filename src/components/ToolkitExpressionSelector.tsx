@@ -54,7 +54,6 @@ export function ToolkitExpressionSelector({
       return editedLatex ? { ...expr, latex: editedLatex } : expr;
     });
     
-    console.log('[ToolkitSelector] Initial selection:', expressionsToImport.map(e => e.normalized));
     
     // Auto-import dependencies if enabled
     if (autoImportDeps) {
@@ -64,12 +63,10 @@ export function ToolkitExpressionSelector({
       // Collect all dependencies from selected expressions
       expressionsToImport.forEach(expr => {
         if (expr.dependencies && expr.dependencies.length > 0) {
-          console.log(`[ToolkitSelector] ${expr.normalized} needs:`, expr.dependencies);
           expr.dependencies.forEach(dep => neededDeps.add(dep));
         }
       });
       
-      console.log('[ToolkitSelector] All needed deps:', Array.from(neededDeps));
       
       // Loop to resolve transitive dependencies
       let foundNewDeps = true;
@@ -77,30 +74,25 @@ export function ToolkitExpressionSelector({
       while (foundNewDeps) {
         foundNewDeps = false;
         iteration++;
-        console.log(`[ToolkitSelector] Iteration ${iteration}, checking for deps:`, Array.from(neededDeps));
         
         toolkit.expressions.forEach((expr, idx) => {
           // Extract function name from LHS: "funcName(...) = ..."
           const funcName = expr.normalized.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\(/)?.[1];
-          console.log(`[ToolkitSelector]   Checking expr[${idx}]: ${expr.normalized}, funcName: ${funcName}`);
           
           // If this function is needed and not already selected, add it
           if (funcName && neededDeps.has(funcName) && !selectedIndices.has(idx)) {
-            console.log(`[ToolkitSelector]     -> Adding dependency: ${expr.normalized}`);
             expressionsToImport.push(expr);
             selectedIndices.add(idx);
             foundNewDeps = true;
             
             // Add dependencies of this newly added expression
             expr.dependencies?.forEach(dep => {
-              console.log(`[ToolkitSelector]       -> Adding nested dep: ${dep}`);
               neededDeps.add(dep);
             });
           }
         });
       }
       
-      console.log('[ToolkitSelector] Final expressions to import:', expressionsToImport.map(e => e.normalized));
     }
     
     onConfirm(expressionsToImport);
@@ -161,7 +153,7 @@ export function ToolkitExpressionSelector({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide p-4 min-h-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden  p-4 min-h-0">
         <div className="space-y-3 pb-4">
           {toolkit.expressions.map((expr, index) => {
             const isImported = isAlreadyImported(expr.normalized);

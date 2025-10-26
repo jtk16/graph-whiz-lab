@@ -224,7 +224,7 @@ function isDigit(char: string): boolean {
 }
 
 function isIdentifierStart(char: string): boolean {
-  return /[a-zA-Z_]/.test(char) || char === '∂';
+  return /[a-zA-Z_]/.test(char) || char === '\u2202';
 }
 
 function isIdentifierPart(char: string): boolean {

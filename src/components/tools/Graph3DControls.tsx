@@ -35,7 +35,7 @@ export function Graph3DControls({
         <div>
           <p className="text-sm font-semibold">3D Controls</p>
           <p className="text-xs text-muted-foreground">
-            {space.name} · Res {resolution}
+            {space.name} | Res {resolution}
           </p>
         </div>
         {collapsible && (
@@ -132,3 +132,4 @@ export function Graph3DControls({
     </Card>
   );
 }
+

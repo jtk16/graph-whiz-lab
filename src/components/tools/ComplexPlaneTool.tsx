@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { Surface3D } from "@/components/3d/Surface3D";
 import { useScene3D } from "@/hooks/useScene3D";
-import { Info } from "lucide-react";
+import { Info, ChevronDown, ChevronUp } from "lucide-react";
 
 const COMPLEX_RE_VAR = "__complex_re_value";
 const COMPLEX_IM_VAR = "__complex_im_value";
@@ -470,7 +470,7 @@ const ComplexExpressionCard = ({
               Expression
             </Badge>
             <span className="text-sm text-muted-foreground">
-              Sampling {config.resolution}² points in [-{config.extent}, {config.extent}]
+              Sampling {config.resolution}^2 points in [-{config.extent}, {config.extent}]
             </span>
           </div>
           <p className="mt-2 font-mono text-sm text-foreground break-all">
@@ -609,14 +609,14 @@ const ComplexPlaneControls = ({
           aria-label={open ? "Collapse controls" : "Expand controls"}
           aria-expanded={open}
         >
-          {open ? "−" : "+"}
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
       </div>
 
       {open && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Extent: ±{config.extent.toFixed(1)}</Label>
+            <Label>Extent: +/-{config.extent.toFixed(1)}</Label>
             <Slider
               value={[config.extent]}
               min={1}
@@ -682,3 +682,8 @@ const ComplexPlaneControls = ({
     </Card>
   );
 };
+
+
+
+
+

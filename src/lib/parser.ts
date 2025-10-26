@@ -143,15 +143,16 @@ class Parser {
 
   private parsePrimary(): ASTNode {
     // === DERIVATIVE OPERATORS ===
-    // Check for d/d{var} pattern
-    if (this.peek() === 'd' && this.input.substring(this.pos, this.pos + 4) === 'd/d{') {
-      return this.parseDerivativeOperator('derivative');
+    const derivativePrefix = this.matchPrefix(['d/d{']);
+    if (derivativePrefix) {
+      return this.parseDerivativeOperator('derivative', derivativePrefix);
     }
     
-    // Check for ∂/∂{var} pattern
-    if (this.peek() === '∂' && this.input.substring(this.pos, this.pos + 4) === '∂/∂{') {
-      return this.parseDerivativeOperator('partial');
+    const partialPrefix = this.matchPrefix(['partial/partial{', '\u2202/\u2202{']);
+    if (partialPrefix) {
+      return this.parseDerivativeOperator('partial', partialPrefix);
     }
+    
     
     // Number
     if (this.isDigit(this.peek()) || this.peek() === '.') {
@@ -205,7 +206,7 @@ class Parser {
     }
 
     // Function or variable
-    if (this.isLetter(this.peek())) {
+    if (this.isIdentifierStart(this.peek())) {
       return this.parseIdentifier();
     }
 
@@ -222,7 +223,7 @@ class Parser {
 
   private parseIdentifier(): ASTNode {
     let name = '';
-    while (this.isLetter(this.peek()) || this.isDigit(this.peek()) || this.peek() === '_') {
+    while (this.isIdentifierStart(this.peek()) || this.isDigit(this.peek())) {
       name += this.consume();
     }
 
@@ -287,42 +288,53 @@ class Parser {
     return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z');
   }
 
-  private parseDerivativeOperator(type: 'derivative' | 'partial'): ASTNode {
-    // Consume the prefix: 'd/d{' or '∂/∂{'
-    const prefix = type === 'derivative' ? 'd/d{' : '∂/∂{';
-    for (let i = 0; i < prefix.length; i++) {
+  private isIdentifierStart(char: string): boolean {
+    return char === '_' || this.isLetter(char);
+  }
+
+  private matchPrefix(options: string[]): string | null {
+    for (const option of options) {
+      if (this.startsWith(option)) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  private startsWith(sequence: string): boolean {
+    return this.input.startsWith(sequence, this.pos);
+  }
+
+  private parseDerivativeOperator(type: 'derivative' | 'partial', prefix?: string): ASTNode {
+    const activePrefix = prefix ?? (type === 'derivative' ? 'd/d{' : '\u2202/\u2202{');
+    for (let i = 0; i < activePrefix.length; i++) {
       this.consume();
     }
-    
-    // Extract variable name (everything until '}')
+
     let variable = '';
     while (this.peek() !== '}' && this.peek() !== '') {
       variable += this.consume();
     }
-    
+
     if (this.peek() !== '}') {
       throw new Error(`Expected '}' in ${type} operator`);
     }
-    this.consume(); // consume '}'
-    
+    this.consume();
+
     if (!variable) {
       throw new Error(`${type} operator missing variable name`);
     }
-    
-    // Parse the operand (expression to differentiate)
-    // Support both d/d{x}(expr) and d/d{x}expr formats
+
     let operand: ASTNode;
-    
+
     if (this.peek() === '(') {
-      // Explicit parentheses: d/d{x}(x^2)
-      this.consume(); // '('
+      this.consume();
       operand = this.parseExpression();
       this.expect(')');
     } else {
-      // No parentheses: d/d{x}x^2 - parse next primary/power
       operand = this.parsePower();
     }
-    
+
     return {
       type,
       variable,
@@ -335,3 +347,5 @@ export function parseExpression(input: string, context?: DefinitionContext): AST
   const parser = new Parser(input, context);
   return parser.parse();
 }
+
+
