@@ -1,4 +1,4 @@
-import { MathType } from '../types';
+import { MathType, TypeInfo } from '../types';
 import { ToolkitExpression } from '../toolkits/types';
 
 /**
@@ -10,6 +10,8 @@ export interface ToolProps {
     latex: string;
     normalized: string;
     color: string;
+    typeInfo?: TypeInfo;
+    allowedModules?: string[] | null;
   }>;
   toolkitDefinitions: ToolkitExpression[];
   viewport?: any; // Tool-specific viewport state

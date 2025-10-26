@@ -143,17 +143,19 @@ export function ComplexPlaneTool({
   }
 
   return (
-    <div className="flex h-full w-full gap-4 bg-canvas-bg p-4 overflow-hidden">
-      <div className="w-72 shrink-0 overflow-auto">
-        <ComplexPlaneControls config={mergedConfig} onChange={handleConfigChange} />
+    <div className="flex h-full w-full flex-col gap-4 overflow-hidden bg-canvas-bg/95 p-4 lg:flex-row">
+      <div className="w-full shrink-0 lg:w-72">
+        <div className="max-h-full overflow-auto pr-1">
+          <ComplexPlaneControls config={mergedConfig} onChange={handleConfigChange} />
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto space-y-6 pr-1">
+      <div className="flex-1 min-h-0 max-h-full overflow-y-auto space-y-6 pr-1">
         {renderables.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground">
-            Add an expression (e.g., <code>e^&#123;iz&#125;</code> or <code>z^2 + 1 / z</code>) to explore its
-            domain coloring and component surfaces.
-          </Card>
+        <Card className="p-8 text-center text-muted-foreground">
+          Add an expression (e.g., <code>e^&#123;i z&#125;</code> or <code>z^2 + 1 / z</code>) to explore its
+          domain coloring and component surfaces.
+        </Card>
         ) : (
           renderables.map(renderable => (
             <ComplexExpressionCard key={renderable.id} data={renderable} config={mergedConfig} />
@@ -554,8 +556,8 @@ const DomainCanvas = ({ imageData, label }: { imageData: ImageData | null; label
 
   return (
     <div className="rounded-lg border bg-background/60 p-2">
-      <div className="text-xs font-semibold text-muted-foreground mb-2">{label}</div>
-      <div className="aspect-square w-full overflow-hidden rounded-md bg-black/80">
+      <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
+      <div className="aspect-square w-full max-h-[320px] overflow-hidden rounded-md bg-black/80">
         <canvas ref={canvasRef} className="h-full w-full" />
       </div>
     </div>
@@ -599,8 +601,8 @@ const ComplexSurfaceMini = ({ data, label }: { data?: SurfaceData | null; label:
 
   return (
     <div className="rounded-lg border bg-background/60 p-2">
-      <div className="text-xs font-semibold text-muted-foreground mb-2">{label}</div>
-      <div className="relative aspect-square w-full overflow-hidden rounded-md bg-black/80">
+      <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
+      <div className="relative aspect-square w-full max-h-[320px] overflow-hidden rounded-md bg-black/80">
         <canvas ref={canvasRef} className="h-full w-full" />
         {!data && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">

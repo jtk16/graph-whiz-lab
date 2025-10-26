@@ -9,12 +9,18 @@ interface Expression {
   normalized: string;
   color: string;
   typeInfo: import('@/lib/types').TypeInfo;
+  allowedModules?: string[] | null;
   errors?: Array<{
     type: string;
     message: string;
     identifier?: string;
     suggestions?: string[];
   }>;
+}
+
+interface ModuleOption {
+  id: string;
+  title: string;
 }
 
 interface ExpressionListProps {
@@ -27,6 +33,8 @@ interface ExpressionListProps {
   onClearAll: () => void;
   onSetActive: (id: string) => void;
   onSetActiveMathInput: (ref: MathInputRef | null) => void;
+  moduleOptions: ModuleOption[];
+  onUpdateModules: (id: string, modules: string[] | null) => void;
 }
 
 export const ExpressionList = ({
@@ -39,6 +47,8 @@ export const ExpressionList = ({
   onClearAll,
   onSetActive,
   onSetActiveMathInput,
+  moduleOptions,
+  onUpdateModules,
 }: ExpressionListProps) => {
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-expression-bg">
@@ -89,6 +99,9 @@ export const ExpressionList = ({
               onFocus={() => onSetActive(expr.id)}
               onSetActiveMathInput={onSetActiveMathInput}
               allExpressions={expressions}
+              moduleOptions={moduleOptions}
+              allowedModules={expr.allowedModules ?? null}
+              onModulesChange={(modules) => onUpdateModules(expr.id, modules)}
               errors={expr.errors}
             />
           ))

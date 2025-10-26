@@ -22,7 +22,7 @@ type DropHint = { panelId: string; position: DockDropPosition };
 interface DockWorkspaceProps {
   dockTree: DockNode;
   onDockTreeChange: (next: DockNode) => void;
-  renderTool: (toolId: string, options: { instanceKey: string; isActive: boolean }) => ReactNode;
+  renderTool: (toolId: string, options: { instanceId: string; isActive: boolean }) => ReactNode;
 }
 
 export function DockWorkspace({ dockTree, onDockTreeChange, renderTool }: DockWorkspaceProps) {
@@ -114,7 +114,7 @@ export function DockWorkspace({ dockTree, onDockTreeChange, renderTool }: DockWo
 
 interface DockTabsPanelProps {
   panel: DockTabsNode;
-  renderTool: (toolId: string, options: { instanceKey: string; isActive: boolean }) => ReactNode;
+  renderTool: (toolId: string, options: { instanceId: string; isActive: boolean }) => ReactNode;
   onAddModule: (panelId: string, toolId: string) => void;
   onActivateTab: (panelId: string, tabId: string) => void;
   onCloseTab: (panelId: string, tabId: string) => void;
@@ -209,7 +209,7 @@ const DockTabsPanel = ({
 
       <div className="relative flex-1 bg-canvas-bg/80">
         {activeTab ? (
-          <div className="h-full w-full">{renderTool(activeTab.toolId, { instanceKey: activeTab.id, isActive: true })}</div>
+          <div className="h-full w-full">{renderTool(activeTab.toolId, { instanceId: activeTab.id, isActive: true })}</div>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
             <p>No modules in this panel.</p>

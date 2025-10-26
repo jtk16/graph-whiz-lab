@@ -16,10 +16,11 @@ import { toast } from "@/hooks/use-toast";
 import { KeyboardItem } from "@/lib/keyboard/items";
 import { MathInputRef } from "@/components/MathInput";
 import { Workspace } from "@/components/workspace/Workspace";
-import { WorkspaceLayout } from "@/lib/workspace/types";
+import { WorkspaceLayout, DockNode } from "@/lib/workspace/types";
 import { getDefaultLayout, WORKSPACE_LAYOUTS } from "@/lib/workspace/layouts";
 import { loadWorkspaceState, saveWorkspaceState, updateToolState, getToolState } from "@/lib/workspace/manager";
 import { expressionEngine } from "@/lib/expression";
+import { toolRegistry } from "@/lib/tools";
 
 const GRAPH_COLORS = [
   "hsl(var(--graph-1))",
@@ -43,6 +44,7 @@ interface Expression {
   normalized: string;
   color: string;
   typeInfo: TypeInfo;
+  allowedModules?: string[] | null;
   errors?: Array<{
     type: string;
     message: string;
@@ -50,6 +52,52 @@ interface Expression {
     suggestions?: string[];
   }>;
 }
+
+interface ModuleInstance {
+  id: string;
+  toolId: string;
+  title: string;
+}
+
+const collectDockModules = (node: DockNode, counts: Record<string, number>, acc: ModuleInstance[]) => {
+  if (node.type === "split") {
+    collectDockModules(node.first, counts, acc);
+    collectDockModules(node.second, counts, acc);
+    return;
+  }
+
+  node.tabs.forEach(tab => {
+    const count = (counts[tab.toolId] = (counts[tab.toolId] || 0) + 1);
+    const tool = toolRegistry.get(tab.toolId);
+    const baseTitle = tab.title ?? tool?.name ?? tab.toolId;
+    const title = count > 1 ? `${baseTitle} #${count}` : baseTitle;
+    acc.push({ id: tab.id, toolId: tab.toolId, title });
+  });
+};
+
+const getModuleInstances = (layout: WorkspaceLayout): ModuleInstance[] => {
+  const counts: Record<string, number> = {};
+  const instances: ModuleInstance[] = [];
+
+  if (layout.mode === "dock" && layout.dockLayout) {
+    collectDockModules(layout.dockLayout, counts, instances);
+    return instances;
+  }
+
+  layout.slots.forEach((slot, index) => {
+    const count = (counts[slot.toolId] = (counts[slot.toolId] || 0) + 1);
+    const tool = toolRegistry.get(slot.toolId);
+    const baseTitle = tool?.name ?? slot.toolId;
+    const title = count > 1 ? `${baseTitle} #${count}` : baseTitle;
+    instances.push({
+      id: `${layout.id}-slot-${index}`,
+      toolId: slot.toolId,
+      title,
+    });
+  });
+
+  return instances;
+};
 
 const Index = () => {
   // Load toolkit definitions from localStorage
@@ -94,12 +142,36 @@ const Index = () => {
     return cloned;
   }, [layoutDefinition, workspaceState.dockLayout]);
 
+  const moduleInstances = useMemo(() => getModuleInstances(layout), [layout]);
+
   // Ref to store active MathInput for keyboard insertions
   const activeMathInputRef = useRef<MathInputRef | null>(null);
 
   const setActiveMathInput = (ref: MathInputRef | null) => {
     activeMathInputRef.current = ref;
   };
+
+  useEffect(() => {
+    const idSet = new Set(moduleInstances.map(module => module.id));
+    setExpressions(prev => {
+      let changed = false;
+      const next = prev.map(expr => {
+        if (expr.allowedModules == null) {
+          return expr;
+        }
+        if (expr.allowedModules.length === 0) {
+          return expr;
+        }
+        const filtered = expr.allowedModules.filter(id => idSet.has(id));
+        if (filtered.length === expr.allowedModules.length) {
+          return expr;
+        }
+        changed = true;
+        return { ...expr, allowedModules: filtered.length > 0 ? filtered : null };
+      });
+      return changed ? next : prev;
+    });
+  }, [moduleInstances]);
 
   // Persist toolkit definitions to localStorage
   useEffect(() => {
@@ -143,6 +215,7 @@ const Index = () => {
           normalized,
           color: newColor,
           typeInfo,
+          allowedModules: null,
         },
       ];
     });
@@ -287,6 +360,12 @@ const Index = () => {
     }
   };
 
+  const updateExpressionModules = (id: string, modules: string[] | null) => {
+    setExpressions(prev =>
+      prev.map(expr => (expr.id === id ? { ...expr, allowedModules: modules } : expr))
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <Header 
@@ -327,6 +406,8 @@ const Index = () => {
                       onClearAll={clearAllExpressions}
                       onSetActive={setActiveId}
                       onSetActiveMathInput={setActiveMathInput}
+                      moduleOptions={moduleInstances}
+                      onUpdateModules={updateExpressionModules}
                     />
                     <div className="border-t border-border">
                       <TypeTable 

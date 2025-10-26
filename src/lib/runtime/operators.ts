@@ -35,6 +35,40 @@ export function getOperator(
   return OPERATORS.get(sig);
 }
 
+type ComplexTuple = { real: number; imag: number };
+
+const COMPLEX_ZERO_EPSILON = 1e-12;
+
+const toComplexTuple = (value: RuntimeValue): ComplexTuple => {
+  if (isComplex(value)) {
+    return { real: value.real, imag: value.imag };
+  }
+  if (isNumber(value)) {
+    return { real: value.value, imag: 0 };
+  }
+  throw new Error('Type mismatch');
+};
+
+const registerComplexBinaryOperator = (
+  operator: string,
+  resultType: MathType,
+  executor: (left: ComplexTuple, right: ComplexTuple) => RuntimeValue
+) => {
+  const wrap = (leftValue: RuntimeValue, rightValue: RuntimeValue) => {
+    return executor(toComplexTuple(leftValue), toComplexTuple(rightValue));
+  };
+
+  const combos: Array<[MathType, MathType]> = [
+    [MathType.Complex, MathType.Complex],
+    [MathType.Complex, MathType.Number],
+    [MathType.Number, MathType.Complex],
+  ];
+
+  combos.forEach(([leftType, rightType]) => {
+    registerOperator(leftType, operator, rightType, resultType, wrap);
+  });
+};
+
 // ============= NUMBER OPERATORS =============
 
 // Number arithmetic
@@ -223,80 +257,57 @@ registerOperator(MathType.Boolean, '==', MathType.Boolean, MathType.Boolean,
 
 // ============= COMPLEX OPERATORS =============
 
-// Complex + Complex
-registerOperator(MathType.Complex, '+', MathType.Complex, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
-    return createComplex(l.real + r.real, l.imag + r.imag);
-  });
+registerComplexBinaryOperator('+', MathType.Complex, (l, r) =>
+  createComplex(l.real + r.real, l.imag + r.imag));
 
-// Complex - Complex
-registerOperator(MathType.Complex, '-', MathType.Complex, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
-    return createComplex(l.real - r.real, l.imag - r.imag);
-  });
+registerComplexBinaryOperator('-', MathType.Complex, (l, r) =>
+  createComplex(l.real - r.real, l.imag - r.imag));
 
-// Complex * Complex: (a+bi)(c+di) = (ac-bd) + (ad+bc)i
-registerOperator(MathType.Complex, '*', MathType.Complex, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
-    return createComplex(
-      l.real * r.real - l.imag * r.imag,
-      l.real * r.imag + l.imag * r.real
-    );
-  });
+registerComplexBinaryOperator('*', MathType.Complex, (l, r) =>
+  createComplex(
+    l.real * r.real - l.imag * r.imag,
+    l.real * r.imag + l.imag * r.real
+  ));
 
-// Complex / Complex: (a+bi)/(c+di) = [(ac+bd) + (bc-ad)i] / (c²+d²)
-registerOperator(MathType.Complex, '/', MathType.Complex, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isComplex(r)) throw new Error('Type mismatch');
-    const denom = r.real * r.real + r.imag * r.imag;
-    if (denom === 0) throw new Error('Division by zero');
-    return createComplex(
-      (l.real * r.real + l.imag * r.imag) / denom,
-      (l.imag * r.real - l.real * r.imag) / denom
-    );
-  });
+registerComplexBinaryOperator('/', MathType.Complex, (l, r) => {
+  const denom = r.real * r.real + r.imag * r.imag;
+  if (Math.abs(denom) < COMPLEX_ZERO_EPSILON) {
+    throw new Error('Division by zero');
+  }
+  return createComplex(
+    (l.real * r.real + l.imag * r.imag) / denom,
+    (l.imag * r.real - l.real * r.imag) / denom
+  );
+});
 
-// Number * Complex (scalar multiplication)
-registerOperator(MathType.Number, '*', MathType.Complex, MathType.Complex,
-  (l, r) => {
-    if (!isNumber(l) || !isComplex(r)) throw new Error('Type mismatch');
-    return createComplex(l.value * r.real, l.value * r.imag);
-  });
+const complexPow = (base: ComplexTuple, exponent: ComplexTuple) => {
+  const magnitude = Math.sqrt(base.real * base.real + base.imag * base.imag);
+  const angle = Math.atan2(base.imag, base.real);
 
-// Complex * Number (commutative)
-registerOperator(MathType.Complex, '*', MathType.Number, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isNumber(r)) throw new Error('Type mismatch');
-    return createComplex(l.real * r.value, l.imag * r.value);
-  });
+  if (magnitude < COMPLEX_ZERO_EPSILON && Math.abs(angle) < COMPLEX_ZERO_EPSILON) {
+    if (Math.abs(exponent.real) < COMPLEX_ZERO_EPSILON && Math.abs(exponent.imag) < COMPLEX_ZERO_EPSILON) {
+      return createComplex(1, 0);
+    }
+    if (Math.abs(exponent.imag) < COMPLEX_ZERO_EPSILON && exponent.real > 0) {
+      return createComplex(0, 0);
+    }
+    throw new Error('0 cannot be raised to a complex exponent');
+  }
 
-// Number + Complex
-registerOperator(MathType.Number, '+', MathType.Complex, MathType.Complex,
-  (l, r) => {
-    if (!isNumber(l) || !isComplex(r)) throw new Error('Type mismatch');
-    return createComplex(l.value + r.real, r.imag);
-  });
+  const lnMag = Math.log(magnitude);
+  const newMagnitude = Math.exp(exponent.real * lnMag - exponent.imag * angle);
+  const newAngle = exponent.real * angle + exponent.imag * lnMag;
+  return createComplex(
+    newMagnitude * Math.cos(newAngle),
+    newMagnitude * Math.sin(newAngle)
+  );
+};
 
-// Complex + Number
-registerOperator(MathType.Complex, '+', MathType.Number, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isNumber(r)) throw new Error('Type mismatch');
-    return createComplex(l.real + r.value, l.imag);
-  });
+registerComplexBinaryOperator('^', MathType.Complex, complexPow);
 
-// Complex ^ Number (exponentiation via polar form)
-registerOperator(MathType.Complex, '^', MathType.Number, MathType.Complex,
-  (l, r) => {
-    if (!isComplex(l) || !isNumber(r)) throw new Error('Type mismatch');
-    const mag = Math.sqrt(l.real * l.real + l.imag * l.imag);
-    const arg = Math.atan2(l.imag, l.real);
-    const newMag = Math.pow(mag, r.value);
-    const newArg = arg * r.value;
-    return createComplex(
-      newMag * Math.cos(newArg),
-      newMag * Math.sin(newArg)
-    );
-  });
+registerComplexBinaryOperator('==', MathType.Boolean, (l, r) =>
+  createBoolean(l.real === r.real && l.imag === r.imag));
+
+registerComplexBinaryOperator('!=', MathType.Boolean, (l, r) =>
+  createBoolean(l.real !== r.real || l.imag !== r.imag));
+

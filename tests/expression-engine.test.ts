@@ -52,5 +52,39 @@ describe('ExpressionEngine', () => {
     expect(data.vertices.length).toBeGreaterThan(0);
     expect(data.indices.length).toBeGreaterThan(0);
   });
+
+  it('supports operator overloading between numbers and complex values', () => {
+    const context = expressionEngine.buildContext([]);
+    const ast = expressionEngine.parseNormalized('1 - i + (3 / (2 + i))', context);
+    const result = expressionEngine.evaluate(ast, {}, context);
+    expect(result.kind).toBe('complex');
+    expect(result.real).toBeCloseTo(2.2, 3);
+    expect(result.imag).toBeCloseTo(-1.6, 3);
+  });
+
+  it('evaluates complex exponentiation with complex exponents', () => {
+    const context = expressionEngine.buildContext([]);
+    const ast = expressionEngine.parseNormalized('i^i + 2^i', context);
+    const result = expressionEngine.evaluate(ast, {}, context);
+    expect(result.kind).toBe('complex');
+    // i^i = e^{-pi/2} (purely real), 2^i = cos(ln 2) + i sin(ln 2)
+    const expectedReal = Math.exp(-Math.PI / 2) + Math.cos(Math.log(2));
+    const expectedImag = Math.sin(Math.log(2));
+    expect(result.real).toBeCloseTo(expectedReal, 5);
+    expect(result.imag).toBeCloseTo(expectedImag, 5);
+  });
+
+  it('compares complex values for equality', () => {
+    const context = expressionEngine.buildContext([]);
+    const equalsAst = expressionEngine.parseNormalized('i == i', context);
+    const equalsResult = expressionEngine.evaluate(equalsAst, {}, context);
+    expect(equalsResult.kind).toBe('boolean');
+    expect(equalsResult.value).toBe(true);
+
+    const notEqualsAst = expressionEngine.parseNormalized('i == -i', context);
+    const notEqualsResult = expressionEngine.evaluate(notEqualsAst, {}, context);
+    expect(notEqualsResult.kind).toBe('boolean');
+    expect(notEqualsResult.value).toBe(false);
+  });
 });
 

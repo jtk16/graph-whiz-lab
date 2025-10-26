@@ -44,6 +44,9 @@ interface ExpressionInputProps {
   onFocus: () => void;
   onSetActiveMathInput: (ref: MathInputRef | null) => void;
   allExpressions: Array<{ normalized: string }>;
+  moduleOptions: Array<{ id: string; title: string }>;
+  allowedModules: string[] | null;
+  onModulesChange: (modules: string[] | null) => void;
   errors?: Array<{
     type: string;
     message: string;
@@ -66,6 +69,9 @@ export const ExpressionInput = ({
   onFocus,
   onSetActiveMathInput,
   allExpressions,
+  moduleOptions,
+  allowedModules,
+  onModulesChange,
   errors = [],
 }: ExpressionInputProps) => {
   const mathInputRef = useRef<MathInputRef>(null);
@@ -148,6 +154,41 @@ export const ExpressionInput = ({
 
   const scalarValue = getScalarValue();
 
+  const handleModuleToggle = (moduleId: string, checked: boolean) => {
+    const base = allowedModules === null ? moduleOptions.map(option => option.id) : allowedModules ?? [];
+    const next = new Set(base);
+    if (checked) {
+      next.add(moduleId);
+    } else {
+      next.delete(moduleId);
+    }
+    onModulesChange(Array.from(next));
+  };
+
+  const handleUseAllModules = (useAll: boolean) => {
+    if (useAll) {
+      onModulesChange(null);
+    } else {
+      onModulesChange(moduleOptions.map(option => option.id));
+    }
+  };
+
+  const isUsingAllModules = allowedModules === null;
+  const selectedModules = useMemo(() => {
+    if (allowedModules === null) {
+      return new Set(moduleOptions.map(option => option.id));
+    }
+    return new Set(allowedModules);
+  }, [allowedModules, moduleOptions]);
+
+  const moduleSummary = moduleOptions.length === 0
+    ? "No modules"
+    : isUsingAllModules || selectedModules.size === moduleOptions.length
+    ? "All modules"
+    : selectedModules.size === 0
+    ? "No modules"
+    : `${selectedModules.size}/${moduleOptions.length}`;
+
   return (
     <div
       className={`group flex items-center gap-2 p-3 rounded-lg transition-all relative border ${
@@ -163,32 +204,78 @@ export const ExpressionInput = ({
         {index}
       </div>
 
-      {/* Color Picker */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            className="w-7 h-7 rounded-lg flex-shrink-0 cursor-pointer border-2 transition-all hover:scale-105 active:scale-95 shadow-sm"
-            style={{ backgroundColor: color, borderColor: color }}
-          />
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-3" align="start">
-          <div className="grid grid-cols-6 gap-2">
-            {GRAPH_COLORS.map((c) => (
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
               <button
-                key={c}
-                className={`w-8 h-8 rounded-lg border-2 transition-all hover:scale-110 active:scale-95 ${
-                  c === color ? 'border-foreground ring-2 ring-primary/50' : 'border-border/50'
-                }`}
-                style={{ backgroundColor: c }}
-                onClick={() => onColorChange(c)}
+                className="h-7 w-7 flex-shrink-0 cursor-pointer rounded-lg border-2 transition-all hover:scale-105 active:scale-95 shadow-sm"
+                style={{ backgroundColor: color, borderColor: color }}
               />
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-3" align="start">
+              <div className="grid grid-cols-6 gap-2">
+                {GRAPH_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    className={`h-8 w-8 rounded-lg border-2 transition-all hover:scale-110 active:scale-95 ${
+                      c === color ? 'border-foreground ring-2 ring-primary/50' : 'border-border/50'
+                    }`}
+                    style={{ backgroundColor: c }}
+                    onClick={() => onColorChange(c)}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
-      {/* Math Input */}
-      <div className="flex-1 min-w-0">
+          {moduleOptions.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8">
+                  Modules: {moduleSummary}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 space-y-4" align="start">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">Use all modules</span>
+                  <Checkbox
+                    checked={isUsingAllModules}
+                    onCheckedChange={checked => handleUseAllModules(checked === true)}
+                    id={`${id}-modules-all`}
+                  />
+                </div>
+                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {moduleOptions.map(option => (
+                    <label key={option.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={selectedModules.has(option.id)}
+                        disabled={isUsingAllModules}
+                        onCheckedChange={checked => handleModuleToggle(option.id, checked === true)}
+                      />
+                      <span className="truncate">{option.title}</span>
+                    </label>
+                  ))}
+                </div>
+                {!isUsingAllModules && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <button type="button" className="hover:text-foreground" onClick={() => onModulesChange([])}>
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      className="hover:text-foreground"
+                      onClick={() => onModulesChange(moduleOptions.map(option => option.id))}
+                    >
+                      Select all
+                    </button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+
         <MathInput
           ref={mathInputRef}
           value={value}

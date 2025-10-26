@@ -4,22 +4,30 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Calculator, 
-  Box, 
-  Palette, 
-  Zap, 
+import {
+  Calculator,
+  Box,
+  Palette,
+  Zap,
   BookOpen,
-  ChevronRight 
+  ChevronRight,
+  Layers,
+  GraduationCap,
+  Target,
+  Activity,
 } from "lucide-react";
 
 const TableOfContents = ({ activeSection, onNavigate }: { activeSection: string; onNavigate: (section: string) => void }) => {
   const sections = [
     { id: "overview", label: "Overview", icon: BookOpen },
+    { id: "supported-computations", label: "Supported Computations", icon: Layers },
+    { id: "transforms", label: "Transforms Module", icon: Activity },
     { id: "getting-started", label: "Getting Started", icon: Calculator },
     { id: "tools", label: "Visualization Tools", icon: Palette },
     { id: "functions", label: "Function Reference", icon: Zap },
+    { id: "tutorials", label: "Tutorials", icon: GraduationCap },
     { id: "toolkits", label: "Toolkits", icon: Box },
+    { id: "seo", label: "SEO & Adoption", icon: Target },
   ];
 
   return (
@@ -52,7 +60,7 @@ export default function Docs() {
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 text-lg font-semibold">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              ζ
+              I
             </div>
             <span className="hidden sm:inline">Zygraph</span>
           </Link>
@@ -99,10 +107,10 @@ export default function Docs() {
                   <Card className="p-6">
                     <h3 className="font-semibold">Key Capabilities</h3>
                     <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                      <li>• 2D/3D function graphing</li>
-                      <li>• Complex plane visualization</li>
-                      <li>• Circuit analysis</li>
-                      <li>• Signal processing (FFT/IFFT)</li>
+                      <li>a 2D/3D function graphing</li>
+                      <li>a Complex plane visualization</li>
+                      <li>a Circuit analysis</li>
+                      <li>a Signal processing (FFT/IFFT)</li>
                     </ul>
                   </Card>
                 </div>
@@ -150,9 +158,9 @@ export default function Docs() {
                   <Card className="p-4">
                     <h4 className="font-medium">LaTeX Input</h4>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Use standard LaTeX notation: <code className="rounded bg-muted px-1 py-0.5">\pi</code> for π, 
-                      <code className="rounded bg-muted px-1 py-0.5">x^2</code> for x², 
-                      <code className="rounded bg-muted px-1 py-0.5">\frac&#123;a&#125;&#123;b&#125;</code> for fractions
+                      Use standard LaTeX notation: <code className="rounded bg-muted px-1 py-0.5">\pi</code> for pi,
+                      <code className="rounded bg-muted px-1 py-0.5">x^2</code> for squared terms,
+                      <code className="rounded bg-muted px-1 py-0.5">\frac&#123;a&#125;&#123;b&#125;</code> for fractions.
                     </p>
                   </Card>
                   <Card className="p-4">
@@ -160,6 +168,86 @@ export default function Docs() {
                     <p className="mt-2 text-sm text-muted-foreground">
                       Click the keyboard icon to access common functions, Greek letters, operators, and special symbols
                     </p>
+                  </Card>
+                </div>
+              </section>
+
+              <section id="supported-computations" className="scroll-mt-24">
+                <h2 className="mb-6 text-3xl font-bold">Supported Computations</h2>
+                <p className="text-muted-foreground">
+                  Each Zygraph workspace combines a rendering engine with a computation pipeline so you can explore
+                  everything from algebra through signal processing without leaving the browser. Use this matrix as a quick
+                  reference when planning lessons or research sessions.
+                </p>
+                <div className="mt-6 overflow-x-auto rounded-lg border bg-background">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/60">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold">Domain</th>
+                        <th className="px-4 py-3 text-left font-semibold">What you can compute</th>
+                        <th className="px-4 py-3 text-left font-semibold">Best tool</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr>
+                        <td className="px-4 py-3 font-medium">Graphing</td>
+                        <td className="px-4 py-3 text-muted-foreground">Explicit/implicit functions, parametric curves, polar plots, inequalities</td>
+                        <td className="px-4 py-3">Graph 2D</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium">3D Geometry</td>
+                        <td className="px-4 py-3 text-muted-foreground">Surface meshes, implicit volumes, vector fields, parametric solids</td>
+                        <td className="px-4 py-3">Graph 3D</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium">Complex Analysis</td>
+                        <td className="px-4 py-3 text-muted-foreground">Domain coloring, magnitude/phase maps, Re/Im surfaces, analytic continuation sketches</td>
+                        <td className="px-4 py-3">Complex Plane Tool</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium">Circuits</td>
+                        <td className="px-4 py-3 text-muted-foreground">Visual schematic editing, transient simulation, symbolic nodal analysis</td>
+                        <td className="px-4 py-3">Circuit Tool</td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 font-medium">Signals</td>
+                        <td className="px-4 py-3 text-muted-foreground">FFT/IFFT, convolution, spectra overlays, programmable waveforms</td>
+                        <td className="px-4 py-3">Signal Toolkit + Graph modules</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section id="transforms" className="scroll-mt-24">
+                <h2 className="mb-6 text-3xl font-bold">Transforms Module</h2>
+                <p className="text-muted-foreground">
+                  Advanced signal work often pivots between domains. The transforms module stitches together FFT, Laplace,
+                  z-domain, wavelet, and convolution utilities so you can stay inside Zygraph while moving between time,
+                  frequency, and complex planes.
+                </p>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <Card className="p-5">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Core operators
+                    </h3>
+                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      <li><code className="rounded bg-muted px-1">fft(signal)</code> / <code className="rounded bg-muted px-1">ifft(spectrum)</code> — round-trip discrete Fourier transform.</li>
+                      <li><code className="rounded bg-muted px-1">laplace(f(t), s)</code> / <code className="rounded bg-muted px-1">ilaplace(F(s), t)</code> — symbolic Laplace pairs for control problems.</li>
+                      <li><code className="rounded bg-muted px-1">ztransform(f[n], z)</code> / <code className="rounded bg-muted px-1">iztransform(F(z), n)</code> — difference-equation friendly tools.</li>
+                      <li><code className="rounded bg-muted px-1">wavelet(signal, base)</code> — single-scale wavelet and <code className="rounded bg-muted px-1">cwt</code> for continuous decompositions.</li>
+                      <li><code className="rounded bg-muted px-1">conv(a, b)</code> and <code className="rounded bg-muted px-1">deconv</code> — fast convolution/deconvolution blocks.</li>
+                    </ul>
+                  </Card>
+                  <Card className="p-5">
+                    <h3 className="text-lg font-semibold">Workflow example</h3>
+                    <ol className="mt-3 list-decimal space-y-2 pl-4 text-sm text-muted-foreground">
+                      <li>Capture a time-domain waveform from the circuit tool as <code className="rounded bg-muted px-1">v_out(t)</code>.</li>
+                      <li>Run <code className="rounded bg-muted px-1">fft(v_out)</code> to inspect harmonics, then <code className="rounded bg-muted px-1">wavelet(v_out,"db4")</code> to localize transients.</li>
+                      <li>Model a filter with <code className="rounded bg-muted px-1">H(s)</code>, use <code className="rounded bg-muted px-1">laplace(v_out, s)</code>, and multiply before applying <code className="rounded bg-muted px-1">ilaplace</code>.</li>
+                      <li>Export the result back to Graph 2D for comparison against the original signal.</li>
+                    </ol>
                   </Card>
                 </div>
               </section>
@@ -185,10 +273,10 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Supported Input Types</h4>
                           <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                            <li>• <strong>Explicit functions:</strong> <code className="rounded bg-muted px-1">y = f(x)</code> - e.g., <code className="rounded bg-muted px-1">y = x^2</code></li>
-                            <li>• <strong>Implicit relations:</strong> <code className="rounded bg-muted px-1">F(x,y) = 0</code> - e.g., <code className="rounded bg-muted px-1">x^2 + y^2 = 25</code></li>
-                            <li>• <strong>Parametric curves:</strong> Define x and y as functions of parameter t</li>
-                            <li>• <strong>Points and lists:</strong> Plot discrete data points</li>
+                            <li>a <strong>Explicit functions:</strong> <code className="rounded bg-muted px-1">y = f(x)</code> - e.g., <code className="rounded bg-muted px-1">y = x^2</code></li>
+                            <li>a <strong>Implicit relations:</strong> <code className="rounded bg-muted px-1">F(x,y) = 0</code> - e.g., <code className="rounded bg-muted px-1">x^2 + y^2 = 25</code></li>
+                            <li>a <strong>Parametric curves:</strong> Define x and y as functions of parameter t</li>
+                            <li>a <strong>Points and lists:</strong> Plot discrete data points</li>
                           </ul>
                         </div>
                         
@@ -213,10 +301,10 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Controls</h4>
                           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                            <li>• <strong>Pan:</strong> Click and drag to move the viewport</li>
-                            <li>• <strong>Zoom:</strong> Scroll wheel or pinch to zoom in/out</li>
-                            <li>• <strong>Grid:</strong> Toggle grid display and adjust spacing</li>
-                            <li>• <strong>Axis ranges:</strong> Set custom min/max values for x and y axes</li>
+                            <li>a <strong>Pan:</strong> Click and drag to move the viewport</li>
+                            <li>a <strong>Zoom:</strong> Scroll wheel or pinch to zoom in/out</li>
+                            <li>a <strong>Grid:</strong> Toggle grid display and adjust spacing</li>
+                            <li>a <strong>Axis ranges:</strong> Set custom min/max values for x and y axes</li>
                           </ul>
                         </div>
                       </div>
@@ -232,10 +320,10 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Supported Input Types</h4>
                           <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                            <li>• <strong>Surfaces:</strong> <code className="rounded bg-muted px-1">z = f(x,y)</code> - e.g., <code className="rounded bg-muted px-1">z = x^2 + y^2</code></li>
-                            <li>• <strong>Implicit 3D:</strong> <code className="rounded bg-muted px-1">F(x,y,z) = 0</code> - e.g., <code className="rounded bg-muted px-1">x^2 + y^2 + z^2 = 25</code></li>
-                            <li>• <strong>Parametric curves:</strong> 3D curves defined by parameter t</li>
-                            <li>• <strong>3D points:</strong> Plot points in three-dimensional space</li>
+                            <li>a <strong>Surfaces:</strong> <code className="rounded bg-muted px-1">z = f(x,y)</code> - e.g., <code className="rounded bg-muted px-1">z = x^2 + y^2</code></li>
+                            <li>a <strong>Implicit 3D:</strong> <code className="rounded bg-muted px-1">F(x,y,z) = 0</code> - e.g., <code className="rounded bg-muted px-1">x^2 + y^2 + z^2 = 25</code></li>
+                            <li>a <strong>Parametric curves:</strong> 3D curves defined by parameter t</li>
+                            <li>a <strong>3D points:</strong> Plot points in three-dimensional space</li>
                           </ul>
                         </div>
                         
@@ -260,10 +348,10 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Controls</h4>
                           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                            <li>• <strong>Rotate:</strong> Click and drag to rotate the view</li>
-                            <li>• <strong>Zoom:</strong> Scroll wheel to zoom in/out</li>
-                            <li>• <strong>Wireframe:</strong> Toggle wireframe rendering mode</li>
-                            <li>• <strong>Lighting:</strong> Adjust lighting and shading parameters</li>
+                            <li>a <strong>Rotate:</strong> Click and drag to rotate the view</li>
+                            <li>a <strong>Zoom:</strong> Scroll wheel to zoom in/out</li>
+                            <li>a <strong>Wireframe:</strong> Toggle wireframe rendering mode</li>
+                            <li>a <strong>Lighting:</strong> Adjust lighting and shading parameters</li>
                           </ul>
                         </div>
                       </div>
@@ -279,9 +367,9 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Color Modes</h4>
                           <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                            <li>• <strong>Phase:</strong> Displays the argument/angle of the complex output using hue</li>
-                            <li>• <strong>Magnitude:</strong> Shows the absolute value using brightness</li>
-                            <li>• <strong>Cartesian:</strong> Separates real and imaginary components with different colors</li>
+                            <li>a <strong>Phase:</strong> Displays the argument/angle of the complex output using hue</li>
+                            <li>a <strong>Magnitude:</strong> Shows the absolute value using brightness</li>
+                            <li>a <strong>Cartesian:</strong> Separates real and imaginary components with different colors</li>
                           </ul>
                         </div>
                         
@@ -306,9 +394,9 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Features</h4>
                           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                            <li>• <strong>Real/Imaginary surfaces:</strong> View 3D surface plots of real and imaginary components</li>
-                            <li>• <strong>Resolution control:</strong> Adjust sampling density for performance vs. quality</li>
-                            <li>• <strong>Automatic i insertion:</strong> The complex unit is auto-inserted for common patterns</li>
+                            <li>a <strong>Real/Imaginary surfaces:</strong> View 3D surface plots of real and imaginary components</li>
+                            <li>a <strong>Resolution control:</strong> Adjust sampling density for performance vs. quality</li>
+                            <li>a <strong>Automatic i insertion:</strong> The complex unit is auto-inserted for common patterns</li>
                           </ul>
                         </div>
                       </div>
@@ -324,11 +412,11 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Supported Components</h4>
                           <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                            <li>• <strong>Resistors (R):</strong> Define resistance in ohms</li>
-                            <li>• <strong>Capacitors (C):</strong> Define capacitance in farads</li>
-                            <li>• <strong>Inductors (L):</strong> Define inductance in henries</li>
-                            <li>• <strong>Voltage sources:</strong> Independent voltage sources</li>
-                            <li>• <strong>Current sources:</strong> Independent current sources</li>
+                            <li>a <strong>Resistors (R):</strong> Define resistance in ohms</li>
+                            <li>a <strong>Capacitors (C):</strong> Define capacitance in farads</li>
+                            <li>a <strong>Inductors (L):</strong> Define inductance in henries</li>
+                            <li>a <strong>Voltage sources:</strong> Independent voltage sources</li>
+                            <li>a <strong>Current sources:</strong> Independent current sources</li>
                           </ul>
                         </div>
                         
@@ -345,10 +433,10 @@ export default function Docs() {
                         <div>
                           <h4 className="font-medium">Example Circuits</h4>
                           <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                            <li>• RC low-pass filter</li>
-                            <li>• RLC resonant circuit</li>
-                            <li>• Voltage divider networks</li>
-                            <li>• Op-amp configurations (future)</li>
+                            <li>a RC low-pass filter</li>
+                            <li>a RLC resonant circuit</li>
+                            <li>a Voltage divider networks</li>
+                            <li>a Op-amp configurations (future)</li>
                           </div>
                         </div>
                       </div>
@@ -411,7 +499,7 @@ export default function Docs() {
                         <tr>
                           <td className="py-2">Modulo</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">a % b</code></td>
-                          <td className="py-2 text-muted-foreground">Remainder of a÷b</td>
+                          <td className="py-2 text-muted-foreground">Remainder of aA*b</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">7 % 3 = 1</code></td>
                         </tr>
                       </tbody>
@@ -438,7 +526,7 @@ export default function Docs() {
                           <td className="py-2">sin</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">sin(x)</code></td>
                           <td className="py-2 text-muted-foreground">Sine function</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">sin(π/2) = 1</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">sin(pi/2) = 1</code></td>
                         </tr>
                         <tr>
                           <td className="py-2">cos</td>
@@ -450,25 +538,25 @@ export default function Docs() {
                           <td className="py-2">tan</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">tan(x)</code></td>
                           <td className="py-2 text-muted-foreground">Tangent function</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">tan(π/4) ≈ 1</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">tan(pi/4) approx 1</code></td>
                         </tr>
                         <tr>
                           <td className="py-2">asin</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">asin(x)</code></td>
                           <td className="py-2 text-muted-foreground">Inverse sine (arcsin)</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">asin(1) = π/2</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">asin(1) = pi/2</code></td>
                         </tr>
                         <tr>
                           <td className="py-2">acos</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">acos(x)</code></td>
                           <td className="py-2 text-muted-foreground">Inverse cosine (arccos)</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">acos(0) = π/2</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">acos(0) = pi/2</code></td>
                         </tr>
                         <tr>
                           <td className="py-2">atan</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">atan(x)</code></td>
                           <td className="py-2 text-muted-foreground">Inverse tangent (arctan)</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">atan(1) = π/4</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">atan(1) = pi/4</code></td>
                         </tr>
                       </tbody>
                     </table>
@@ -492,7 +580,7 @@ export default function Docs() {
                         <tr>
                           <td className="py-2">sqrt</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">sqrt(x)</code></td>
-                          <td className="py-2 text-muted-foreground">Square root (x ≥ 0)</td>
+                          <td className="py-2 text-muted-foreground">Square root (x &gt;= 0)</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">sqrt(16) = 4</code></td>
                         </tr>
                         <tr>
@@ -505,7 +593,7 @@ export default function Docs() {
                           <td className="py-2">exp</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">exp(x)</code></td>
                           <td className="py-2 text-muted-foreground">Exponential (e^x)</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">exp(1) ≈ 2.718</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">exp(1) approx 2.718</code></td>
                         </tr>
                         <tr>
                           <td className="py-2">ln</td>
@@ -561,7 +649,7 @@ export default function Docs() {
                           <td className="py-2">arg</td>
                           <td className="py-2"><code className="rounded bg-muted px-1">arg(z)</code></td>
                           <td className="py-2 text-muted-foreground">Argument (phase angle)</td>
-                          <td className="py-2"><code className="rounded bg-muted px-1">arg(1+i) = π/4</code></td>
+                          <td className="py-2"><code className="rounded bg-muted px-1">arg(1+i) = pi/4</code></td>
                         </tr>
                         <tr>
                           <td className="py-2">real</td>
@@ -673,6 +761,39 @@ export default function Docs() {
                     </table>
                   </div>
                 </Card>
+              </section>              {/* Tutorials */}
+              <section id="tutorials" className="scroll-mt-24">
+                <h2 className="mb-6 text-3xl font-bold">Hands-on Tutorials</h2>
+                <p className="text-muted-foreground">
+                  Follow these quick walkthroughs to validate key workflows. Each tutorial lists the expressions and widgets we
+                  used so you can reproduce or extend the scenario in your own workspace.
+                </p>
+                <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                  <Card className="p-5 space-y-3">
+                    <h3 className="text-lg font-semibold">Graph 2D: Compare functions</h3>
+                    <ol className="list-decimal space-y-2 text-sm text-muted-foreground pl-4">
+                      <li>Add <code className="rounded bg-muted px-1">y = sin(x)</code> and <code className="rounded bg-muted px-1">y = cos(x)</code>.</li>
+                      <li>Use the expression color picker to highlight each waveform.</li>
+                      <li>Enable snap-to-axis in Graph Controls to inspect intercepts.</li>
+                    </ol>
+                  </Card>
+                  <Card className="p-5 space-y-3">
+                    <h3 className="text-lg font-semibold">Complex Plane: Domain coloring</h3>
+                    <ol className="list-decimal space-y-2 text-sm text-muted-foreground pl-4">
+                      <li>Enter <code className="rounded bg-muted px-1">f(z) = e^{i z} + 1/z</code>.</li>
+                      <li>Toggle between phase and cartesian color modes.</li>
+                      <li>Enable real/imag surfaces to correlate hue with surface height.</li>
+                    </ol>
+                  </Card>
+                  <Card className="p-5 space-y-3">
+                    <h3 className="text-lg font-semibold">Circuit Tool: RC low-pass</h3>
+                    <ol className="list-decimal space-y-2 text-sm text-muted-foreground pl-4">
+                      <li>Place a voltage source, resistor, and capacitor using the visual canvas.</li>
+                      <li>Run a 0-5&nbsp;V step input for 0.05s and watch the node playback.</li>
+                      <li>Export <code className="rounded bg-muted px-1">V(out)</code> to the expression list for further plotting.</li>
+                    </ol>
+                  </Card>
+                </div>
               </section>
 
               {/* Toolkits */}
@@ -697,19 +818,39 @@ export default function Docs() {
                     </div>
                   </Card>
 
-                  <Card className="p-6">
-                    <h3 className="mb-4 text-xl font-semibold">3D Geometry Toolkit</h3>
-                    <p className="mb-4 text-muted-foreground">
-                      Pre-defined 3D curves and surfaces for exploring three-dimensional space.
-                    </p>
-                    <div className="space-y-2 text-sm">
-                      <div><code className="rounded bg-muted px-1">helix(t)</code> - Parametric helix curve</div>
-                      <div><code className="rounded bg-muted px-1">lissajous(t)</code> - Lissajous 3D curve</div>
-                      <div><code className="rounded bg-muted px-1">trefoil(t)</code> - Trefoil knot</div>
-                    </div>
-                  </Card>
+              <Card className="p-6">
+                <h3 className="mb-4 text-xl font-semibold">3D Geometry Toolkit</h3>
+                <p className="mb-4 text-muted-foreground">
+                  Pre-defined 3D curves and surfaces for exploring three-dimensional space.
+                </p>
+                <div className="space-y-2 text-sm">
+                  <div><code className="rounded bg-muted px-1">helix(t)</code> - Parametric helix curve</div>
+                  <div><code className="rounded bg-muted px-1">lissajous(t)</code> - Lissajous 3D curve</div>
+                  <div><code className="rounded bg-muted px-1">trefoil(t)</code> - Trefoil knot</div>
                 </div>
-              </section>
+              </Card>
+            </div>
+          </section>
+
+          {/* SEO & Adoption */}
+          <section id="seo" className="scroll-mt-24">
+            <h2 className="mb-6 text-3xl font-bold">SEO & Adoption Strategy</h2>
+            <p className="text-muted-foreground">
+              Zygraph positions itself as a Desmos alternative for graphing plus an advanced lab for complex analysis and
+              engineering. The landing page highlights these dual audiences while this documentation provides long-form,
+              keyword-targeted guides for terms such as "complex plane domain coloring", "interactive nodal analysis",
+              and "browser FFT calculator".
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              <li>Keyword coverage: graphing calculator, Desmos alternative, complex plane, symbolic circuit simulator, FFT visualizer.</li>
+              <li>Internal linking: every major workflow (toolkits, tutorials, doc cards) links back to the calculator route.</li>
+              <li>Structured content: tables, how-to lists, and tool matrices encourage featured snippets and sitelinks.</li>
+            </ul>
+            <p className="mt-4 text-muted-foreground">
+              Next steps include JSON-LD breadcrumbs, educator landing pages, and benchmark articles comparing Zygraph to TI/Nspire and CAS
+              systems.
+            </p>
+          </section>
             </div>
           </main>
         </div>
@@ -718,7 +859,7 @@ export default function Docs() {
       {/* Footer */}
       <footer className="mt-16 border-t py-8">
         <div className="container mx-auto max-w-7xl px-4 text-center text-sm text-muted-foreground sm:px-6">
-          <p>Zygraph Documentation — Last updated 2025</p>
+          <p>Zygraph Documentation - Last updated 2025</p>
           <div className="mt-4 flex justify-center gap-6">
             <Link to="/" className="hover:text-foreground transition-colors">
               Home
@@ -732,3 +873,6 @@ export default function Docs() {
     </div>
   );
 }
+
+
+

@@ -33,6 +33,11 @@ const features = [
     icon: Box,
     title: "Signal Processing",
     description: "FFT/IFFT operations, frequency domain analysis, signal filtering, and spectrum visualization for engineering workflows."
+  },
+  {
+    icon: Zap,
+    title: "Transforms Module",
+    description: "Built-in FFT, Laplace, z-transform, and wavelet utilities plus programmable convolution chains for advanced analysis."
   }
 ];
 
@@ -62,7 +67,7 @@ export default function Landing() {
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 text-lg font-semibold">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              ζ
+              Z
             </div>
             <span className="hidden sm:inline">Zygraph</span>
           </Link>
@@ -105,13 +110,13 @@ export default function Landing() {
               </div>
               <div className="flex flex-wrap gap-4 pt-4 text-sm text-muted-foreground">
                 <div>
-                  <span className="font-medium text-foreground">Free & Web-based</span> • No installation
+                  <span className="font-medium text-foreground">Free &amp; Web-based</span> - No installation
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">LaTeX Support</span> • Professional input
+                  <span className="font-medium text-foreground">LaTeX Support</span> - Professional input
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">Open Source</span> • Community driven
+                  <span className="font-medium text-foreground">Open Source</span> - Community driven
                 </div>
               </div>
             </div>
@@ -125,15 +130,15 @@ export default function Landing() {
                 </div>
                 <div className="space-y-3">
                   <div className="rounded-lg border bg-muted/50 p-4">
-                    <div className="font-mono text-sm">y = sin(x) · e^(-x/5)</div>
+                    <div className="font-mono text-sm">y = sin(x)  e^(-x/5)</div>
                     <div className="mt-1 text-xs text-muted-foreground">Damped sine wave</div>
                   </div>
                   <div className="rounded-lg border bg-muted/50 p-4">
-                    <div className="font-mono text-sm">x² + y² + z² = 25</div>
+                    <div className="font-mono text-sm">x + y + z = 25</div>
                     <div className="mt-1 text-xs text-muted-foreground">3D sphere (implicit)</div>
                   </div>
                   <div className="rounded-lg border bg-muted/50 p-4">
-                    <div className="font-mono text-sm">f(z) = e^(i·z)</div>
+                    <div className="font-mono text-sm">f(z) = e^(iz)</div>
                     <div className="mt-1 text-xs text-muted-foreground">Complex exponential</div>
                   </div>
                 </div>
@@ -143,6 +148,59 @@ export default function Landing() {
                 </p>
               </div>
             </Card>
+          </div>
+        </section>
+
+        <section className="border-t bg-muted/30 py-16 sm:py-20">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="grid gap-10 lg:grid-cols-2">
+              <div className="space-y-4">
+                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                  Desmos-class graphing with postgraduate depth
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                  Zygraph is a browser-based graphing calculator that feels as immediate as Desmos while
+                  covering the higher-level math, complex analysis, and engineering workflows that normally
+                  require desktop software. Plot calculus homework, visualize analytic continuation, or debug a
+                  mixed-signal circuit without switching tools.
+                </p>
+                <ul className="space-y-2 text-sm text-foreground">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                    HiDPI 2D plots, implicit curve marching, and GPU-accelerated 3D surfaces.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                    Complex-plane explorer with domain coloring, real/imaginary surfaces, and magnitude heatmaps.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                    Transforms module with FFT, Laplace, z-transform, wavelet, and convolution operators for
+                    signal workflows.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                    Visual circuit editor, symbolic nodal analysis, and FFT-based signal processing dashboards.
+                  </li>
+                </ul>
+              </div>
+              <Card className="grid gap-4 border-primary/20 bg-background/80 p-6 shadow-lg sm:grid-cols-2">
+                <div>
+                  <h3 className="text-lg font-semibold">Graphing workspace</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Dock multiple graphing modules, sync viewports, and filter expressions per tool. Perfect for
+                    comparing variants of a function or overlaying lecture examples with your own work.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Learning workspace</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Keep interactive notes, toolkit definitions, and documentation links beside the calculator.
+                    Capture reusable snippets for calculus, circuits, and complex variables in one place.
+                  </p>
+                </div>
+              </Card>
+            </div>
           </div>
         </section>
 
@@ -276,7 +334,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="container mx-auto max-w-7xl px-4 text-center text-sm text-muted-foreground sm:px-6">
-          <p>Zygraph — Advanced mathematical computing for everyone</p>
+          <p>Zygraph " Advanced mathematical computing for everyone</p>
           <div className="mt-4 flex justify-center gap-6">
             <Link to="/app" className="hover:text-foreground transition-colors">
               Calculator

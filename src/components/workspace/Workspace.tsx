@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { WorkspaceLayout, ToolSlot, DockNode } from "@/lib/workspace/types";
 import { toolRegistry } from "@/lib/tools";
 import { ToolContainer } from "./ToolContainer";
@@ -7,14 +7,11 @@ import { ToolkitExpression } from "@/lib/toolkits/types";
 import { Graph2DControls } from "@/components/tools/Graph2DControls";
 import { DockWorkspace } from "./DockWorkspace";
 import { ensureDockTree } from "@/lib/workspace/dockUtils";
+import { ToolProps } from "@/lib/tools/types";
+import { expressionEngine } from "@/lib/expression";
 
 interface WorkspaceProps {
-  expressions: Array<{
-    id: string;
-    latex: string;
-    normalized: string;
-    color: string;
-  }>;
+  expressions: ToolProps["expressions"];
   toolkitDefinitions: ToolkitExpression[];
   layout: WorkspaceLayout;
   onLayoutChange: (layout: WorkspaceLayout) => void;
@@ -24,7 +21,7 @@ interface WorkspaceProps {
 
 interface RenderOptions {
   toolId: string;
-  instanceKey: string;
+  instanceId: string;
   viewportOverride?: any;
   configOverride?: Record<string, any>;
   size?: number;
@@ -39,6 +36,17 @@ export function Workspace({
   toolStates,
   onToolStateChange,
 }: WorkspaceProps) {
+  const preparedExpressions = useMemo(() => {
+    return expressions.map(expr => {
+      const source = expr.normalized?.trim() ? expr.normalized : expr.latex;
+      const sanitized = source ? expressionEngine.normalize(source) : "";
+      return {
+        ...expr,
+        normalized: sanitized,
+      };
+    });
+  }, [expressions]);
+
   const [dockTree, setDockTree] = useState<DockNode | null>(() =>
     layout.mode === "dock" ? ensureDockTree(layout.dockLayout) : null
   );
@@ -53,7 +61,7 @@ export function Workspace({
 
   const renderToolInstance = ({
     toolId,
-    instanceKey,
+    instanceId,
     viewportOverride,
     configOverride,
     size,
@@ -82,11 +90,22 @@ export function Workspace({
       onToolStateChange(toolId, { ...toolState, config: nextConfig });
     };
 
+    const expressionsForTool = preparedExpressions.filter(expr => {
+      const allowed = expr.allowedModules;
+      if (allowed == null) {
+        return true;
+      }
+      if (allowed.length === 0) {
+        return false;
+      }
+      return allowed.includes(instanceId);
+    });
+
     return (
-      <ToolContainer key={instanceKey} tool={tool} size={size}>
+      <ToolContainer key={instanceId} tool={tool} size={size}>
         <div className="relative h-full w-full">
           <ToolComponent
-            expressions={expressions}
+            expressions={expressionsForTool}
             toolkitDefinitions={toolkitDefinitions}
             viewport={viewport}
             onViewportChange={handleViewportChange}
@@ -110,7 +129,7 @@ export function Workspace({
   const renderSlot = (slot: ToolSlot, index: number) =>
     renderToolInstance({
       toolId: slot.toolId,
-      instanceKey: `${layout.id}-${slot.toolId}-${index}`,
+      instanceId: `${layout.id}-${slot.toolId}-${index}`,
       viewportOverride: slot.viewport,
       configOverride: slot.config,
       size: slot.size,
@@ -130,7 +149,7 @@ export function Workspace({
         renderTool={(toolId, options) =>
           renderToolInstance({
             toolId,
-            instanceKey: options.instanceKey,
+            instanceId: options.instanceId,
             isActive: options.isActive,
           })
         }
