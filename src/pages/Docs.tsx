@@ -780,7 +780,9 @@ export default function Docs() {
                   <Card className="p-5 space-y-3">
                     <h3 className="text-lg font-semibold">Complex Plane: Domain coloring</h3>
                     <ol className="list-decimal space-y-2 text-sm text-muted-foreground pl-4">
-                      <li>Enter <code className="rounded bg-muted px-1">f(z) = e^{i z} + 1/z</code>.</li>
+                      <li>
+                        Enter <code className="rounded bg-muted px-1">{'f(z) = e^{i z} + 1/z'}</code>.
+                      </li>
                       <li>Toggle between phase and cartesian color modes.</li>
                       <li>Enable real/imag surfaces to correlate hue with surface height.</li>
                     </ol>
