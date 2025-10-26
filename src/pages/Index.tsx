@@ -30,6 +30,13 @@ const GRAPH_COLORS = [
   "hsl(var(--graph-6))",
 ];
 
+const cloneWorkspaceLayout = (layout: WorkspaceLayout): WorkspaceLayout => {
+  if (typeof structuredClone === "function") {
+    return structuredClone(layout);
+  }
+  return JSON.parse(JSON.stringify(layout));
+};
+
 interface Expression {
   id: string;
   latex: string;
@@ -79,7 +86,8 @@ const Index = () => {
   const [workspaceState, setWorkspaceState] = useState(() => loadWorkspaceState());
   const [layout, setLayout] = useState<WorkspaceLayout>(() => {
     const loaded = loadWorkspaceState();
-    return WORKSPACE_LAYOUTS.find(l => l.id === loaded.layoutId) || getDefaultLayout();
+    const found = WORKSPACE_LAYOUTS.find(l => l.id === loaded.layoutId) || getDefaultLayout();
+    return cloneWorkspaceLayout(found);
   });
 
   // Ref to store active MathInput for keyboard insertions
@@ -105,7 +113,8 @@ const Index = () => {
   }, [workspaceState]);
 
   const handleLayoutChange = (newLayout: WorkspaceLayout) => {
-    setLayout(newLayout);
+    const cloned = cloneWorkspaceLayout(newLayout);
+    setLayout(cloned);
     setWorkspaceState(prev => ({ ...prev, layoutId: newLayout.id }));
   };
 

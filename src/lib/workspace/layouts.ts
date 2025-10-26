@@ -34,6 +34,23 @@ export const WORKSPACE_LAYOUTS: WorkspaceLayout[] = [
       { toolId: 'graph-3d', size: 50 }
     ]
   },
+  {
+    id: 'dock-visual',
+    name: 'Docked Workspace',
+    icon: 'PanelsTopLeft',
+    description: 'Visual Studio style tabs with drag-and-drop docking',
+    mode: 'dock',
+    slots: [],
+    dockLayout: {
+      id: 'dock-panel-root',
+      type: 'tabs',
+      activeTabId: 'dock-tab-graph-2d',
+      tabs: [
+        { id: 'dock-tab-graph-2d', toolId: 'graph-2d', title: '2D Graph' },
+        { id: 'dock-tab-graph-3d', toolId: 'graph-3d', title: '3D Graph' }
+      ]
+    }
+  },
   // Future layouts can be added here:
   // - Multi-view grid (2x2)
   // - Tabbed interface

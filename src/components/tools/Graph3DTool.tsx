@@ -6,7 +6,7 @@ import { useScene3D } from '@/hooks/useScene3D';
 import { SurfaceEvaluator } from '@/lib/computation/evaluators/SurfaceEvaluator';
 import { ParametricCurveEvaluator } from '@/lib/computation/evaluators/ParametricCurveEvaluator';
 import { Surface3D } from '@/components/3d/Surface3D';
-import { Curve3D } from '@/components/3d/Curve3D';
+import { Curve3DBatch } from '@/components/3d/Curve3D';
 import { cartesianSpace, getSpace } from '@/lib/computation/spaces';
 import { Graph3DControls } from './Graph3DControls';
 import { inferType, MathType } from '@/lib/types';
@@ -22,7 +22,7 @@ export const Graph3DTool = ({
 }: ToolProps) => {
   const { theme, resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { scene, renderer, sceneVersion, isReady } = useScene3D(canvasRef, isActive);
+  const { scene, renderer, sceneVersion, isReady, requestRender } = useScene3D(canvasRef, isActive);
   const [spaceId, setSpaceId] = useState<string>(toolConfig?.spaceId || 'cartesian');
   const space = getSpace(spaceId) || cartesianSpace;
   const definitionSources = useMemo(
@@ -82,10 +82,12 @@ export const Graph3DTool = ({
 
   // Evaluate all expressions to renderable data (surfaces or curves)
   const renderableData = useMemo(() => {
-    if (!isActive || !isReady) return [];
+    if (!isActive || !isReady) return { surfaces: [], curves: [] };
 
-    return expressions
-      .map(expr => {
+    const surfaces: Array<{ data: any; color?: string; id: string }> = [];
+    const curves: Array<{ data: any; color?: string; id: string }> = [];
+
+    expressions.forEach(expr => {
         try {
           // Infer expression type
           const typeInfo = inferType(expr.latex, expr.normalized);
@@ -121,7 +123,8 @@ export const Graph3DTool = ({
               resolution: toolConfig?.resolution || 30,
               colorMode: 'none' // Don't use vertex colors for explicit surfaces
             });
-            return { type: 'surface' as const, data, color: expr.color, id: expr.id };
+            surfaces.push({ data, color: expr.color, id: expr.id });
+            return;
           }
           
           if (isImplicit3D) {
@@ -140,12 +143,13 @@ export const Graph3DTool = ({
               isoValue: 0
             };
             const data = evaluator.evaluateImplicitSurface(implicitOptions);
-            return { type: 'surface' as const, data, color: expr.color, id: expr.id };
+            surfaces.push({ data, color: expr.color, id: expr.id });
+            return;
           }
           
           // Skip other definitions (variable assignments, function definitions)
           if (hasEquals && !isImplicit3D && !isExplicitSurface) {
-            return null;
+            return;
           }
           
           // Check if this is a parametric curve
@@ -163,7 +167,8 @@ export const Graph3DTool = ({
               resolution: toolConfig?.resolution || 100
             });
             
-            return { type: 'curve' as const, data, color: expr.color, id: expr.id };
+            curves.push({ data, color: expr.color, id: expr.id });
+            return;
           } else {
             const evaluator = new SurfaceEvaluator(ast, context, space);
             const data = evaluator.evaluateSurface({
@@ -171,14 +176,16 @@ export const Graph3DTool = ({
               bounds: viewport?.bounds || space.defaultBounds,
               colorMode: 'none'
             });
-            return { type: 'surface' as const, data, color: expr.color, id: expr.id };
+            surfaces.push({ data, color: expr.color, id: expr.id });
+            return;
           }
         } catch (e) {
           console.error('Failed to evaluate expression:', expr.normalized, e);
-          return null;
+          return;
         }
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
+      });
+
+    return { surfaces, curves };
   }, [expressions, context, space, viewport, toolConfig, isActive, isReady]);
   
   if (!isActive) return null;
@@ -199,9 +206,9 @@ export const Graph3DTool = ({
       )}
       
       {/* Render surfaces and curves only when ready */}
-      {isReady && scene && renderableData.map(({ type, data, color, id }) => {
-        if (type === 'surface') {
-          return (
+      {isReady && scene && (
+        <>
+          {renderableData.surfaces.map(({ data, color, id }) => (
             <Surface3D
               key={id}
               scene={scene}
@@ -210,23 +217,20 @@ export const Graph3DTool = ({
               color={color}
               wireframe={toolConfig?.wireframe}
               opacity={toolConfig?.opacity ?? 0.85}
+              requestRender={requestRender}
             />
-          );
-        } else if (type === 'curve') {
-          return (
-            <Curve3D
-              key={id}
+          ))}
+          {renderableData.curves.length > 0 && (
+            <Curve3DBatch
+              key={renderableData.curves.map(curve => curve.id).join(':')}
               scene={scene}
               sceneVersion={sceneVersion}
-              data={data}
-              color={color}
-              lineWidth={2}
-              opacity={1.0}
+              curves={renderableData.curves}
+              requestRender={requestRender}
             />
-          );
-        }
-        return null;
-      })}
+          )}
+        </>
+      )}
       
       {/* Controls overlay */}
       {isReady && (

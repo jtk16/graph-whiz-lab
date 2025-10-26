@@ -1,4 +1,4 @@
-import { MutableRefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { MutableRefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -9,6 +9,7 @@ interface SceneApi {
   controls: OrbitControls | null;
   isReady: boolean;
   sceneVersion: number;
+  requestRender: () => void;
 }
 
 export function useScene3D(
@@ -23,6 +24,7 @@ export function useScene3D(
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const rafRef = useRef<number | null>(null);
+  const pendingFrameRef = useRef(false);
 
   const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
   const [sceneVersion, setSceneVersion] = useState(0);
@@ -34,6 +36,33 @@ export function useScene3D(
       setCanvasEl(current);
     }
   });
+
+  const renderFrame = useCallback(() => {
+    rafRef.current = null;
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    const renderer = rendererRef.current;
+    if (!scene || !camera || !renderer) {
+      pendingFrameRef.current = false;
+      return;
+    }
+
+    const shouldContinue = controlsRef.current?.update() ?? false;
+    renderer.render(scene, camera);
+
+    if (shouldContinue || pendingFrameRef.current) {
+      pendingFrameRef.current = false;
+      rafRef.current = requestAnimationFrame(renderFrame);
+    }
+  }, []);
+
+  const requestRender = useCallback(() => {
+    if (!rendererRef.current) return;
+    pendingFrameRef.current = true;
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(renderFrame);
+    }
+  }, [renderFrame]);
 
   useLayoutEffect(() => {
     if (!enabled || !canvasEl || sceneRef.current) {
@@ -49,6 +78,8 @@ export function useScene3D(
       alpha: true,
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = false;
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
 
     const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
     camera.position.set(8, 8, 8);
@@ -74,24 +105,31 @@ export function useScene3D(
       rendererRef.current.setSize(clientWidth, clientHeight, false);
       cameraRef.current.aspect = clientWidth / Math.max(1, clientHeight);
       cameraRef.current.updateProjectionMatrix();
+      requestRender();
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
 
-    const render = () => {
-      rafRef.current = requestAnimationFrame(render);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    rafRef.current = requestAnimationFrame(render);
+    const handleControlChange = () => requestRender();
+    controls.addEventListener('change', handleControlChange);
+    controls.addEventListener('start', handleControlChange);
+    controls.addEventListener('end', handleControlChange);
 
     setIsReady(true);
     setSceneVersion(prev => prev + 1);
+    requestRender();
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      controls.removeEventListener('change', handleControlChange);
+      controls.removeEventListener('start', handleControlChange);
+      controls.removeEventListener('end', handleControlChange);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      pendingFrameRef.current = false;
       controls.dispose();
       renderer.dispose();
       scene.clear();
@@ -101,7 +139,7 @@ export function useScene3D(
       controlsRef.current = null;
       setIsReady(false);
     };
-  }, [enabled, canvasEl]);
+  }, [enabled, canvasEl, requestRender]);
 
   return useMemo(
     () => ({
@@ -111,7 +149,8 @@ export function useScene3D(
       controls: controlsRef.current,
       isReady,
       sceneVersion,
+      requestRender,
     }),
-    [isReady, sceneVersion]
+    [isReady, sceneVersion, requestRender]
   );
 }

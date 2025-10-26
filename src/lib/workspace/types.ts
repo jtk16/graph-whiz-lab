@@ -9,10 +9,13 @@ export interface WorkspaceLayout {
   description: string; // Short description
   
   // How to arrange tools
-  mode: 'single' | 'split-h' | 'split-v' | 'grid' | 'tabs';
+  mode: 'single' | 'split-h' | 'split-v' | 'grid' | 'tabs' | 'dock';
   
   // Which tools to show and their configuration
   slots: ToolSlot[];
+
+  // Optional dock layout tree for Visual Studio style windowing
+  dockLayout?: DockNode;
 }
 
 /**
@@ -24,6 +27,35 @@ export interface ToolSlot {
   config?: Record<string, any>; // Tool-specific configuration
   viewport?: any; // Tool-specific viewport state
 }
+
+/**
+ * Docking layout tree
+ */
+export type DockNode = DockTabsNode | DockSplitNode;
+
+export interface DockTabsNode {
+  id: string;
+  type: 'tabs';
+  tabs: DockTab[];
+  activeTabId?: string;
+}
+
+export interface DockSplitNode {
+  id: string;
+  type: 'split';
+  direction: 'horizontal' | 'vertical';
+  ratio: number; // 0 - 1 representing first pane ratio
+  first: DockNode;
+  second: DockNode;
+}
+
+export interface DockTab {
+  id: string;
+  toolId: string;
+  title?: string;
+}
+
+export type DockDropPosition = 'left' | 'right' | 'top' | 'bottom' | 'center';
 
 /**
  * Persisted workspace state
