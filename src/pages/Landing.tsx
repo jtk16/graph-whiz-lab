@@ -110,7 +110,7 @@ export default function Landing() {
                 <li>• Circuit + FFT toolkits</li>
               </ul>
               <div className="mt-6 rounded-lg bg-background px-4 py-3 font-mono text-sm text-foreground shadow-inner">
-                f(z) = e^{i z} + \frac{1}{z},&nbsp;&nbsp;u(t) = FFT(signal)
+                {"f(z) = e^{i z} + 1/z\u00a0\u00a0u(t) = FFT(signal)"}
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
                 No install. No data loss. Just sign in and start sketching.

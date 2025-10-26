@@ -305,7 +305,7 @@ function splitImaginaryIdentifiers(tokens: Token[]): Token[] {
       token.type === TokenType.Identifier &&
       token.value.length === 2 &&
       token.value[0].toLowerCase() === 'i' &&
-      /[a-zA-Z_]/.test(token.value[1])
+      /[xyztrXYZTR]/.test(token.value[1])
     ) {
       const [, secondChar] = token.value;
       result.push({

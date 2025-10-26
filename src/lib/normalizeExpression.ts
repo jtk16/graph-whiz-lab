@@ -121,7 +121,9 @@ export function normalizeExpression(latex: string): string {
   normalized = normalized.trim();
   
   // Final pass: re-tokenize to enforce explicit multiplication (e.g., i*z) and emit a canonical form.
-  return tokensToExpression(tokenize(normalized));
+  let finalExpr = tokensToExpression(tokenize(normalized));
+  finalExpr = finalExpr.replace(/(^|[^a-zA-Z0-9_])i(?=[xyztrXYZTR])/g, '$1i*');
+  return finalExpr;
 }
 
 function tokensToExpression(tokens: Token[]): string {

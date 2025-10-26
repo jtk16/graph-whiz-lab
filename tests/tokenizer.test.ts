@@ -47,4 +47,10 @@ describe('Expression tokenizer', () => {
   it('parses e^(iz) after normalization', () => {
     expect(() => expressionEngine.parseNormalized('e^(iz)')).not.toThrow();
   });
+
+  it('does not split built-in functions like if()', () => {
+    const tokens = tokenize('if(x>0,1,0)');
+    expect(tokens[0]?.type).toBe(TokenType.Identifier);
+    expect(tokens[0]?.value).toBe('if');
+  });
 });
