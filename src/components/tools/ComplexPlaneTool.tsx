@@ -592,38 +592,225 @@ const StatsPanel = ({ stats }: { stats: ComplexStats }) => (
 
 const ComplexSurfaceMini = ({ data, label }: { data?: SurfaceData | null; label: string }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { scene, sceneVersion, isReady, requestRender } = useScene3D(canvasRef, Boolean(data));
+  const { scene, sceneVersion, isReady, requestRender, camera, controls } = useScene3D(
+    canvasRef,
+    Boolean(data)
+  );
+
+  const orientedData = useMemo(() => {
+    if (!data) return null;
+    return orientSurfaceForComplexPlane(data);
+  }, [data]);
+
+  const bounds = useMemo(() => {
+    if (!orientedData) return null;
+    return computeSurfaceBounds(orientedData.vertices);
+  }, [orientedData]);
+
+  const helpersRef = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
     if (!scene) return;
     scene.background = new THREE.Color("#0c0c12");
   }, [scene]);
 
+  useEffect(() => {
+    if (!camera || !controls || !bounds) return;
+
+    const center = new THREE.Vector3(...bounds.center);
+    const radius = Math.max(bounds.radius, 1);
+    const offsetDirection = new THREE.Vector3(1, 1.35, 1).normalize();
+    const distance = radius * 2.6;
+    const nextPosition = center.clone().addScaledVector(offsetDirection, distance);
+
+    camera.position.copy(nextPosition);
+    controls.target.copy(center);
+    controls.update();
+    requestRender();
+  }, [camera, controls, bounds, requestRender]);
+
+  useEffect(() => {
+    if (!scene || !bounds) return;
+
+    if (helpersRef.current) {
+      scene.remove(helpersRef.current);
+      helpersRef.current = null;
+    }
+
+    const group = new THREE.Group();
+    const axisLength = Math.max(bounds.size[0], bounds.size[1], bounds.size[2], 1);
+
+    const axes = new THREE.AxesHelper(axisLength * 0.75);
+    axes.position.set(bounds.center[0], 0, bounds.center[2]);
+    const axisMaterials = Array.isArray(axes.material) ? axes.material : [axes.material];
+    axisMaterials.forEach(material => {
+      material.depthTest = false;
+      material.transparent = true;
+      material.opacity = 0.9;
+    });
+    group.add(axes);
+
+    const grid = new THREE.GridHelper(1, Math.min(24, Math.max(8, Math.round(axisLength * 4))));
+    grid.position.set(bounds.center[0], 0, bounds.center[2]);
+    grid.rotation.x = Math.PI / 2;
+    grid.scale.set(Math.max(bounds.size[0], 0.0001), 1, Math.max(bounds.size[2], 0.0001));
+    const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
+    gridMaterials.forEach(material => {
+      material.opacity = 0.25;
+      material.transparent = true;
+      material.depthWrite = false;
+    });
+    group.add(grid);
+
+    scene.add(group);
+    helpersRef.current = group;
+    requestRender();
+
+    return () => {
+      if (helpersRef.current) {
+        scene.remove(helpersRef.current);
+        helpersRef.current = null;
+        requestRender();
+      }
+    };
+  }, [scene, bounds, requestRender]);
+
+  const valueAxisLabel = useMemo(() => {
+    if (label.includes("Re")) return "Re(f(z))";
+    if (label.includes("Im")) return "Im(f(z))";
+    return label;
+  }, [label]);
+
   return (
     <div className="rounded-lg border bg-background/60 p-2">
       <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
       <div className="relative aspect-square w-full max-h-[320px] overflow-hidden rounded-md bg-black/80">
         <canvas ref={canvasRef} className="h-full w-full" />
-        {!data && (
+        {!orientedData && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
             No valid samples
           </div>
         )}
-        {isReady && scene && data && (
+        {isReady && scene && orientedData && (
           <Surface3D
             scene={scene}
             sceneVersion={sceneVersion}
-            data={data}
+            data={orientedData}
             color="#9b87f5"
             wireframe={false}
             opacity={0.9}
             requestRender={requestRender}
           />
         )}
+        {orientedData && (
+          <div className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded-md bg-black/50 p-2 text-[10px] font-medium uppercase tracking-wide text-white shadow-sm backdrop-blur">
+            <span className="text-[9px] text-white/80">Axes</span>
+            <div className="flex items-center gap-2 normal-case">
+              <span className="h-2 w-2 rounded-full bg-red-400" />
+              X → Re(z)
+            </div>
+            <div className="flex items-center gap-2 normal-case">
+              <span className="h-2 w-2 rounded-full bg-green-400" />
+              Y → {valueAxisLabel}
+            </div>
+            <div className="flex items-center gap-2 normal-case">
+              <span className="h-2 w-2 rounded-full bg-blue-400" />
+              Z → Im(z)
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+type SurfaceBounds = {
+  center: [number, number, number];
+  size: [number, number, number];
+  radius: number;
+};
+
+function orientSurfaceForComplexPlane(data: SurfaceData): SurfaceData {
+  const orientedVertices = new Float32Array(data.vertices.length);
+  for (let i = 0; i < data.vertices.length; i += 3) {
+    const x = data.vertices[i];
+    const y = data.vertices[i + 1];
+    const z = data.vertices[i + 2];
+    orientedVertices[i] = x;
+    orientedVertices[i + 1] = z;
+    orientedVertices[i + 2] = y;
+  }
+
+  let orientedNormals: Float32Array | undefined;
+  if (data.normals) {
+    orientedNormals = new Float32Array(data.normals.length);
+    for (let i = 0; i < data.normals.length; i += 3) {
+      const nx = data.normals[i];
+      const ny = data.normals[i + 1];
+      const nz = data.normals[i + 2];
+      orientedNormals[i] = nx;
+      orientedNormals[i + 1] = nz;
+      orientedNormals[i + 2] = ny;
+    }
+  }
+
+  return {
+    vertices: orientedVertices,
+    normals: orientedNormals,
+    colors: data.colors,
+    indices: data.indices,
+  };
+}
+
+function computeSurfaceBounds(vertices: Float32Array): SurfaceBounds {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i];
+    const y = vertices[i + 1];
+    const z = vertices[i + 2];
+    if (Number.isFinite(x)) {
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+    }
+    if (Number.isFinite(y)) {
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+    if (Number.isFinite(z)) {
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+  }
+
+  if (!Number.isFinite(minX)) minX = -1;
+  if (!Number.isFinite(maxX)) maxX = 1;
+  if (!Number.isFinite(minY)) minY = -1;
+  if (!Number.isFinite(maxY)) maxY = 1;
+  if (!Number.isFinite(minZ)) minZ = -1;
+  if (!Number.isFinite(maxZ)) maxZ = 1;
+
+  const sizeX = Math.max(maxX - minX, 0.0001);
+  const sizeY = Math.max(maxY - minY, 0.0001);
+  const sizeZ = Math.max(maxZ - minZ, 0.0001);
+
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
+  const radius = Math.sqrt(sizeX ** 2 + sizeY ** 2 + sizeZ ** 2) / 2;
+
+  return {
+    center: [centerX, centerY, centerZ],
+    size: [sizeX, sizeY, sizeZ],
+    radius,
+  };
+}
 
 const ComplexPlaneControls = ({
   config,
