@@ -29,6 +29,33 @@ export function DockWorkspace({ dockTree, onDockTreeChange, renderTool }: DockWo
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropHint, setDropHint] = useState<DropHint | null>(null);
 
+  const tabTitleMap = useMemo(() => {
+    if (!dockTree) {
+      return {};
+    }
+
+    const counts: Record<string, number> = {};
+    const titles: Record<string, string> = {};
+
+    const traverse = (node: DockNode) => {
+      if (node.type === "split") {
+        traverse(node.first);
+        traverse(node.second);
+        return;
+      }
+
+      node.tabs.forEach(tab => {
+        const tool = toolRegistry.get(tab.toolId);
+        const baseTitle = tab.title ?? tool?.name ?? tab.toolId;
+        const nextCount = (counts[tab.toolId] = (counts[tab.toolId] || 0) + 1);
+        titles[tab.id] = nextCount > 1 ? `${baseTitle} #${nextCount}` : baseTitle;
+      });
+    };
+
+    traverse(dockTree);
+    return titles;
+  }, [dockTree]);
+
   const handleTreeChange = (node: DockNode | null) => {
     onDockTreeChange(node ?? ensureDockTree());
   };
@@ -105,6 +132,7 @@ export function DockWorkspace({ dockTree, onDockTreeChange, renderTool }: DockWo
         setDragState={setDragState}
         dropHint={dropHint}
         setDropHint={setDropHint}
+        tabTitleMap={tabTitleMap}
       />
     );
   };
@@ -123,6 +151,7 @@ interface DockTabsPanelProps {
   setDragState: (state: DragState | null) => void;
   dropHint: DropHint | null;
   setDropHint: (hint: DropHint | null) => void;
+  tabTitleMap: Record<string, string>;
 }
 
 const DockTabsPanel = ({
@@ -136,6 +165,7 @@ const DockTabsPanel = ({
   setDragState,
   dropHint,
   setDropHint,
+  tabTitleMap,
 }: DockTabsPanelProps) => {
   const tabs = panel.tabs;
   const activeTab = useMemo(() => {
@@ -176,6 +206,7 @@ const DockTabsPanel = ({
           {tabs.map(tab => {
             const tool = toolRegistry.get(tab.toolId);
             const isActive = activeTab?.id === tab.id;
+            const displayTitle = tabTitleMap[tab.id] ?? tab.title ?? tool?.name ?? tab.toolId;
             return (
               <button
                 key={tab.id}
@@ -192,7 +223,7 @@ const DockTabsPanel = ({
                 }}
                 onDragEnd={handleDragEnd}
               >
-                <span className="max-w-[120px] truncate">{tab.title ?? tool?.name ?? tab.toolId}</span>
+                <span className="max-w-[120px] truncate">{displayTitle}</span>
                 <X
                   className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60"
                   onClick={ev => {
