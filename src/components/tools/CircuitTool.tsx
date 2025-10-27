@@ -1,10 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import type { DragEvent } from "react";
 import { ToolProps } from "@/lib/tools/types";
 import {
   CircuitComponent,
   SimulationResult,
   simulateCircuit,
 } from "@/lib/circuits/simulator";
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  COMPONENT_COLORS,
+  COMPONENT_LIBRARY,
+  COMPONENT_LOOKUP,
+  DEFAULT_NEW_COMPONENT,
+  NODE_MARGIN,
+  CircuitKind,
+  NewComponentState,
+  NodePosition,
+  SNAP_GRID_SIZE,
+  applyNodeSnap,
+  componentGlyph as getComponentGlyph,
+  createInitialPositions,
+  defaultNodePosition,
+  extractCircuitNodes,
+  generateNodeName,
+  hotkeyToKind,
+  sanitizeIdentifier,
+  stageComponentFromKind,
+  stageComponentForNodeDrop,
+  retargetComponentToNode,
+} from "@/lib/circuits/editorModel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,20 +41,6 @@ import { Badge } from "@/components/ui/badge";
 import { Pause, Play, Upload, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { solveSymbolicCircuit } from "@/lib/circuits/symbolic";
-
-type CircuitKind = CircuitComponent["kind"];
-
-interface NewComponentState {
-  kind: CircuitKind;
-  from: string;
-  to: string;
-  value: number;
-  waveform: "dc" | "ac";
-  amplitude: number;
-  frequency: number;
-  phase: number;
-  offset: number;
-}
 
 const DEFAULT_COMPONENTS: CircuitComponent[] = [
   {
@@ -49,152 +60,15 @@ const DEFAULT_COMPONENTS: CircuitComponent[] = [
   },
 ];
 
-const DEFAULT_NEW_COMPONENT: NewComponentState = {
-  kind: "resistor",
-  from: "vin",
-  to: "gnd",
-  value: 1000,
-  waveform: "dc",
-  amplitude: 5,
-  frequency: 60,
-  phase: 0,
-  offset: 0,
-};
-
 const DEFAULT_SIM = {
   dt: 0.0005,
   duration: 0.1,
 };
 
-type ComponentDefinition = {
-  kind: CircuitKind;
-  label: string;
-  description: string;
-};
-
-const COMPONENT_LIBRARY: ComponentDefinition[] = [
-  {
-    kind: "voltage-source",
-    label: "Voltage source",
-    description: "Inject DC or AC excitation into the network.",
-  },
-  {
-    kind: "current-source",
-    label: "Current source",
-    description: "Drive the circuit with a DC or sinusoidal current injection.",
-  },
-  {
-    kind: "resistor",
-    label: "Resistor",
-    description: "Drop voltage proportionally to current (Ohm's law).",
-  },
-  {
-    kind: "capacitor",
-    label: "Capacitor",
-    description: "Store charge and react to frequency content.",
-  },
-  {
-    kind: "inductor",
-    label: "Inductor",
-    description: "Accumulate magnetic energy and resist changes in current.",
-  },
-  {
-    kind: "wire",
-    label: "Wire",
-    description: "Directly connect nodes without impedance.",
-  },
-];
-
-const COMPONENT_LOOKUP: Record<CircuitKind, ComponentDefinition> = COMPONENT_LIBRARY.reduce(
-  (acc, entry) => {
-    acc[entry.kind] = entry;
-    return acc;
-  },
-  {} as Record<CircuitKind, ComponentDefinition>
-);
-
-const SNAP_GRID_SIZE = 24;
-
-const getComponentGlyph = (kind: CircuitKind) => {
-  switch (kind) {
-    case "resistor":
-      return "R";
-    case "capacitor":
-      return "C";
-    case "inductor":
-      return "L";
-    case "current-source":
-      return "I";
-    case "voltage-source":
-      return "V";
-    case "wire":
-    default:
-      return "W";
-  }
-};
-
-const sanitizeIdentifier = (raw: string): string => {
-  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
-  if (!cleaned) return "signal";
-  return /^[a-zA-Z]/.test(cleaned) ? cleaned : `n${cleaned}`;
-};
-
-type NodePosition = { x: number; y: number };
-
-const CANVAS_WIDTH = 760;
-const CANVAS_HEIGHT = 360;
-const NODE_MARGIN = 32;
-
-const defaultNodePosition = (index: number): NodePosition => {
-  const angle = (index / Math.max(1, index + 2)) * Math.PI * 2;
-  const radiusX = (CANVAS_WIDTH / 2) - NODE_MARGIN * 2;
-  const radiusY = (CANVAS_HEIGHT / 2) - NODE_MARGIN * 2;
-  return {
-    x: CANVAS_WIDTH / 2 + Math.cos(angle) * radiusX * 0.6,
-    y: CANVAS_HEIGHT / 2 + Math.sin(angle) * radiusY * 0.6,
-  };
-};
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-const extractCircuitNodes = (components: CircuitComponent[]): string[] => {
-  const nodes = new Set<string>(["gnd"]);
-  components.forEach(component => {
-    nodes.add(component.from);
-    nodes.add(component.to);
-  });
-  return Array.from(nodes);
-};
-
-const createInitialPositions = (nodes: string[]): Record<string, NodePosition> => {
-  const positions: Record<string, NodePosition> = {};
-  nodes.forEach((node, index) => {
-    positions[node] = defaultNodePosition(index);
-  });
-  return positions;
-};
-
-const generateNodeName = (existing: string[]): string => {
-  let index = 1;
-  while (true) {
-    const candidate = `n${index}`;
-    if (!existing.includes(candidate)) {
-      return candidate;
-    }
-    index += 1;
-  }
-};
+const DRAG_DATA_KIND = "application/x-circuit-kind";
+const DRAG_DATA_COMPONENT = "application/x-circuit-component";
 
 const DEFAULT_NODE_NAMES = extractCircuitNodes(DEFAULT_COMPONENTS);
-
-const COMPONENT_COLORS: Record<CircuitKind, string> = {
-  resistor: "#f97316",
-  capacitor: "#0ea5e9",
-  inductor: "#a855f7",
-  "current-source": "#14b8a6",
-  "voltage-source": "#22c55e",
-  wire: "#94a3b8",
-};
 
 export function CircuitTool({ isActive }: ToolProps) {
   const [components, setComponents] = useState<CircuitComponent[]>(DEFAULT_COMPONENTS);
@@ -364,44 +238,15 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, [selectedComponent, selectingNodeField, newComponent.from, newComponent.to, selectedNode]);
 
   const handleComponentKindSelect = (kind: CircuitKind) => {
-    setNewComponent(prev => {
-      if (prev.kind === kind) {
-        return prev;
-      }
-      if (kind === "voltage-source" || kind === "current-source") {
-        return {
-          ...prev,
-          kind,
-          waveform: prev.waveform ?? "dc",
-          amplitude: prev.amplitude ?? DEFAULT_NEW_COMPONENT.amplitude,
-          frequency: prev.frequency ?? DEFAULT_NEW_COMPONENT.frequency,
-          phase: prev.phase ?? DEFAULT_NEW_COMPONENT.phase,
-          offset: prev.offset ?? DEFAULT_NEW_COMPONENT.offset,
-        };
-      }
-      return {
-        ...prev,
-        kind,
-        waveform: "dc",
-      };
-    });
+    setNewComponent(prev => stageComponentFromKind(prev, kind));
+    setSelectingNodeField("from");
   };
 
-  const handleNodePositionChange = (nodeId: string, position: NodePosition) => {
-    const applySnap = (value: number) =>
-      Math.round(value / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-    const snapped = snapToGrid
-      ? {
-          x: applySnap(position.x),
-          y: applySnap(position.y),
-        }
-      : position;
+  const handleNodePositionChange = (nodeId: string, position: NodePosition, options?: { disableSnap?: boolean }) => {
+    const nextPosition = applyNodeSnap(position, snapToGrid, options?.disableSnap);
     setNodePositions(prev => ({
       ...prev,
-      [nodeId]: {
-        x: clamp(snapped.x, NODE_MARGIN, CANVAS_WIDTH - NODE_MARGIN),
-        y: clamp(snapped.y, NODE_MARGIN, CANVAS_HEIGHT - NODE_MARGIN),
-      },
+      [nodeId]: nextPosition,
     }));
   };
 
@@ -496,7 +341,7 @@ export function CircuitTool({ isActive }: ToolProps) {
 
   const canPlaceComponent = Boolean(newComponent.from && newComponent.to && newComponent.from !== newComponent.to);
 
-  const addComponent = () => {
+  const addComponent = useCallback(() => {
     if (!canPlaceComponent) return;
     const id = `${newComponent.kind}-${Date.now().toString(36)}`;
     let component: CircuitComponent;
@@ -536,11 +381,13 @@ export function CircuitTool({ isActive }: ToolProps) {
     }
     setComponents(prev => [...prev, component]);
     setSelectingNodeField(null);
-  };
+  }, [canPlaceComponent, newComponent]);
 
-  const removeComponent = (id: string) => {
+  const removeComponent = useCallback((id: string) => {
     setComponents(prev => prev.filter(comp => comp.id !== id));
-  };
+    setSelectedComponentId(prev => (prev === id ? null : prev));
+    setHoveredComponentId(prev => (prev === id ? null : prev));
+  }, []);
 
   const simulate = () => {
     try {
@@ -591,6 +438,90 @@ export function CircuitTool({ isActive }: ToolProps) {
     },
     [components]
   );
+
+  useEffect(() => {
+    if (!isActive) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        if (["input", "textarea", "select"].includes(tag) || target.isContentEditable) {
+          return;
+        }
+      }
+
+      const lower = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      const hotkeyKind = hotkeyToKind[lower];
+      if (hotkeyKind) {
+        event.preventDefault();
+        setNewComponent(prev => stageComponentFromKind(prev, hotkeyKind));
+        setSelectingNodeField("from");
+        return;
+      }
+
+      if ((event.key === "Backspace" || event.key === "Delete") && selectedComponentId) {
+        event.preventDefault();
+        removeComponent(selectedComponentId);
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        if (canPlaceComponent) {
+          event.preventDefault();
+          addComponent();
+        }
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (selectingNodeField || selectedComponentId || hoveredComponentId || selectedNode) {
+          event.preventDefault();
+          setSelectingNodeField(null);
+          setSelectedComponentId(null);
+          setHoveredComponentId(null);
+          setSelectedNode(null);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    isActive,
+    selectedComponentId,
+    removeComponent,
+    canPlaceComponent,
+    addComponent,
+    selectingNodeField,
+    hoveredComponentId,
+    selectedNode,
+  ]);
+
+  const handleCanvasDropKind = (kind: CircuitKind) => {
+    setNewComponent(prev => stageComponentFromKind(prev, kind));
+    setSelectingNodeField("from");
+  };
+
+  const handleNodeDropKind = (kind: CircuitKind, nodeId: string) => {
+    setNewComponent(prev => stageComponentForNodeDrop(prev, kind, nodeId));
+    setSelectingNodeField("to");
+    setSelectedNode(nodeId);
+  };
+
+  const handleNodeDropComponentInstance = (componentId: string, nodeId: string) => {
+    setComponents(prev =>
+      prev.map(component => {
+        if (component.id !== componentId) {
+          return component;
+        }
+        return retargetComponentToNode(component, nodeId);
+      })
+    );
+    setSelectedComponentId(componentId);
+    setHoveredComponentId(componentId);
+    setSelectedNode(nodeId);
+  };
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden p-4">
@@ -854,6 +785,9 @@ export function CircuitTool({ isActive }: ToolProps) {
                 setHoveredComponentId(null);
               }}
               onComponentSelect={handleComponentSelect}
+              onCanvasDropComponentKind={handleCanvasDropKind}
+              onNodeDropComponentKind={handleNodeDropKind}
+              onNodeDropComponentInstance={handleNodeDropComponentInstance}
             />
             <NodeListEditor
               nodes={circuitNodes}
@@ -947,6 +881,12 @@ export function CircuitTool({ isActive }: ToolProps) {
                     key={component.id}
                     role="button"
                     tabIndex={0}
+                    draggable
+                    onDragStart={event => {
+                      event.dataTransfer.setData(DRAG_DATA_COMPONENT, component.id);
+                      event.dataTransfer.setData("text/plain", component.id);
+                      event.dataTransfer.effectAllowed = "move";
+                    }}
                     onClick={() => handleComponentSelect(component.id)}
                     onKeyDown={event => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -1256,6 +1196,12 @@ function ComponentPalette({ selectedKind, onSelect }: ComponentPaletteProps) {
               type="button"
               onClick={() => onSelect(definition.kind)}
               aria-pressed={isActive}
+              draggable
+              onDragStart={event => {
+                event.dataTransfer.setData(DRAG_DATA_KIND, definition.kind);
+                event.dataTransfer.setData("text/plain", definition.kind);
+                event.dataTransfer.effectAllowed = "copy";
+              }}
               className={cn(
                 "group flex h-full flex-col gap-2 rounded-lg border bg-background/60 p-3 text-left transition",
                 "hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
@@ -1738,11 +1684,14 @@ interface CircuitCanvasProps {
   focusedComponentId?: string | null;
   hoveredComponentId?: string | null;
   highlightedNodes?: Set<string>;
-  onNodePositionChange: (nodeId: string, position: NodePosition) => void;
+  onNodePositionChange: (nodeId: string, position: NodePosition, options?: { disableSnap?: boolean }) => void;
   onNodeSelect: (nodeId: string) => void;
   onNodeFocus?: (nodeId: string) => void;
   onComponentHover?: (componentId: string | null) => void;
   onComponentSelect?: (componentId: string) => void;
+  onCanvasDropComponentKind?: (kind: CircuitKind) => void;
+  onNodeDropComponentKind?: (kind: CircuitKind, nodeId: string) => void;
+  onNodeDropComponentInstance?: (componentId: string, nodeId: string) => void;
 }
 
 const CircuitCanvas = ({
@@ -1759,6 +1708,9 @@ const CircuitCanvas = ({
   onNodeFocus,
   onComponentHover,
   onComponentSelect,
+  onCanvasDropComponentKind,
+  onNodeDropComponentKind,
+  onNodeDropComponentInstance,
 }: CircuitCanvasProps) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragMovedRef = useRef(false);
@@ -1837,7 +1789,7 @@ const CircuitCanvas = ({
         x: pointerX - dragState.offsetX,
         y: pointerY - dragState.offsetY,
       };
-      onNodePositionChange(dragState.nodeId, nextPosition);
+      onNodePositionChange(dragState.nodeId, nextPosition, { disableSnap: event.shiftKey });
     };
 
     const handlePointerUp = () => {
@@ -1858,8 +1810,49 @@ const CircuitCanvas = ({
 
   const componentStroke = (kind: CircuitKind) => COMPONENT_COLORS[kind] ?? "#94a3b8";
 
+  const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
+    const types = Array.from(event.dataTransfer?.types ?? []);
+    if (types.includes(DRAG_DATA_KIND) || types.includes(DRAG_DATA_COMPONENT)) {
+      event.preventDefault();
+      event.dataTransfer!.dropEffect = types.includes(DRAG_DATA_KIND) ? "copy" : "move";
+    }
+  };
+
+  const handleCanvasDrop = (event: DragEvent<HTMLDivElement>) => {
+    const dataTransfer = event.dataTransfer;
+    if (!dataTransfer) return;
+    const kindData = dataTransfer.getData(DRAG_DATA_KIND);
+    if (kindData && onCanvasDropComponentKind) {
+      event.preventDefault();
+      onCanvasDropComponentKind(kindData as CircuitKind);
+    }
+  };
+
+  const handleNodeDragOver = (event: DragEvent<SVGCircleElement>) => {
+    const types = Array.from(event.dataTransfer?.types ?? []);
+    if (types.includes(DRAG_DATA_KIND) || types.includes(DRAG_DATA_COMPONENT)) {
+      event.preventDefault();
+      event.dataTransfer!.dropEffect = types.includes(DRAG_DATA_KIND) ? "copy" : "move";
+    }
+  };
+
+  const handleNodeDrop = (nodeId: string, event: DragEvent<SVGCircleElement>) => {
+    const dataTransfer = event.dataTransfer;
+    if (!dataTransfer) return;
+    const componentId = dataTransfer.getData(DRAG_DATA_COMPONENT);
+    const kindData = dataTransfer.getData(DRAG_DATA_KIND);
+    if (componentId && onNodeDropComponentInstance) {
+      event.preventDefault();
+      onNodeDropComponentInstance(componentId, nodeId);
+    }
+    if (kindData && onNodeDropComponentKind) {
+      event.preventDefault();
+      onNodeDropComponentKind(kindData as CircuitKind, nodeId);
+    }
+  };
+
   return (
-    <div className="rounded-lg border bg-background/80 p-3">
+    <div className="rounded-lg border bg-background/80 p-3" onDragOver={handleCanvasDragOver} onDrop={handleCanvasDrop}>
       <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
         <span>Drag nodes to arrange the schematic. Click to set endpoints or inspect nodes.</span>
         <span>{nodes.length} nodes</span>
@@ -2030,6 +2023,8 @@ const CircuitCanvas = ({
                 fill={isGround ? "#0f172a" : "#020817"}
                 stroke={ringColor}
                 strokeWidth={strokeWidth}
+                onDragOver={handleNodeDragOver}
+                onDrop={event => handleNodeDrop(nodeId, event)}
                 onPointerDown={event => beginDrag(nodeId, event)}
               />
               <text

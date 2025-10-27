@@ -526,7 +526,7 @@ const ComplexExpressionCard = ({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <DomainCanvas imageData={data.domainImage} label="Domain coloring" />
+        <DomainCanvas imageData={data.domainImage} label="Domain coloring" extent={config.extent} />
         <StatsPanel stats={data.stats} />
       </div>
 
@@ -542,7 +542,15 @@ const ComplexExpressionCard = ({
   );
 };
 
-const DomainCanvas = ({ imageData, label }: { imageData: ImageData | null; label: string }) => {
+const DomainCanvas = ({
+  imageData,
+  label,
+  extent,
+}: {
+  imageData: ImageData | null;
+  label: string;
+  extent: number;
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -557,9 +565,33 @@ const DomainCanvas = ({ imageData, label }: { imageData: ImageData | null; label
   return (
     <div className="rounded-lg border bg-background/60 p-2">
       <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
-      <div className="aspect-square w-full max-h-[320px] overflow-hidden rounded-md bg-black/80">
+      <div className="relative aspect-square w-full max-h-[260px] overflow-hidden rounded-md bg-black/80">
         <canvas ref={canvasRef} className="h-full w-full" />
+        <DomainAxesOverlay extent={extent} />
       </div>
+    </div>
+  );
+};
+
+const DomainAxesOverlay = ({ extent }: { extent: number }) => {
+  const formattedExtent = useMemo(() => extent.toFixed(extent >= 10 ? 0 : extent >= 4 ? 1 : 2), [extent]);
+  return (
+    <div className="pointer-events-none absolute inset-0 text-[10px] font-medium text-white/80">
+      <div className="absolute inset-x-0 top-1/2 border-t border-white/25" />
+      <div className="absolute inset-y-0 left-1/2 border-l border-white/25" />
+      <div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
+        Im(z) = +{formattedExtent}
+      </div>
+      <div className="absolute left-1/2 bottom-2 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
+        Im(z) = -{formattedExtent}
+      </div>
+      <div className="absolute left-2 top-1/2 -translate-y-1/2 -translate-x-1/2 rotate-90 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
+        Re(z) = -{formattedExtent}
+      </div>
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 translate-x-1/2 -rotate-90 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
+        Re(z) = +{formattedExtent}
+      </div>
+      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/80 shadow" />
     </div>
   );
 };
@@ -684,7 +716,7 @@ const ComplexSurfaceMini = ({ data, label }: { data?: SurfaceData | null; label:
   return (
     <div className="rounded-lg border bg-background/60 p-2">
       <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
-      <div className="relative aspect-square w-full max-h-[320px] overflow-hidden rounded-md bg-black/80">
+      <div className="relative aspect-square w-full max-h-[260px] overflow-hidden rounded-md bg-black/80">
         <canvas ref={canvasRef} className="h-full w-full" />
         {!orientedData && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">

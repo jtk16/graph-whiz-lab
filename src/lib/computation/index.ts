@@ -19,8 +19,14 @@ export {
 export {
   computeFFT,
   computeIFFT,
+  computeIFFTReal,
   convolve,
 } from './signal';
+
+export {
+  evaluateZTransform,
+  evaluateLaplaceTransform,
+} from './transforms';
 
 export {
   integrate,
