@@ -4,7 +4,7 @@
 
 import { registry } from '../registry';
 import { MathType } from '../../types';
-import { isNumber, createNumber, isComplex } from '../../runtime/value';
+import { isNumber, createNumber, isComplex, createComplex } from '../../runtime/value';
 import { KeyboardCategory } from '../../keyboard/categories';
 
 // Square root
@@ -24,16 +24,30 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Number], output: MathType.Number, symbolic: true }
+      { input: [MathType.Number], output: MathType.Number, symbolic: true },
+      { input: [MathType.Complex], output: MathType.Complex, symbolic: true }
     ]
   },
   runtime: {
     evaluate: (args) => {
       const [arg] = args;
       if (isNumber(arg)) {
-        return createNumber(Math.sqrt(arg.value));
+        if (arg.value >= 0) {
+          return createNumber(Math.sqrt(arg.value));
+        }
+        const magnitude = Math.sqrt(Math.abs(arg.value));
+        return createComplex(0, magnitude);
       }
-      throw new Error('sqrt expects Number');
+      if (isComplex(arg)) {
+        const modulus = Math.hypot(arg.real, arg.imag);
+        const magnitude = Math.sqrt(modulus);
+        const halfAngle = Math.atan2(arg.imag, arg.real) / 2;
+        return createComplex(
+          magnitude * Math.cos(halfAngle),
+          magnitude * Math.sin(halfAngle)
+        );
+      }
+      throw new Error('sqrt expects Number or Complex');
     }
   },
   ui: {
@@ -103,7 +117,8 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Number], output: MathType.Number, symbolic: true }
+      { input: [MathType.Number], output: MathType.Number, symbolic: true },
+      { input: [MathType.Complex], output: MathType.Complex, symbolic: true }
     ]
   },
   runtime: {
@@ -112,7 +127,14 @@ registry.register({
       if (isNumber(arg)) {
         return createNumber(Math.exp(arg.value));
       }
-      throw new Error('exp expects Number');
+      if (isComplex(arg)) {
+        const magnitude = Math.exp(arg.real);
+        return createComplex(
+          magnitude * Math.cos(arg.imag),
+          magnitude * Math.sin(arg.imag)
+        );
+      }
+      throw new Error('exp expects Number or Complex');
     }
   },
   ui: {
@@ -139,17 +161,31 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Number], output: MathType.Number, symbolic: true }
+      { input: [MathType.Number], output: MathType.Number, symbolic: true },
+      { input: [MathType.Complex], output: MathType.Complex, symbolic: true }
     ]
   },
   runtime: {
     evaluate: (args) => {
       const [arg] = args;
       if (isNumber(arg)) {
-        if (arg.value <= 0) throw new Error('ln expects positive number');
-        return createNumber(Math.log(arg.value));
+        if (arg.value > 0) {
+          return createNumber(Math.log(arg.value));
+        }
+        if (arg.value === 0) {
+          throw new Error('ln undefined for zero');
+        }
+        const magnitude = Math.abs(arg.value);
+        return createComplex(Math.log(magnitude), Math.PI);
       }
-      throw new Error('ln expects Number');
+      if (isComplex(arg)) {
+        const modulus = Math.hypot(arg.real, arg.imag);
+        if (modulus === 0) {
+          throw new Error('ln undefined for zero');
+        }
+        return createComplex(Math.log(modulus), Math.atan2(arg.imag, arg.real));
+      }
+      throw new Error('ln expects Number or Complex');
     }
   },
   ui: {
@@ -176,17 +212,36 @@ registry.register({
   },
   types: {
     signatures: [
-      { input: [MathType.Number], output: MathType.Number, symbolic: true }
+      { input: [MathType.Number], output: MathType.Number, symbolic: true },
+      { input: [MathType.Complex], output: MathType.Complex, symbolic: true }
     ]
   },
   runtime: {
     evaluate: (args) => {
       const [arg] = args;
       if (isNumber(arg)) {
-        if (arg.value <= 0) throw new Error('log expects positive number');
-        return createNumber(Math.log10(arg.value));
+        if (arg.value > 0) {
+          return createNumber(Math.log10(arg.value));
+        }
+        if (arg.value === 0) {
+          throw new Error('log undefined for zero');
+        }
+        const magnitude = Math.abs(arg.value);
+        const lnMag = Math.log(magnitude);
+        const scale = 1 / Math.log(10);
+        return createComplex(lnMag * scale, Math.PI * scale);
       }
-      throw new Error('log expects Number');
+      if (isComplex(arg)) {
+        const modulus = Math.hypot(arg.real, arg.imag);
+        if (modulus === 0) {
+          throw new Error('log undefined for zero');
+        }
+        const lnMag = Math.log(modulus);
+        const angle = Math.atan2(arg.imag, arg.real);
+        const scale = 1 / Math.log(10);
+        return createComplex(lnMag * scale, angle * scale);
+      }
+      throw new Error('log expects Number or Complex');
     }
   },
   ui: {
