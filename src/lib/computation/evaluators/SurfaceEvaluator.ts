@@ -5,6 +5,8 @@ import { MathSpace } from '../spaces/types';
 import { isNumber } from '@/lib/runtime/value';
 import { EDGE_TABLE, TRI_TABLE, EDGE_CONNECTIONS, CUBE_CORNERS } from '../marchingCubesLUT';
 
+export type SurfaceColorMode = 'height' | 'gradient' | 'domain' | 'custom' | 'none';
+
 /**
  * Abstract evaluator for 3D surfaces
  * Works with any MathSpace to generate surface data
@@ -19,7 +21,7 @@ export interface SurfaceData {
 export interface EvaluationOptions {
   resolution: number;      // Grid resolution (e.g., 50 = 50x50 grid)
   bounds: Record<string, { min: number; max: number }>;
-  colorMode?: 'height' | 'gradient' | 'domain' | 'custom' | 'none';
+  colorMode?: SurfaceColorMode;
 }
 
 export interface ImplicitSurfaceOptions {
@@ -51,6 +53,7 @@ export class SurfaceEvaluator {
     const normals: number[] = [];
     const indices: number[] = [];
     const colors: number[] = [];
+    const sampleValues: number[] = [];
     
     const range1 = bounds[dim1.name] || this.space.defaultBounds[dim1.name];
     const range2 = bounds[dim2.name] || this.space.defaultBounds[dim2.name];
@@ -109,40 +112,59 @@ export class SurfaceEvaluator {
             minZ = Math.min(minZ, outputValue);
             maxZ = Math.max(maxZ, outputValue);
           }
-          
+
           // Set the third dimension
           coords[dims[2].name] = outputValue;
-          
+
           // Convert to Cartesian for rendering
           const cartesian = this.space.toCartesian(coords);
-          
+
           vertices.push(cartesian.x, cartesian.y, cartesian.z);
-          
+
           // Store result for later color computation
+          sampleValues.push(outputValue);
+
           if (options.colorMode === 'domain' && result.kind === 'complex') {
             const hue = (Math.atan2(result.imag, result.real) + Math.PI) / (2 * Math.PI);
             const rgb = hslToRgb(hue, 1, 0.5);
             colors.push(rgb.r, rgb.g, rgb.b);
-          } else {
-            // Placeholder, will normalize after we know min/max
+          } else if (options.colorMode && options.colorMode !== 'none') {
+            // Placeholder, will normalize after we know the range/gradient
             colors.push(outputValue, 0, 0);
           }
         } catch (e) {
           // Handle undefined points (e.g., division by zero)
           vertices.push(0, 0, 0);
-          colors.push(0, 0, 0);
+          sampleValues.push(0);
+          if (options.colorMode && options.colorMode !== 'none') {
+            colors.push(0, 0, 0);
+          }
         }
       }
     }
-    
+
     // Normalize colors for height mode
     if (options.colorMode === 'height') {
       for (let i = 0; i < colors.length; i += 3) {
         const value = colors[i];
         const normalized = maxZ > minZ ? (value - minZ) / (maxZ - minZ) : 0.5;
-        colors[i] = normalized;
+        const clamped = clamp01(normalized);
+        colors[i] = clamped;
         colors[i + 1] = 0.5;
-        colors[i + 2] = 1 - normalized;
+        colors[i + 2] = 1 - clamped;
+      }
+    } else if (options.colorMode === 'gradient') {
+      const gradientMagnitudes = computeGradientMagnitudes(sampleValues, resolution, step1, step2);
+      const maxGradient = gradientMagnitudes.reduce((acc, value) => (isFinite(value) ? Math.max(acc, value) : acc), 0);
+
+      for (let idx = 0; idx < gradientMagnitudes.length; idx++) {
+        const normalized = maxGradient > 0 ? clamp01(gradientMagnitudes[idx] / maxGradient) : 0;
+        const hue = (1 - normalized) * (2 / 3); // blue (2/3) -> red (0)
+        const rgb = hslToRgb(hue, 1, 0.5);
+        const base = idx * 3;
+        colors[base] = rgb.r;
+        colors[base + 1] = rgb.g;
+        colors[base + 2] = rgb.b;
       }
     } else if (options.colorMode === 'none') {
       // Clear colors array if we don't want vertex colors
@@ -417,6 +439,49 @@ export class SurfaceEvaluator {
     }
     return NaN;
   }
+}
+
+function clamp01(value: number): number {
+  if (!isFinite(value)) return 0;
+  return Math.min(Math.max(value, 0), 1);
+}
+
+function computeGradientMagnitudes(
+  values: number[],
+  resolution: number,
+  step1: number,
+  step2: number
+): number[] {
+  const gridSize = resolution + 1;
+  const gradients = new Array(values.length).fill(0);
+
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      const idx = i * gridSize + j;
+      const center = values[idx];
+      if (!isFinite(center)) {
+        gradients[idx] = 0;
+        continue;
+      }
+
+      const left = values[i > 0 ? idx - gridSize : idx];
+      const right = values[i < resolution ? idx + gridSize : idx];
+      const down = values[j > 0 ? idx - 1 : idx];
+      const up = values[j < resolution ? idx + 1 : idx];
+
+      const derivative1 = (right - left) / (i > 0 && i < resolution ? 2 * step1 : step1 || 1);
+      const derivative2 = (up - down) / (j > 0 && j < resolution ? 2 * step2 : step2 || 1);
+
+      const magnitude = Math.sqrt(
+        (isFinite(derivative1) ? derivative1 : 0) ** 2 +
+        (isFinite(derivative2) ? derivative2 : 0) ** 2
+      );
+
+      gradients[idx] = isFinite(magnitude) ? magnitude : 0;
+    }
+  }
+
+  return gradients;
 }
 
 function hslToRgb(h: number, s: number, l: number) {
