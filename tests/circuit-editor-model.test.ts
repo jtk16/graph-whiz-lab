@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
   DEFAULT_NEW_COMPONENT,
   NODE_MARGIN,
   applyNodeSnap,
@@ -57,7 +59,17 @@ describe("Circuit editor model helpers", () => {
     );
     expect(staged.kind).toBe("resistor");
     expect(staged.from).toBe("n5");
-    expect(staged.to).not.toBe("n5");
+    expect(staged.to).toBe("b");
+  });
+
+  it("clears the destination when dropping onto the same node", () => {
+    const staged = stageComponentForNodeDrop(
+      { ...DEFAULT_NEW_COMPONENT, kind: "wire", from: "gnd", to: "n5" },
+      "resistor",
+      "n5"
+    );
+    expect(staged.from).toBe("n5");
+    expect(staged.to).toBe("");
   });
 
   it("retargets a component's destination node while keeping polarity sensible", () => {
@@ -69,14 +81,14 @@ describe("Circuit editor model helpers", () => {
     expect(flipped.to).toBe("vin");
   });
 
-  it("snaps node movement unless snapping is disabled", () => {
-    const snapped = applyNodeSnap({ x: 33, y: 47 }, true);
+  it("snaps node movement to the grid and clamps within bounds", () => {
+    const snapped = applyNodeSnap({ x: 33, y: 47 });
     expect(snapped.x).toBe(NODE_MARGIN);
     expect(snapped.y).toBe(48);
 
-    const free = applyNodeSnap({ x: 33.5, y: 47.2 }, true, true);
-    expect(free.x).toBeCloseTo(33.5, 5);
-    expect(free.y).toBeCloseTo(47.2, 5);
+    const clamped = applyNodeSnap({ x: 5000, y: 5000 });
+    expect(clamped.x).toBe(CANVAS_WIDTH - NODE_MARGIN);
+    expect(clamped.y).toBe(CANVAS_HEIGHT - NODE_MARGIN);
   });
 
   it("extracts circuit nodes including ground", () => {

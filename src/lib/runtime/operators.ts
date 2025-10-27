@@ -39,6 +39,16 @@ type ComplexTuple = { real: number; imag: number };
 
 const COMPLEX_ZERO_EPSILON = 1e-12;
 
+const toBoolean = (value: RuntimeValue): boolean => {
+  if (value.kind === 'boolean') {
+    return value.value;
+  }
+  if (value.kind === 'number') {
+    return value.value !== 0;
+  }
+  throw new Error('Type mismatch');
+};
+
 const toComplexTuple = (value: RuntimeValue): ComplexTuple => {
   if (isComplex(value)) {
     return { real: value.real, imag: value.imag };
@@ -254,6 +264,22 @@ registerOperator(MathType.Boolean, '==', MathType.Boolean, MathType.Boolean,
     if (l.kind !== 'boolean' || r.kind !== 'boolean') throw new Error('Type mismatch');
     return createBoolean(l.value === r.value);
   });
+
+const LOGICAL_COMBOS: Array<[MathType, MathType]> = [
+  [MathType.Boolean, MathType.Boolean],
+  [MathType.Boolean, MathType.Number],
+  [MathType.Number, MathType.Boolean],
+  [MathType.Number, MathType.Number],
+];
+
+LOGICAL_COMBOS.forEach(([leftType, rightType]) => {
+  registerOperator(leftType, 'and', rightType, MathType.Boolean, (l, r) =>
+    createBoolean(toBoolean(l) && toBoolean(r))
+  );
+  registerOperator(leftType, 'or', rightType, MathType.Boolean, (l, r) =>
+    createBoolean(toBoolean(l) || toBoolean(r))
+  );
+});
 
 // ============= COMPLEX OPERATORS =============
 

@@ -209,6 +209,14 @@ function readIdentifier(state: DefaultTokenizerState): Token {
       end: state.position,
     };
   }
+  if (value === 'and' || value === 'or' || value === 'not') {
+    return {
+      type: TokenType.Operator,
+      value,
+      start,
+      end: state.position,
+    };
+  }
   return {
     type: TokenType.Identifier,
     value,

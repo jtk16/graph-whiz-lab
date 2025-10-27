@@ -12,9 +12,11 @@ import {
   isComplex,
   isList,
   isNumber,
+  isPoint,
+  isPoint3D,
 } from '../../runtime/value';
 import { KeyboardCategory } from '../../keyboard/categories';
-import { computeFFT, computeIFFT } from '../../computation/signal';
+import { computeFFT, computeIFFT, convolve } from '../../computation/signal';
 import { evaluateLaplaceTransform, evaluateZTransform } from '../../computation/transforms';
 import {
   ComplexTuple,
@@ -35,11 +37,32 @@ function runtimeValueToComplex(value: RuntimeValue, opName: string, index?: numb
   throw new Error(`${opName} expects numbers or complex values${position}`);
 }
 
-function listToComplexTuples(list: RuntimeValue, opName: string): ComplexTuple[] {
-  if (!isList(list)) {
-    throw new Error(`${opName} expects List`);
+function listLikeElements(value: RuntimeValue, opName: string): RuntimeValue[] {
+  if (isList(value)) {
+    return value.elements;
   }
-  return list.elements.map((element, index) => runtimeValueToComplex(element, opName, index));
+  if (isPoint(value)) {
+    return [createNumber(value.x), createNumber(value.y)];
+  }
+  if (isPoint3D(value)) {
+    return [createNumber(value.x), createNumber(value.y), createNumber(value.z)];
+  }
+  throw new Error(`${opName} expects List`);
+}
+
+function listToComplexTuples(list: RuntimeValue, opName: string): ComplexTuple[] {
+  const elements = listLikeElements(list, opName);
+  return elements.map((element, index) => runtimeValueToComplex(element, opName, index));
+}
+
+function listToNumberArray(list: RuntimeValue, opName: string): number[] {
+  const elements = listLikeElements(list, opName);
+  return elements.map((element, index) => {
+    if (isNumber(element)) {
+      return element.value;
+    }
+    throw new Error(`${opName} list index ${index} must be a number`);
+  });
 }
 
 function complexTupleToRuntime(tuple: ComplexTuple): RuntimeValue {
@@ -196,6 +219,36 @@ registry.register({
     description: 'Phase of complex sequence',
     category: KeyboardCategory.Signal,
     example: 'phase(fft_complex([1,2,3]))',
+  },
+});
+
+// Convolution helper
+registry.register({
+  id: 'convolve',
+  name: 'convolve',
+  syntax: {
+    latex: 'convolve(#0,#1)',
+    normalized: 'convolve(#0,#1)',
+  },
+  parse: { type: 'function' },
+  types: {
+    signatures: [
+      { input: [MathType.List, MathType.List], output: MathType.List },
+    ],
+  },
+  runtime: {
+    evaluate: args => {
+      const [signalArg, kernelArg] = args;
+      const signal = listToNumberArray(signalArg, 'convolve');
+      const kernel = listToNumberArray(kernelArg, 'convolve');
+      const result = convolve(signal, kernel);
+      return createList(result.map(value => createNumber(value)));
+    },
+  },
+  ui: {
+    description: 'Linear convolution via FFT',
+    category: KeyboardCategory.Signal,
+    example: 'convolve([1,2,3],[0,1])',
   },
 });
 

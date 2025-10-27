@@ -53,6 +53,7 @@ function isTypeCompatible(provided: MathType, expected: MathType): boolean {
   // Real numbers are a subset of complex numbers
   // Mathematical basis: ℝ ⊂ ℂ where any real r = r + 0i
   if (expected === MathType.Complex && provided === MathType.Number) return true;
+  if (expected === MathType.List && (provided === MathType.Point || provided === MathType.Point3D)) return true;
   
   // Unknown can match anything (for flexibility during type inference)
   if (expected === MathType.Unknown || provided === MathType.Unknown) return true;

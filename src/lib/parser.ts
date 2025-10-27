@@ -36,7 +36,29 @@ class Parser {
   }
 
   private parseExpression(): ASTNode {
-    return this.parseComparison();
+    return this.parseLogicalOr();
+  }
+
+  private parseLogicalOr(): ASTNode {
+    let left = this.parseLogicalAnd();
+
+    while (this.matchKeyword("or")) {
+      const right = this.parseLogicalAnd();
+      left = { type: "binary", operator: "or", left, right };
+    }
+
+    return left;
+  }
+
+  private parseLogicalAnd(): ASTNode {
+    let left = this.parseComparison();
+
+    while (this.matchKeyword("and")) {
+      const right = this.parseComparison();
+      left = { type: "binary", operator: "and", left, right };
+    }
+
+    return left;
   }
 
   private parseComparison(): ASTNode {
@@ -44,7 +66,7 @@ class Parser {
 
     while (true) {
       const ch = this.peek();
-      const next = this.input[this.pos + 1] || '';
+      const next = this.input[this.pos + 1] || "";
       
       if (ch === '<' && next === '=') {
         this.consume(); this.consume();
@@ -83,6 +105,30 @@ class Parser {
     return left;
   }
 
+  private isKeywordAtPosition(keyword: string): boolean {
+    const remaining = this.input.slice(this.pos);
+    if (!remaining.toLowerCase().startsWith(keyword)) {
+      return false;
+    }
+    const nextChar = this.input[this.pos + keyword.length];
+    if (nextChar && /[a-z0-9_]/i.test(nextChar)) {
+      return false;
+    }
+    const prevChar = this.pos > 0 ? this.input[this.pos - 1] : '';
+    if (prevChar && /[a-z0-9_]/i.test(prevChar)) {
+      return false;
+    }
+    return true;
+  }
+
+  private matchKeyword(keyword: string): boolean {
+    if (!this.isKeywordAtPosition(keyword)) {
+      return false;
+    }
+    this.pos += keyword.length;
+    return true;
+  }
+
   private parseAddSub(): ASTNode {
     let left = this.parseMulDiv();
 
@@ -105,6 +151,9 @@ class Parser {
         const operator = this.consume();
         const right = this.parsePower();
         left = { type: 'binary', operator, left, right };
+      }
+      else if (this.isKeywordAtPosition('and') || this.isKeywordAtPosition('or')) {
+        break;
       }
       else if (this.startsImplicitMultiplication()) {
         const right = this.parsePower();
@@ -131,6 +180,11 @@ class Parser {
   }
 
   private parseUnary(): ASTNode {
+    if (this.matchKeyword("not")) {
+      const operand = this.parseUnary();
+      return { type: "unary", operator: "not", right: operand };
+    }
+
     if (this.peek() === '-' || this.peek() === '+') {
       const operator = this.consume();
       const operand = this.parseUnary();
@@ -307,6 +361,15 @@ class Parser {
   private startsImplicitMultiplication(): boolean {
     const ch = this.peek();
     if (!ch) return false;
+
+    const remaining = this.input.slice(this.pos).toLowerCase();
+    if (remaining.startsWith('and')) {
+      if (this.isKeywordAtPosition('and')) {
+        return false;
+      }
+    }
+    if (remaining.startsWith('or') && this.isKeywordAtPosition('or')) return false;
+    if (remaining.startsWith('not') && this.isKeywordAtPosition('not')) return false;
 
     if (ch === '(' || ch === '[') return true;
     if (this.isIdentifierStart(ch)) return true;

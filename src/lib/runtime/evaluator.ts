@@ -122,9 +122,9 @@ export function evaluate(
       
       return op.execute(left, right);
 
-    case 'unary':
+    case 'unary': {
       const operand = evaluate(node.right!, variables, context);
-      
+
       if (node.operator === '-') {
         if (operand.kind === 'number') {
           return createNumber(-operand.value);
@@ -134,8 +134,19 @@ export function evaluate(
         }
         throw new Error(`Unary minus not supported for ${operand.kind}`);
       }
-      
+
+      if (node.operator === 'not') {
+        if (operand.kind === 'boolean') {
+          return createBoolean(!operand.value);
+        }
+        if (operand.kind === 'number') {
+          return createBoolean(operand.value === 0);
+        }
+        throw new Error('not expects Boolean or Number operand');
+      }
+
       return operand; // Unary plus
+    }
 
     case 'derivative':
       return evaluateDerivative(node, variables, context);
@@ -168,7 +179,6 @@ export function evaluate(
       
       // Special handling for piecewise(cond1, val1, cond2, val2, ..., default)
       if (node.name === 'piecewise' && node.args && node.args.length >= 3) {
-        console.log('Evaluating piecewise with', node.args.length, 'arguments');
         // Must have odd number of args: pairs of (condition, value) + default
         if (node.args.length % 2 === 0) {
           throw new Error('piecewise() requires odd number of arguments: condition, value pairs, then default');
@@ -177,7 +187,6 @@ export function evaluate(
         // Evaluate conditions in order with short-circuit
         for (let i = 0; i < node.args.length - 1; i += 2) {
           const condition = evaluate(node.args[i], variables, context);
-          console.log(`  Condition ${i/2}:`, condition);
           
           // Accept both numbers (0=false, non-zero=true) and booleans
           let conditionIsTrue = false;
@@ -192,14 +201,12 @@ export function evaluate(
           // If condition is true, return this value
           if (conditionIsTrue) {
             const result = evaluate(node.args[i + 1], variables, context);
-            console.log(`  Condition true, returning:`, result);
             return result;
           }
         }
         
         // No condition matched, return default (last argument)
         const defaultResult = evaluate(node.args[node.args.length - 1], variables, context);
-        console.log('  No condition matched, returning default:', defaultResult);
         return defaultResult;
       }
       
@@ -216,11 +223,6 @@ export function evaluate(
           // Full application - all parameters provided
           const argValues = node.args.map(arg => evaluate(arg, variables, context));
           
-          console.log(`Evaluator: Calling user-defined function ${node.name}`, {
-            params: funcDef.params,
-            argValues: argValues.map(v => ({ kind: v.kind, value: isNumber(v) ? v.value : 'N/A' }))
-          });
-          
           // Check all arguments are numbers
           const paramBindings: Record<string, number> = {};
           funcDef.params.forEach((param, i) => {
@@ -230,16 +232,8 @@ export function evaluate(
             paramBindings[param] = argValues[i].value;
           });
           
-          console.log(`Evaluator: Parameter bindings for ${node.name}:`, paramBindings);
-          
           // Evaluate function body with all parameters bound
           const result = evaluate(funcDef.body, paramBindings, context);
-          
-          console.log(`Evaluator: Function ${node.name} returned:`, {
-            kind: result.kind,
-            value: isNumber(result) ? result.value : 'N/A'
-          });
-          
           return result;
         }
         
@@ -271,34 +265,33 @@ export function evaluate(
         throw new Error(`Function ${node.name} requires arguments`);
       }
       
-      // Check if the argument has unbound variables (should remain symbolic)
-      const argHasVariables = hasUnboundVariables(node.args[0], context);
-      
-      if (argHasVariables) {
-        // Keep as symbolic function - check if operation supports it
-        const match = registry.findSignature(node.name!, [MathType.Function]);
+      if (node.args.length === 1) {
+        const argNode = node.args[0];
+        const argHasVariables = hasUnboundVariables(argNode, context);
         
-        if (match && match.operation.types.signatures[match.signatureIndex].symbolic) {
-          // Return a function that wraps this call
-          const callNode = node;
-          return createFunction({
-            name: node.name!,
-            params: extractVariables(node.args[0], context),
-            body: callNode
-          });
+        if (argHasVariables) {
+          // Keep as symbolic function - check if operation supports it
+          const match = registry.findSignature(node.name!, [MathType.Function]);
+          
+          if (match && match.operation.types.signatures[match.signatureIndex].symbolic) {
+            return createFunction({
+              name: node.name!,
+              params: extractVariables(argNode, context),
+              body: node
+            });
+          }
         }
       }
       
-      // Evaluate argument to concrete value
-      const arg = evaluate(node.args[0], variables, context);
-      const argType = kindToMathType(arg.kind);
-      const match = registry.findSignature(node.name!, [argType]);
+      const evaluatedArgs = node.args.map(arg => evaluate(arg, variables, context));
+      const argTypes = evaluatedArgs.map(arg => kindToMathType(arg.kind));
+      const match = registry.findSignature(node.name!, argTypes);
       
       if (!match) {
-        throw new Error(`No function '${node.name}' for ${argType}`);
+        throw new Error(`No function '${node.name}' for ${argTypes.join(', ')}`);
       }
       
-      return registry.execute(node.name!, [arg], context);
+      return registry.execute(node.name!, evaluatedArgs, context);
 
     default:
       throw new Error(`Unknown node type: ${(node as any).type}`);

@@ -26,8 +26,8 @@ export const NODE_MARGIN = 32;
 
 export const DEFAULT_NEW_COMPONENT: NewComponentState = {
   kind: "resistor",
-  from: "vin",
-  to: "gnd",
+  from: "",
+  to: "",
   value: 1000,
   waveform: "dc",
   amplitude: 5,
@@ -99,10 +99,10 @@ export const defaultNodePosition = (index: number): NodePosition => {
   const angle = (index / Math.max(1, index + 2)) * Math.PI * 2;
   const radiusX = CANVAS_WIDTH / 2 - NODE_MARGIN * 2;
   const radiusY = CANVAS_HEIGHT / 2 - NODE_MARGIN * 2;
-  return {
+  return applyNodeSnap({
     x: CANVAS_WIDTH / 2 + Math.cos(angle) * radiusX * 0.6,
     y: CANVAS_HEIGHT / 2 + Math.sin(angle) * radiusY * 0.6,
-  };
+  });
 };
 
 export const sanitizeIdentifier = (raw: string): string => {
@@ -182,23 +182,16 @@ export const componentGlyph = (kind: CircuitKind) => {
   }
 };
 
-export const applyNodeSnap = (
-  position: NodePosition,
-  snapToGrid: boolean,
-  disableSnap?: boolean
-): NodePosition => {
-  if (!snapToGrid || disableSnap) {
-    return {
-      x: clamp(position.x, NODE_MARGIN, CANVAS_WIDTH - NODE_MARGIN),
-      y: clamp(position.y, NODE_MARGIN, CANVAS_HEIGHT - NODE_MARGIN),
-    };
-  }
+export function applyNodeSnap(position: NodePosition): NodePosition {
   const applySnap = (value: number) => Math.round(value / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
   return {
     x: clamp(applySnap(position.x), NODE_MARGIN, CANVAS_WIDTH - NODE_MARGIN),
     y: clamp(applySnap(position.y), NODE_MARGIN, CANVAS_HEIGHT - NODE_MARGIN),
   };
-};
+}
+
+export const gridKeyForPosition = (position: NodePosition): string =>
+  `${Math.round(position.x)}:${Math.round(position.y)}`;
 
 export const hotkeyToKind: Record<string, CircuitKind> = {
   w: "wire",
@@ -215,8 +208,7 @@ export const stageComponentForNodeDrop = (
   nodeId: string
 ): NewComponentState => {
   const staged = stageComponentFromKind(current, kind);
-  const fallback = nodeId === "gnd" ? "vin" : "gnd";
-  const nextTo = staged.to === nodeId ? fallback : staged.to;
+  const nextTo = staged.to && staged.to !== nodeId ? staged.to : "";
   return { ...staged, from: nodeId, to: nextTo };
 };
 
