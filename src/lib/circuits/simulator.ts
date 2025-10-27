@@ -32,6 +32,18 @@ export type CircuitComponent =
     }
   | {
       id: string;
+      kind: "current-source";
+      from: CircuitNode;
+      to: CircuitNode;
+      waveform: CircuitWaveform;
+      value: number; // DC amps for waveform=dc
+      amplitude?: number; // AC amplitude
+      frequency?: number; // Hz
+      phase?: number; // radians
+      offset?: number; // optional DC offset for AC
+    }
+  | {
+      id: string;
       kind: "voltage-source";
       from: CircuitNode;
       to: CircuitNode;
@@ -105,6 +117,10 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
     CircuitComponent,
     { kind: "capacitor" }
   >[];
+  const currentSources = sanitized.filter(comp => comp.kind === "current-source") as Extract<
+    CircuitComponent,
+    { kind: "current-source" }
+  >[];
   const resistive = sanitized.filter(
     comp => comp.kind === "resistor" || comp.kind === "wire"
   ) as Extract<CircuitComponent, { kind: "resistor" | "wire" }>[];
@@ -150,6 +166,22 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
   const stampCurrent = (rhs: number[], n1: number, n2: number, value: number) => {
     if (n1 >= 0) rhs[n1] += value;
     if (n2 >= 0) rhs[n2] -= value;
+  };
+
+  const evaluateSource = (
+    source:
+      | Extract<CircuitComponent, { kind: "voltage-source" }>
+      | Extract<CircuitComponent, { kind: "current-source" }>,
+    t: number
+  ) => {
+    if (source.waveform === "ac") {
+      const amplitude = source.amplitude ?? source.value;
+      const frequency = source.frequency ?? 50;
+      const phase = source.phase ?? 0;
+      const offset = source.offset ?? 0;
+      return offset + amplitude * Math.sin(2 * Math.PI * frequency * t + phase);
+    }
+    return source.value;
   };
 
   const solveLinear = (A: Matrix, z: number[]): number[] => {
@@ -200,6 +232,7 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
     const size = Math.max(1, dimension);
     const G: Matrix = Array.from({ length: size }, () => new Array(size).fill(0));
     const rhs = new Array(size).fill(0);
+    const stampedCurrentSources: number[] = [];
 
     const getVoltageAt = (node: string, solution: number[]): number => {
       if (GROUND_NAMES.has(node)) return 0;
@@ -237,11 +270,16 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
         G[n2][row] -= 1;
         G[row][n2] -= 1;
       }
-      const value =
-        src.waveform === "ac"
-          ? (src.offset ?? 0) + (src.amplitude ?? src.value) * Math.sin(2 * Math.PI * (src.frequency ?? 50) * t + (src.phase ?? 0))
-          : src.value;
+      const value = evaluateSource(src, t);
       rhs[row] += value;
+    });
+
+    currentSources.forEach((src, index) => {
+      const n1 = getNodeIndex(src.from);
+      const n2 = getNodeIndex(src.to);
+      const value = evaluateSource(src, t);
+      stampedCurrentSources[index] = value;
+      stampCurrent(rhs, n1, n2, value);
     });
 
     inductors.forEach((ind, index) => {
@@ -319,6 +357,17 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
     voltageSources.forEach((src, index) => {
       const row = voltageSourceOffset + index;
       const current = solution[row] ?? 0;
+      componentCurrents[src.id][step] = current;
+      if (!GROUND_NAMES.has(src.from)) {
+        nodeCurrents[src.from][step] += current;
+      }
+      if (!GROUND_NAMES.has(src.to)) {
+        nodeCurrents[src.to][step] -= current;
+      }
+    });
+
+    currentSources.forEach((src, index) => {
+      const current = stampedCurrentSources[index] ?? 0;
       componentCurrents[src.id][step] = current;
       if (!GROUND_NAMES.has(src.from)) {
         nodeCurrents[src.from][step] += current;

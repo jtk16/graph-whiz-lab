@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useId } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { ToolProps } from "@/lib/tools/types";
 import {
   CircuitComponent,
@@ -66,7 +66,72 @@ const DEFAULT_SIM = {
   duration: 0.1,
 };
 
-const COMPONENT_KINDS: CircuitKind[] = ["voltage-source", "resistor", "capacitor", "inductor", "wire"];
+type ComponentDefinition = {
+  kind: CircuitKind;
+  label: string;
+  description: string;
+};
+
+const COMPONENT_LIBRARY: ComponentDefinition[] = [
+  {
+    kind: "voltage-source",
+    label: "Voltage source",
+    description: "Inject DC or AC excitation into the network.",
+  },
+  {
+    kind: "current-source",
+    label: "Current source",
+    description: "Drive the circuit with a DC or sinusoidal current injection.",
+  },
+  {
+    kind: "resistor",
+    label: "Resistor",
+    description: "Drop voltage proportionally to current (Ohm's law).",
+  },
+  {
+    kind: "capacitor",
+    label: "Capacitor",
+    description: "Store charge and react to frequency content.",
+  },
+  {
+    kind: "inductor",
+    label: "Inductor",
+    description: "Accumulate magnetic energy and resist changes in current.",
+  },
+  {
+    kind: "wire",
+    label: "Wire",
+    description: "Directly connect nodes without impedance.",
+  },
+];
+
+const COMPONENT_LOOKUP: Record<CircuitKind, ComponentDefinition> = COMPONENT_LIBRARY.reduce(
+  (acc, entry) => {
+    acc[entry.kind] = entry;
+    return acc;
+  },
+  {} as Record<CircuitKind, ComponentDefinition>
+);
+
+const SNAP_GRID_SIZE = 24;
+
+const getComponentGlyph = (kind: CircuitKind) => {
+  switch (kind) {
+    case "resistor":
+      return "R";
+    case "capacitor":
+      return "C";
+    case "inductor":
+      return "L";
+    case "current-source":
+      return "I";
+    case "voltage-source":
+      return "V";
+    case "wire":
+    default:
+      return "W";
+  }
+};
 
 const sanitizeIdentifier = (raw: string): string => {
   const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
@@ -126,6 +191,7 @@ const COMPONENT_COLORS: Record<CircuitKind, string> = {
   resistor: "#f97316",
   capacitor: "#0ea5e9",
   inductor: "#a855f7",
+  "current-source": "#14b8a6",
   "voltage-source": "#22c55e",
   wire: "#94a3b8",
 };
@@ -143,8 +209,12 @@ export function CircuitTool({ isActive }: ToolProps) {
   const [nodePositions, setNodePositions] = useState<Record<string, NodePosition>>(() =>
     createInitialPositions(DEFAULT_NODE_NAMES)
   );
+  const [snapToGrid, setSnapToGrid] = useState(true);
   const [selectingNodeField, setSelectingNodeField] = useState<"from" | "to" | null>(null);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
   const playRef = useRef<number | null>(null);
+  const snapToggleId = useId();
   const symbolicResult = useMemo(() => {
     try {
       return solveSymbolicCircuit(components);
@@ -211,6 +281,24 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, [circuitNodes]);
 
   useEffect(() => {
+    if (selectedComponentId && !components.some(component => component.id === selectedComponentId)) {
+      setSelectedComponentId(null);
+    }
+  }, [components, selectedComponentId]);
+
+  useEffect(() => {
+    if (hoveredComponentId && !components.some(component => component.id === hoveredComponentId)) {
+      setHoveredComponentId(null);
+    }
+  }, [components, hoveredComponentId]);
+
+  useEffect(() => {
+    if (!hoveredComponentId && selectedComponentId) {
+      setHoveredComponentId(selectedComponentId);
+    }
+  }, [hoveredComponentId, selectedComponentId]);
+
+  useEffect(() => {
     if (!isPlaying || !result) {
       if (playRef.current) {
         cancelAnimationFrame(playRef.current);
@@ -250,20 +338,88 @@ export function CircuitTool({ isActive }: ToolProps) {
     return Array.from(nodes);
   }, [circuitNodes, result, symbolicResult]);
 
+  const selectedComponent = useMemo(
+    () => components.find(component => component.id === selectedComponentId) ?? null,
+    [components, selectedComponentId]
+  );
+
+  const highlightedNodes = useMemo(() => {
+    const nodes = new Set<string>();
+    if (selectedComponent) {
+      nodes.add(selectedComponent.from);
+      nodes.add(selectedComponent.to);
+    }
+    if (selectingNodeField) {
+      if (newComponent.from) {
+        nodes.add(newComponent.from);
+      }
+      if (newComponent.to) {
+        nodes.add(newComponent.to);
+      }
+    }
+    if (selectedNode) {
+      nodes.add(selectedNode);
+    }
+    return nodes;
+  }, [selectedComponent, selectingNodeField, newComponent.from, newComponent.to, selectedNode]);
+
+  const handleComponentKindSelect = (kind: CircuitKind) => {
+    setNewComponent(prev => {
+      if (prev.kind === kind) {
+        return prev;
+      }
+      if (kind === "voltage-source" || kind === "current-source") {
+        return {
+          ...prev,
+          kind,
+          waveform: prev.waveform ?? "dc",
+          amplitude: prev.amplitude ?? DEFAULT_NEW_COMPONENT.amplitude,
+          frequency: prev.frequency ?? DEFAULT_NEW_COMPONENT.frequency,
+          phase: prev.phase ?? DEFAULT_NEW_COMPONENT.phase,
+          offset: prev.offset ?? DEFAULT_NEW_COMPONENT.offset,
+        };
+      }
+      return {
+        ...prev,
+        kind,
+        waveform: "dc",
+      };
+    });
+  };
+
   const handleNodePositionChange = (nodeId: string, position: NodePosition) => {
+    const applySnap = (value: number) =>
+      Math.round(value / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+    const snapped = snapToGrid
+      ? {
+          x: applySnap(position.x),
+          y: applySnap(position.y),
+        }
+      : position;
     setNodePositions(prev => ({
       ...prev,
       [nodeId]: {
-        x: clamp(position.x, NODE_MARGIN, CANVAS_WIDTH - NODE_MARGIN),
-        y: clamp(position.y, NODE_MARGIN, CANVAS_HEIGHT - NODE_MARGIN),
+        x: clamp(snapped.x, NODE_MARGIN, CANVAS_WIDTH - NODE_MARGIN),
+        y: clamp(snapped.y, NODE_MARGIN, CANVAS_HEIGHT - NODE_MARGIN),
       },
     }));
   };
 
   const handleNodeSelect = (nodeId: string) => {
-    if (!selectingNodeField) return;
-    setNewComponent(prev => ({ ...prev, [selectingNodeField]: nodeId }));
-    setSelectingNodeField(null);
+    if (selectingNodeField) {
+      setNewComponent(prev => ({ ...prev, [selectingNodeField]: nodeId }));
+      setSelectingNodeField(null);
+      return;
+    }
+    setNewComponent(prev => {
+      if (!prev.from || prev.from === nodeId) {
+        return { ...prev, from: nodeId };
+      }
+      if (!prev.to || prev.to === prev.from || prev.to === nodeId) {
+        return { ...prev, to: nodeId };
+      }
+      return { ...prev, from: prev.to, to: nodeId };
+    });
   };
   const toggleNodeSelection = (field: "from" | "to") => {
     setSelectingNodeField(prev => (prev === field ? null : field));
@@ -343,25 +499,40 @@ export function CircuitTool({ isActive }: ToolProps) {
   const addComponent = () => {
     if (!canPlaceComponent) return;
     const id = `${newComponent.kind}-${Date.now().toString(36)}`;
-    const base: CircuitComponent = {
-      id,
-      kind: newComponent.kind,
-      from: newComponent.from || "vin",
-      to: newComponent.to || "gnd",
-      value: Math.max(newComponent.value || 1, 1e-6),
-    } as CircuitComponent;
-    let component: CircuitComponent = base;
-    if (newComponent.kind === "voltage-source") {
+    let component: CircuitComponent;
+    const from = newComponent.from || "vin";
+    const to = newComponent.to || "gnd";
+    if (newComponent.kind === "wire") {
       component = {
-        ...base,
-        kind: "voltage-source",
+        id,
+        kind: "wire",
+        from,
+        to,
+      };
+    } else if (newComponent.kind === "voltage-source" || newComponent.kind === "current-source") {
+      const magnitude = newComponent.waveform === "dc" ? newComponent.value : newComponent.amplitude;
+      const fallbackMagnitude = newComponent.kind === "current-source" ? 0.001 : DEFAULT_NEW_COMPONENT.value;
+      const safeMagnitude = Math.max((magnitude ?? fallbackMagnitude) || fallbackMagnitude, 1e-9);
+      component = {
+        id,
+        kind: newComponent.kind,
+        from,
+        to,
         waveform: newComponent.waveform,
-        value: newComponent.waveform === "dc" ? newComponent.value : newComponent.amplitude,
+        value: safeMagnitude,
         amplitude: newComponent.waveform === "ac" ? newComponent.amplitude : undefined,
         frequency: newComponent.waveform === "ac" ? newComponent.frequency : undefined,
         phase: newComponent.waveform === "ac" ? newComponent.phase : undefined,
         offset: newComponent.waveform === "ac" ? newComponent.offset : undefined,
-      };
+      } as CircuitComponent;
+    } else {
+      component = {
+        id,
+        kind: newComponent.kind,
+        from,
+        to,
+        value: Math.max(newComponent.value || DEFAULT_NEW_COMPONENT.value, 1e-6),
+      } as CircuitComponent;
     }
     setComponents(prev => [...prev, component]);
     setSelectingNodeField(null);
@@ -407,142 +578,209 @@ export function CircuitTool({ isActive }: ToolProps) {
 
   const currentTime = result ? result.time[playhead] : 0;
 
+  const handleComponentSelect = useCallback(
+    (componentId: string) => {
+      const component = components.find(comp => comp.id === componentId);
+      if (component) {
+        const preferred =
+          component.from.toLowerCase() === "gnd" ? component.to : component.from;
+        setSelectedNode(preferred);
+      }
+      setSelectedComponentId(componentId);
+      setHoveredComponentId(componentId);
+    },
+    [components]
+  );
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden p-4">
-      <Card className="space-y-4 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold">Visual Circuit Editor</h3>
-            <p className="text-xs text-muted-foreground">
-              Drag nodes to arrange your schematic and click to route components.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleAddNode}>
-              Add node
-            </Button>
-          </div>
-        </div>
-        <CircuitCanvas
-          nodes={circuitNodes}
-          components={components}
-          nodePositions={nodePositions}
-          selectingField={selectingNodeField}
-          pendingConnection={{ from: newComponent.from, to: newComponent.to }}
-          onNodePositionChange={handleNodePositionChange}
-          onNodeSelect={handleNodeSelect}
-          onNodeFocus={setSelectedNode}
-        />
-        <NodeListEditor
-          nodes={circuitNodes}
-          lockedNodes={connectedNodes}
-          onRename={handleRenameNode}
-          onRemove={handleRemoveNode}
-        />
-        {selectingNodeField && (
-          <p className="rounded bg-primary/5 px-3 py-1 text-xs text-primary">
-            Click a node to set the {selectingNodeField === "from" ? "start" : "end"} connection.
-          </p>
-        )}
-        <div className="grid gap-4 text-xs md:grid-cols-2">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label className="w-20">Type</Label>
-              <Select
-                value={newComponent.kind}
-                onValueChange={value =>
-                  setNewComponent(prev => ({
-                    ...prev,
-                    kind: value as CircuitKind,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMPONENT_KINDS.map(kind => (
-                    <SelectItem key={kind} value={kind}>
-                      {kind}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="w-20">From</Label>
-              <Select
-                value={newComponent.from}
-                onValueChange={value => setNewComponent(prev => ({ ...prev, from: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {circuitNodes.map(node => (
-                    <SelectItem key={node} value={node}>
-                      {node}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                variant={selectingNodeField === "from" ? "default" : "outline"}
-                onClick={() => toggleNodeSelection("from")}
-              >
-                Pick
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="w-20">To</Label>
-              <Select
-                value={newComponent.to}
-                onValueChange={value => setNewComponent(prev => ({ ...prev, to: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {circuitNodes.map(node => (
-                    <SelectItem key={node} value={node}>
-                      {node}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                variant={selectingNodeField === "to" ? "default" : "outline"}
-                onClick={() => toggleNodeSelection("to")}
-              >
-                Pick
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {newComponent.kind === "voltage-source" ? (
-              <>
+      <Card className="space-y-6 p-4">
+        <div className="grid gap-6 xl:grid-cols-[280px,1fr]">
+          <div className="flex flex-col gap-4">
+            <ComponentPalette
+              selectedKind={newComponent.kind}
+              onSelect={handleComponentKindSelect}
+            />
+            <div className="space-y-4 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Placement</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Stage a component, pick its terminals, then drop it on the canvas.
+                  </p>
+                </div>
+                <Badge variant="secondary" className="font-mono">
+                  {getComponentGlyph(newComponent.kind)}
+                </Badge>
+              </div>
+              <div className="rounded border bg-background/80 px-3 py-2 font-mono text-[11px]">
+                {newComponent.from} → {newComponent.to}
+              </div>
+              <div className="space-y-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <Label className="w-24">Waveform</Label>
+                  <Label className="w-20">Type</Label>
+                  <Select value={newComponent.kind} onValueChange={value => handleComponentKindSelect(value as CircuitKind)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMPONENT_LIBRARY.map(def => (
+                        <SelectItem key={def.kind} value={def.kind}>
+                          {def.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="w-20">From</Label>
                   <Select
-                    value={newComponent.waveform}
-                    onValueChange={value =>
-                      setNewComponent(prev => ({ ...prev, waveform: value as "dc" | "ac" }))
-                    }
+                    value={newComponent.from}
+                    onValueChange={value => setNewComponent(prev => ({ ...prev, from: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="dc">DC</SelectItem>
-                      <SelectItem value="ac">AC</SelectItem>
+                      {circuitNodes.map(node => (
+                        <SelectItem key={node} value={node}>
+                          {node}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <Button
+                    size="sm"
+                    variant={selectingNodeField === "from" ? "default" : "outline"}
+                    onClick={() => toggleNodeSelection("from")}
+                  >
+                    Pick
+                  </Button>
                 </div>
-                {newComponent.waveform === "dc" ? (
+                <div className="flex items-center gap-2">
+                  <Label className="w-20">To</Label>
+                  <Select
+                    value={newComponent.to}
+                    onValueChange={value => setNewComponent(prev => ({ ...prev, to: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {circuitNodes.map(node => (
+                        <SelectItem key={node} value={node}>
+                          {node}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant={selectingNodeField === "to" ? "default" : "outline"}
+                    onClick={() => toggleNodeSelection("to")}
+                  >
+                    Pick
+                  </Button>
+                </div>
+                {newComponent.kind === "voltage-source" || newComponent.kind === "current-source" ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Label className="w-24">Waveform</Label>
+                      <Select
+                        value={newComponent.waveform}
+                        onValueChange={value =>
+                          setNewComponent(prev => ({ ...prev, waveform: value as "dc" | "ac" }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="dc">DC</SelectItem>
+                          <SelectItem value="ac">AC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {newComponent.waveform === "dc" ? (
+                      <div className="flex items-center gap-2">
+                        <Label className="w-24">
+                          {newComponent.kind === "current-source" ? "Current (A)" : "Voltage (V)"}
+                        </Label>
+                        <Input
+                          type="number"
+                          value={newComponent.value}
+                          onChange={e =>
+                            setNewComponent(prev => ({
+                              ...prev,
+                              value: parseFloat(e.target.value) || prev.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Label className="w-24">
+                            {newComponent.kind === "current-source" ? "Amplitude (A)" : "Amplitude (V)"}
+                          </Label>
+                          <Input
+                            type="number"
+                            value={newComponent.amplitude}
+                            onChange={e =>
+                              setNewComponent(prev => ({
+                                ...prev,
+                                amplitude: parseFloat(e.target.value) || prev.amplitude,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="w-24">Frequency (Hz)</Label>
+                          <Input
+                            type="number"
+                            value={newComponent.frequency}
+                            onChange={e =>
+                              setNewComponent(prev => ({
+                                ...prev,
+                                frequency: parseFloat(e.target.value) || prev.frequency,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="w-24">Phase (rad)</Label>
+                          <Input
+                            type="number"
+                            value={newComponent.phase}
+                            onChange={e =>
+                              setNewComponent(prev => ({
+                                ...prev,
+                                phase: parseFloat(e.target.value) || prev.phase,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="w-24">
+                            {newComponent.kind === "current-source" ? "Offset (A)" : "Offset (V)"}
+                          </Label>
+                          <Input
+                            type="number"
+                            value={newComponent.offset}
+                            onChange={e =>
+                              setNewComponent(prev => ({
+                                ...prev,
+                                offset: parseFloat(e.target.value) || prev.offset,
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
                   <div className="flex items-center gap-2">
-                    <Label className="w-24">Voltage (V)</Label>
+                    <Label className="w-24">Value</Label>
                     <Input
                       type="number"
                       value={newComponent.value}
@@ -554,290 +792,324 @@ export function CircuitTool({ isActive }: ToolProps) {
                       }
                     />
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Label className="w-24">Amplitude</Label>
-                      <Input
-                        type="number"
-                        value={newComponent.amplitude}
-                        onChange={e =>
-                          setNewComponent(prev => ({
-                            ...prev,
-                            amplitude: parseFloat(e.target.value) || prev.amplitude,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="w-24">Frequency (Hz)</Label>
-                      <Input
-                        type="number"
-                        value={newComponent.frequency}
-                        onChange={e =>
-                          setNewComponent(prev => ({
-                            ...prev,
-                            frequency: parseFloat(e.target.value) || prev.frequency,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="w-24">Phase (rad)</Label>
-                      <Input
-                        type="number"
-                        value={newComponent.phase}
-                        onChange={e =>
-                          setNewComponent(prev => ({
-                            ...prev,
-                            phase: parseFloat(e.target.value) || prev.phase,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="w-24">Offset</Label>
-                      <Input
-                        type="number"
-                        value={newComponent.offset}
-                        onChange={e =>
-                          setNewComponent(prev => ({
-                            ...prev,
-                            offset: parseFloat(e.target.value) || prev.offset,
-                          }))
-                        }
-                      />
-                    </div>
-                  </>
                 )}
-              </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Label className="w-24">Value</Label>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button size="sm" onClick={addComponent} disabled={!canPlaceComponent}>
+                  Place component
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {canPlaceComponent
+                    ? "Click two distinct nodes to stage a connection, then place the component."
+                    : "Select two distinct nodes to place a component."}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Visual circuit workspace</h3>
+                <p className="text-xs text-muted-foreground">
+                  Choose a symbol, then drag or click nodes to route the schematic.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded border px-2 py-1">
+                  <Switch id={snapToggleId} checked={snapToGrid} onCheckedChange={setSnapToGrid} />
+                  <Label htmlFor={snapToggleId} className="text-xs font-medium">
+                    Snap to grid (default)
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground">({SNAP_GRID_SIZE}px)</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleAddNode}>
+                  Add node
+                </Button>
+              </div>
+            </div>
+            <CircuitCanvas
+              nodes={circuitNodes}
+              components={components}
+              nodePositions={nodePositions}
+              selectingField={selectingNodeField}
+              pendingConnection={{ from: newComponent.from, to: newComponent.to }}
+              focusedComponentId={selectedComponentId}
+              hoveredComponentId={hoveredComponentId}
+              highlightedNodes={highlightedNodes}
+              onNodePositionChange={handleNodePositionChange}
+              onNodeSelect={handleNodeSelect}
+              onNodeFocus={nodeId => {
+                setSelectedNode(nodeId);
+                setSelectedComponentId(null);
+              }}
+              onComponentHover={componentId => {
+                if (componentId) {
+                  setHoveredComponentId(componentId);
+                  return;
+                }
+                if (selectedComponentId) {
+                  setHoveredComponentId(selectedComponentId);
+                  return;
+                }
+                setHoveredComponentId(null);
+              }}
+              onComponentSelect={handleComponentSelect}
+            />
+            <NodeListEditor
+              nodes={circuitNodes}
+              lockedNodes={connectedNodes}
+              onRename={handleRenameNode}
+              onRemove={handleRemoveNode}
+            />
+            {selectingNodeField && (
+              <p className="rounded bg-primary/5 px-3 py-1 text-xs text-primary">
+                Click a node to set the {selectingNodeField === "from" ? "start" : "end"} connection.
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
+      <div className="grid flex-1 gap-4 xl:grid-cols-[320px,1fr]">
+        <div className="flex flex-col gap-4">
+          <Card className="space-y-4 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Simulation Settings</h3>
+              <Button size="sm" onClick={simulate}>
+                Run
+              </Button>
+            </div>
+            <div className="space-y-3 text-xs">
+              <div>
+                <Label>Time Step (s)</Label>
                 <Input
                   type="number"
-                  value={newComponent.value}
+                  step="0.0001"
+                  value={simConfig.dt}
                   onChange={e =>
-                    setNewComponent(prev => ({
+                    setSimConfig(prev => ({
                       ...prev,
-                      value: parseFloat(e.target.value) || prev.value,
+                      dt: Math.max(parseFloat(e.target.value) || DEFAULT_SIM.dt, 1e-6),
                     }))
                   }
                 />
               </div>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" onClick={addComponent} disabled={!canPlaceComponent}>
-            Place component
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            {canPlaceComponent
-              ? "Select nodes or use pick mode, then place the component."
-              : "Select two distinct nodes to place a component."}
-          </span>
-        </div>
-      </Card>
-      <div className="grid gap-4 lg:grid-cols-[320px,1fr]">
-        <Card className="space-y-4 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Simulation Settings</h3>
-            <Button size="sm" onClick={simulate}>
-              Run
-            </Button>
-          </div>
-          <div className="space-y-3 text-xs">
-            <div>
-              <Label>Time Step (s)</Label>
-              <Input
-                type="number"
-                step="0.0001"
-                value={simConfig.dt}
-                onChange={e =>
-                  setSimConfig(prev => ({
-                    ...prev,
-                    dt: Math.max(parseFloat(e.target.value) || DEFAULT_SIM.dt, 1e-6),
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <Label>Duration (s)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={simConfig.duration}
-                onChange={e =>
-                  setSimConfig(prev => ({
-                    ...prev,
-                    duration: Math.max(parseFloat(e.target.value) || DEFAULT_SIM.duration, prev.dt),
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Playback</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setIsPlaying(prev => !prev)}
-                  disabled={!result}
-                >
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </Button>
-                <Slider
-                  value={[playhead]}
-                  min={0}
-                  max={Math.max((result?.time.length ?? 1) - 1, 1)}
-                  step={1}
-                  disabled={!result}
-                  onValueChange={([value]) => setPlayhead(value)}
+              <div>
+                <Label>Duration (s)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={simConfig.duration}
+                  onChange={e =>
+                    setSimConfig(prev => ({
+                      ...prev,
+                      duration: Math.max(parseFloat(e.target.value) || DEFAULT_SIM.duration, prev.dt),
+                    }))
+                  }
                 />
-                <span className="text-xs text-muted-foreground min-w-[60px] text-right">
-                  {currentTime.toFixed(4)}s
-                </span>
               </div>
-            </div>
-            {status && <p className="text-muted-foreground">{status}</p>}
-          </div>
-        </Card>
-        <Card className="space-y-4 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Netlist ({components.length})</h3>
-          </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-            {components.map(component => (
-              <div
-                key={component.id}
-                className="flex items-center justify-between rounded border px-3 py-2 text-xs"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <Badge>{component.kind}</Badge>
-                    <span>
-                      {component.from}
-                      {" -> "}
-                      {component.to}
-                    </span>
-                  </div>
-                  <span className="text-muted-foreground">
-                    {describeComponent(component)}
+              <div className="space-y-2">
+                <Label>Playback</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => setIsPlaying(prev => !prev)}
+                    disabled={!result}
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <Slider
+                    value={[playhead]}
+                    min={0}
+                    max={Math.max((result?.time.length ?? 1) - 1, 1)}
+                    step={1}
+                    disabled={!result}
+                    onValueChange={([value]) => setPlayhead(value)}
+                  />
+                  <span className="min-w-[60px] text-right text-xs text-muted-foreground">
+                    {currentTime.toFixed(4)}s
                   </span>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Remove component"
-                  onClick={() => removeComponent(component.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
-            ))}
-            {components.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-6">
-                Add components to build a circuit.
+              {status && <p className="text-muted-foreground">{status}</p>}
+            </div>
+          </Card>
+          <Card className="space-y-4 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Netlist ({components.length})</h3>
+            </div>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {components.map(component => {
+                const isActive = selectedComponentId === component.id;
+                const label = COMPONENT_LOOKUP[component.kind]?.label ?? component.kind;
+                return (
+                  <div
+                    key={component.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleComponentSelect(component.id)}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleComponentSelect(component.id);
+                      }
+                    }}
+                    onMouseEnter={() => setHoveredComponentId(component.id)}
+                    onMouseLeave={() => setHoveredComponentId(null)}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded border px-3 py-2 text-xs transition-colors",
+                      isActive
+                        ? "border-primary bg-primary/10"
+                        : "hover:border-primary/60 hover:bg-primary/5"
+                    )}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={isActive ? "default" : "secondary"} className="font-mono">
+                          {getComponentGlyph(component.kind)}
+                        </Badge>
+                        <span className="text-xs font-semibold capitalize">{label}</span>
+                      </div>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {component.from} → {component.to}
+                      </span>
+                      <span className="text-muted-foreground">{describeComponent(component)}</span>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Remove ${component.kind}`}
+                      onClick={event => {
+                        event.stopPropagation();
+                        removeComponent(component.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+              {components.length === 0 && (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  Add components to build a circuit.
+                </p>
+              )}
+            </div>
+            {selectedComponent ? (
+              <ComponentInspector
+                component={selectedComponent}
+                nodes={circuitNodes}
+                onUpdate={updater =>
+                  setComponents(prev =>
+                    prev.map(comp => (comp.id === selectedComponent.id ? updater(comp) : comp))
+                  )
+                }
+                onRemove={() => removeComponent(selectedComponent.id)}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Select a component to inspect and tweak its parameters.
               </p>
             )}
-          </div>
-        </Card>
-      </div>
-      <Card className="flex-1 space-y-4 p-4 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Node Observations</h3>
-          <span className="text-xs text-muted-foreground">
-            {result ? `${result.time.length} samples` : "Simulate to view data"}
-          </span>
+          </Card>
         </div>
-        {result ? (
-          <div className="space-y-3 overflow-auto pr-1">
-            {nodeList.length === 0 && (
-              <p className="text-xs text-muted-foreground">No non-ground nodes detected.</p>
+        <div className="flex flex-col gap-4">
+          <Card className="flex-1 space-y-4 p-4 overflow-hidden">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Node Observations</h3>
+              <span className="text-xs text-muted-foreground">
+                {result ? `${result.time.length} samples` : "Simulate to view data"}
+              </span>
+            </div>
+            {result ? (
+              <div className="space-y-3 overflow-auto pr-1">
+                {nodeList.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No non-ground nodes detected.</p>
+                )}
+                {nodeList.map(node => {
+                  const voltages = result?.nodeVoltages[node];
+                  const currents = result?.nodeCurrents[node];
+                  const vNow = voltages ? voltages[playhead] ?? 0 : 0;
+                  const iNow = currents ? currents[playhead] ?? 0 : 0;
+                  return (
+                    <div
+                      key={node}
+                      onClick={() => setSelectedNode(node)}
+                      className={cn(
+                        "flex flex-wrap items-center justify-between gap-2 rounded border px-3 py-2 text-xs transition-colors",
+                        selectedNode === node && "border-primary bg-primary/5"
+                      )}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold">{node}</span>
+                        <span className="text-muted-foreground">
+                          V = {voltages ? vNow.toFixed(4) : "n/a"} V, I = {currents ? iNow.toExponential(3) : "n/a"} A
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!voltages}
+                          onClick={e => {
+                            e.stopPropagation();
+                            exportExpression(node, "voltage");
+                          }}
+                        >
+                          <Upload className="mr-1 h-3 w-3" />
+                          V(t)
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!currents}
+                          onClick={e => {
+                            e.stopPropagation();
+                            exportExpression(node, "current");
+                          }}
+                        >
+                          <Upload className="mr-1 h-3 w-3" />
+                          I(t)
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Run a simulation to inspect node voltages and currents.
+              </div>
             )}
-            {nodeList.map(node => {
-              const voltages = result?.nodeVoltages[node];
-              const currents = result?.nodeCurrents[node];
-              const vNow = voltages ? voltages[playhead] ?? 0 : 0;
-              const iNow = currents ? currents[playhead] ?? 0 : 0;
-              return (
-                <div
-                  key={node}
-                  onClick={() => setSelectedNode(node)}
-                  className={cn(
-                    "flex flex-wrap items-center justify-between rounded border px-3 py-2 text-xs gap-2 cursor-pointer transition-colors",
-                    selectedNode === node && "border-primary bg-primary/5"
-                  )}
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-semibold">{node}</span>
-                    <span className="text-muted-foreground">
-                      V = {voltages ? vNow.toFixed(4) : "n/a"} V, I = {currents ? iNow.toExponential(3) : "n/a"} A
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!voltages}
-                      onClick={e => {
-                        e.stopPropagation();
-                        exportExpression(node, "voltage");
-                      }}
-                    >
-                      <Upload className="mr-1 h-3 w-3" />
-                      V(t)
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!currents}
-                      onClick={e => {
-                        e.stopPropagation();
-                        exportExpression(node, "current");
-                      }}
-                    >
-                      <Upload className="mr-1 h-3 w-3" />
-                      I(t)
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Run a simulation to inspect node voltages and currents.
-          </div>
-        )}
-      </Card>
-      <Card className="flex-1 p-4">
-        {selectedNode ? (
-          <NodeDetailPanel
-            node={selectedNode}
-            result={result}
-            playhead={playhead}
-            symbolic={symbolicResult.nodeVoltages[selectedNode]}
-            onExportNumeric={exportExpression}
-            onExportSymbolic={(expression) => {
-              window.dispatchEvent(
-                new CustomEvent("circuit:add-expression", {
-                  detail: {
-                    latex: expression,
-                    normalized: expression,
-                  },
-                })
-              );
-              setStatus(`Exported symbolic expression for ${selectedNode}`);
-            }}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Click a node to inspect numeric and symbolic details.
-          </div>
-        )}
-      </Card>
+          </Card>
+          <Card className="flex-1 p-4">
+            {selectedNode ? (
+              <NodeDetailPanel
+                node={selectedNode}
+                result={result}
+                playhead={playhead}
+                symbolic={symbolicResult.nodeVoltages[selectedNode]}
+                onExportNumeric={exportExpression}
+                onExportSymbolic={(expression) => {
+                  window.dispatchEvent(
+                    new CustomEvent("circuit:add-expression", {
+                      detail: {
+                        latex: expression,
+                        normalized: expression,
+                      },
+                    })
+                  );
+                  setStatus(`Exported symbolic expression for ${selectedNode}`);
+                }}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Click a node to inspect numeric and symbolic details.
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -961,15 +1233,516 @@ const NodeDetailPanel = ({
   );
 };
 
+interface ComponentPaletteProps {
+  selectedKind: CircuitKind;
+  onSelect: (kind: CircuitKind) => void;
+}
+
+function ComponentPalette({ selectedKind, onSelect }: ComponentPaletteProps) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold">Component library</h3>
+        <p className="text-xs text-muted-foreground">
+          Tap a symbol to stage it, then wire it between snapped nodes.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {COMPONENT_LIBRARY.map(definition => {
+          const isActive = definition.kind === selectedKind;
+          return (
+            <button
+              key={definition.kind}
+              type="button"
+              onClick={() => onSelect(definition.kind)}
+              aria-pressed={isActive}
+              className={cn(
+                "group flex h-full flex-col gap-2 rounded-lg border bg-background/60 p-3 text-left transition",
+                "hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                isActive && "border-primary bg-primary/10"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">{definition.label}</span>
+                <Badge variant="secondary" className="font-mono">
+                  {getComponentGlyph(definition.kind)}
+                </Badge>
+              </div>
+              <ComponentPreview kind={definition.kind} />
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {definition.description}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ComponentPreview({ kind }: { kind: CircuitKind }) {
+  const color = COMPONENT_COLORS[kind] ?? "rgba(148,163,184,0.8)";
+  return (
+    <svg viewBox="0 0 100 56" className="h-16 w-full">
+      <rect
+        x={0}
+        y={0}
+        width={100}
+        height={56}
+        rx={8}
+        fill="var(--muted)"
+        className="opacity-10"
+      />
+      <g transform="translate(14 28)">
+        {renderComponentSymbol(kind, 72, color, 2)}
+        <circle cx={0} cy={0} r={3} fill="var(--foreground)" opacity={0.65} />
+        <circle cx={72} cy={0} r={3} fill="var(--foreground)" opacity={0.65} />
+      </g>
+    </svg>
+  );
+}
+
+const MIN_SYMBOL_LENGTH = 56;
+
+function renderComponentSymbol(
+  kind: CircuitKind,
+  rawLength: number,
+  color: string,
+  strokeWidth = 3
+): JSX.Element {
+  const length = Math.max(rawLength, 1);
+  if (!Number.isFinite(length)) {
+    return <line x1={0} y1={0} x2={0} y2={0} stroke={color} strokeWidth={strokeWidth} />;
+  }
+
+  if (kind === "wire" || length <= MIN_SYMBOL_LENGTH) {
+    return (
+      <line
+        x1={0}
+        y1={0}
+        x2={length}
+        y2={0}
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+    );
+  }
+
+  if (kind === "voltage-source") {
+    const center = length / 2;
+    const radius = Math.min(18, Math.max(12, length / 6));
+    const glyphOffset = radius * 0.5;
+    const glyphStroke = Math.max(1.2, strokeWidth * 0.7);
+    return (
+      <>
+        <line
+          x1={0}
+          y1={0}
+          x2={center - radius}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <circle
+          cx={center}
+          cy={0}
+          r={radius}
+          fill="var(--background)"
+          stroke={color}
+          strokeWidth={strokeWidth}
+        />
+        <line
+          x1={center}
+          y1={-glyphOffset - 4}
+          x2={center}
+          y2={-glyphOffset + 4}
+          stroke={color}
+          strokeWidth={glyphStroke}
+          strokeLinecap="round"
+        />
+        <line
+          x1={center - 6}
+          y1={-glyphOffset}
+          x2={center + 6}
+          y2={-glyphOffset}
+          stroke={color}
+          strokeWidth={glyphStroke}
+          strokeLinecap="round"
+        />
+        <line
+          x1={center - 6}
+          y1={glyphOffset}
+          x2={center + 6}
+          y2={glyphOffset}
+          stroke={color}
+          strokeWidth={glyphStroke}
+          strokeLinecap="round"
+        />
+        <line
+          x1={center + radius}
+          y1={0}
+          x2={length}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </>
+    );
+  }
+
+  if (kind === "current-source") {
+    const center = length / 2;
+    const radius = Math.min(18, Math.max(12, length / 6));
+    const arrowLength = radius * 0.8;
+    const glyphStroke = Math.max(1.2, strokeWidth * 0.7);
+    const arrowHeadPoints = [
+      `${center - 4},${-arrowLength * 0.5 + 8}`,
+      `${center},${-arrowLength * 0.5}`,
+      `${center + 4},${-arrowLength * 0.5 + 8}`,
+    ].join(" ");
+    return (
+      <>
+        <line
+          x1={0}
+          y1={0}
+          x2={center - radius}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <circle
+          cx={center}
+          cy={0}
+          r={radius}
+          fill="var(--background)"
+          stroke={color}
+          strokeWidth={strokeWidth}
+        />
+        <line
+          x1={center}
+          y1={arrowLength * 0.5}
+          x2={center}
+          y2={-arrowLength * 0.5}
+          stroke={color}
+          strokeWidth={glyphStroke}
+          strokeLinecap="round"
+        />
+        <polyline
+          points={arrowHeadPoints}
+          fill="none"
+          stroke={color}
+          strokeWidth={glyphStroke}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <line
+          x1={center + radius}
+          y1={0}
+          x2={length}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </>
+    );
+  }
+
+  const { start, end } = computeSymbolLayout(length);
+
+  if (kind === "resistor") {
+    const zigCount = 4;
+    const amplitude = 10;
+    const segment = (end - start) / (zigCount * 2);
+    const points: string[] = [`${start.toFixed(2)},0`];
+    for (let i = 0; i < zigCount * 2; i++) {
+      const x = start + segment * (i + 1);
+      const y = i % 2 === 0 ? -amplitude : amplitude;
+      points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+    }
+    points.push(`${end.toFixed(2)},0`);
+    return (
+      <>
+        <line
+          x1={0}
+          y1={0}
+          x2={start}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <polyline
+          points={points.join(" ")}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <line
+          x1={end}
+          y1={0}
+          x2={length}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </>
+    );
+  }
+
+  if (kind === "capacitor") {
+    const plateHeight = 16;
+    return (
+      <>
+        <line
+          x1={0}
+          y1={0}
+          x2={start}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <line
+          x1={start}
+          y1={-plateHeight}
+          x2={start}
+          y2={plateHeight}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <line
+          x1={end}
+          y1={-plateHeight}
+          x2={end}
+          y2={plateHeight}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <line
+          x1={end}
+          y1={0}
+          x2={length}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </>
+    );
+  }
+
+  if (kind === "inductor") {
+    const loops = 4;
+    const segment = (end - start) / loops;
+    const half = segment / 2;
+    const radius = Math.min(10, segment * 0.6);
+    let d = `M ${start.toFixed(2)} 0`;
+    for (let i = 0; i < loops; i++) {
+      d += ` q ${half.toFixed(2)} ${(-radius).toFixed(2)} ${half.toFixed(2)} 0`;
+      d += ` q ${half.toFixed(2)} ${radius.toFixed(2)} ${half.toFixed(2)} 0`;
+    }
+    return (
+      <>
+        <line
+          x1={0}
+          y1={0}
+          x2={start}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <path
+          d={d}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <line
+          x1={end}
+          y1={0}
+          x2={length}
+          y2={0}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </>
+    );
+  }
+
+  return (
+    <line
+      x1={0}
+      y1={0}
+      x2={length}
+      y2={0}
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+    />
+  );
+}
+
+type OrthogonalOrientation = "horizontal" | "vertical";
+
+interface RouteSegment {
+  start: NodePosition;
+  end: NodePosition;
+  isSymbolSegment?: boolean;
+}
+
+interface OrthogonalRouteResult {
+  segments: RouteSegment[];
+  symbolStart: NodePosition | null;
+  symbolEnd: NodePosition | null;
+  orientation: OrthogonalOrientation;
+}
+
+function dedupeRoutePoints(points: NodePosition[]): NodePosition[] {
+  if (points.length <= 1) {
+    return points;
+  }
+  const filtered: NodePosition[] = [points[0]];
+  for (let index = 1; index < points.length; index += 1) {
+    const prev = filtered[filtered.length - 1];
+    const current = points[index];
+    if (prev.x === current.x && prev.y === current.y) {
+      continue;
+    }
+    filtered.push(current);
+  }
+  return filtered;
+}
+
+function computeOrthogonalRoute(start: NodePosition, end: NodePosition): OrthogonalRouteResult {
+  if (start.x === end.x && start.y === end.y) {
+    return {
+      segments: [],
+      symbolStart: null,
+      symbolEnd: null,
+      orientation: "horizontal",
+    };
+  }
+
+  if (start.x === end.x || start.y === end.y) {
+    const orientation: OrthogonalOrientation = start.y === end.y ? "horizontal" : "vertical";
+    return {
+      segments: [
+        {
+          start,
+          end,
+          isSymbolSegment: true,
+        },
+      ],
+      symbolStart: start,
+      symbolEnd: end,
+      orientation,
+    };
+  }
+
+  const horizontalPreferred = Math.abs(start.x - end.x) >= Math.abs(start.y - end.y);
+  const points = horizontalPreferred
+    ? [
+        start,
+        { x: start.x, y: (start.y + end.y) / 2 },
+        { x: end.x, y: (start.y + end.y) / 2 },
+        end,
+      ]
+    : [
+        start,
+        { x: (start.x + end.x) / 2, y: start.y },
+        { x: (start.x + end.x) / 2, y: end.y },
+        end,
+      ];
+
+  const uniquePoints = dedupeRoutePoints(points);
+  const segments: RouteSegment[] = [];
+  for (let index = 0; index < uniquePoints.length - 1; index += 1) {
+    const segmentStart = uniquePoints[index];
+    const segmentEnd = uniquePoints[index + 1];
+    const isSymbolSegment = index === 1 && uniquePoints.length >= 3;
+    segments.push({ start: segmentStart, end: segmentEnd, isSymbolSegment });
+  }
+
+  const symbolSegment = segments.find(segment => segment.isSymbolSegment) ?? segments[0];
+  return {
+    segments,
+    symbolStart: symbolSegment?.start ?? null,
+    symbolEnd: symbolSegment?.end ?? null,
+    orientation: horizontalPreferred ? "horizontal" : "vertical",
+  };
+}
+
+function composeSymbolTransform(
+  start: NodePosition,
+  end: NodePosition,
+  orientation: OrthogonalOrientation
+): string {
+  if (orientation === "horizontal") {
+    if (end.x >= start.x) {
+      return `translate(${start.x} ${start.y})`;
+    }
+    return `translate(${start.x} ${start.y}) scale(-1 1)`;
+  }
+  if (end.y >= start.y) {
+    return `translate(${start.x} ${start.y}) rotate(90)`;
+  }
+  return `translate(${start.x} ${start.y}) rotate(-90)`;
+}
+
+function orthogonalPathD(start: NodePosition, end: NodePosition): string {
+  const { segments } = computeOrthogonalRoute(start, end);
+  if (segments.length === 0) {
+    return "";
+  }
+  const commands = [`M ${segments[0].start.x} ${segments[0].start.y}`];
+  segments.forEach(segment => {
+    commands.push(`L ${segment.end.x} ${segment.end.y}`);
+  });
+  return commands.join(" ");
+}
+
+function computeSymbolLayout(length: number) {
+  const minLead = 14;
+  const minBody = 28;
+  let lead = Math.min(Math.max(length * 0.18, minLead), 32);
+  let body = length - lead * 2;
+  if (body < minBody) {
+    lead = Math.max((length - minBody) / 2, 10);
+    body = length - lead * 2;
+  }
+  const start = lead;
+  const end = length - lead;
+  return { start, end, body };
+}
+
 interface CircuitCanvasProps {
   nodes: string[];
   components: CircuitComponent[];
   nodePositions: Record<string, NodePosition>;
   selectingField: "from" | "to" | null;
   pendingConnection?: { from?: string; to?: string };
+  focusedComponentId?: string | null;
+  hoveredComponentId?: string | null;
+  highlightedNodes?: Set<string>;
   onNodePositionChange: (nodeId: string, position: NodePosition) => void;
   onNodeSelect: (nodeId: string) => void;
   onNodeFocus?: (nodeId: string) => void;
+  onComponentHover?: (componentId: string | null) => void;
+  onComponentSelect?: (componentId: string) => void;
 }
 
 const CircuitCanvas = ({
@@ -978,9 +1751,14 @@ const CircuitCanvas = ({
   nodePositions,
   selectingField,
   pendingConnection,
+  focusedComponentId,
+  hoveredComponentId,
+  highlightedNodes,
   onNodePositionChange,
   onNodeSelect,
   onNodeFocus,
+  onComponentHover,
+  onComponentSelect,
 }: CircuitCanvasProps) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragMovedRef = useRef(false);
@@ -991,6 +1769,8 @@ const CircuitCanvas = ({
   } | null>(null);
   const rawPatternId = useId();
   const patternId = useMemo(() => rawPatternId.replace(/:/g, "_"), [rawPatternId]);
+  const minorGridId = `${patternId}_minor`;
+  const majorGridId = `${patternId}_major`;
 
   const resolvedPositions = useMemo(() => {
     const next: Record<string, NodePosition> = { ...nodePositions };
@@ -1004,6 +1784,18 @@ const CircuitCanvas = ({
 
   const highlightedFrom = pendingConnection?.from;
   const highlightedTo = pendingConnection?.to;
+
+  const previewPath =
+    highlightedFrom &&
+    highlightedTo &&
+    highlightedFrom !== highlightedTo &&
+    resolvedPositions[highlightedFrom] &&
+    resolvedPositions[highlightedTo]
+      ? orthogonalPathD(
+          resolvedPositions[highlightedFrom],
+          resolvedPositions[highlightedTo]
+        )
+      : null;
 
   const beginDrag = (nodeId: string, event: React.PointerEvent<SVGCircleElement>) => {
     event.preventDefault();
@@ -1065,21 +1857,6 @@ const CircuitCanvas = ({
   }, [dragState, onNodePositionChange, onNodeFocus, onNodeSelect]);
 
   const componentStroke = (kind: CircuitKind) => COMPONENT_COLORS[kind] ?? "#94a3b8";
-  const componentLabel = (kind: CircuitKind) => {
-    switch (kind) {
-      case "resistor":
-        return "R";
-      case "capacitor":
-        return "C";
-      case "inductor":
-        return "L";
-      case "voltage-source":
-        return "V";
-      case "wire":
-      default:
-        return "W";
-    }
-  };
 
   return (
     <div className="rounded-lg border bg-background/80 p-3">
@@ -1093,11 +1870,30 @@ const CircuitCanvas = ({
         className="h-[360px] w-full select-none touch-none"
       >
         <defs>
-          <pattern id={patternId} width="24" height="24" patternUnits="userSpaceOnUse">
-            <path d="M 24 0 L 0 0 0 24" fill="none" stroke="rgba(148,163,184,0.25)" strokeWidth="0.5" />
+          <pattern id={minorGridId} width={SNAP_GRID_SIZE} height={SNAP_GRID_SIZE} patternUnits="userSpaceOnUse">
+            <path
+              d={`M ${SNAP_GRID_SIZE} 0 L 0 0 0 ${SNAP_GRID_SIZE}`}
+              fill="none"
+              stroke="rgba(148,163,184,0.25)"
+              strokeWidth={0.75}
+            />
+          </pattern>
+          <pattern
+            id={majorGridId}
+            width={SNAP_GRID_SIZE * 4}
+            height={SNAP_GRID_SIZE * 4}
+            patternUnits="userSpaceOnUse"
+          >
+            <rect width="100%" height="100%" fill={`url(#${minorGridId})`} />
+            <path
+              d={`M ${SNAP_GRID_SIZE * 4} 0 L 0 0 0 ${SNAP_GRID_SIZE * 4}`}
+              fill="none"
+              stroke="rgba(148,163,184,0.35)"
+              strokeWidth={1.2}
+            />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#${patternId})`} />
+        <rect width="100%" height="100%" fill={`url(#${majorGridId})`} />
 
         {components.map(component => {
           const start = resolvedPositions[component.from];
@@ -1105,33 +1901,95 @@ const CircuitCanvas = ({
           if (!start || !end || component.from === component.to) {
             return null;
           }
+          const {
+            segments,
+            symbolStart,
+            symbolEnd,
+            orientation,
+          } = computeOrthogonalRoute(start, end);
+          if (!segments || !symbolStart || !symbolEnd) {
+            return null;
+          }
+          const length = Math.hypot(symbolEnd.x - symbolStart.x, symbolEnd.y - symbolStart.y);
+          const baseColor = componentStroke(component.kind);
+          const isFocused = component.id === focusedComponentId;
+          const isHovered = component.id === hoveredComponentId && !isFocused;
+          const strokeWidth = isFocused ? 4 : isHovered ? 3.4 : 2.8;
+          const accentColor = isFocused ? "hsl(var(--primary))" : baseColor;
           const midX = (start.x + end.x) / 2;
           const midY = (start.y + end.y) / 2;
+          const glyphFill = isFocused ? "hsl(var(--primary))" : "var(--muted-foreground)";
+          const groupOpacity = isFocused ? 1 : isHovered ? 0.92 : 0.82;
+          const handleSelect = () => onComponentSelect?.(component.id);
           return (
-            <g key={component.id}>
-              <line
-                x1={start.x}
-                y1={start.y}
-                x2={end.x}
-                y2={end.y}
-                stroke={componentStroke(component.kind)}
-                strokeWidth={3}
-                strokeLinecap="round"
-                opacity={0.9}
-              />
+            <g
+              key={component.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${component.kind} from ${component.from} to ${component.to}`}
+              aria-pressed={isFocused}
+              onClick={handleSelect}
+              onKeyDown={event => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleSelect();
+                }
+              }}
+              onPointerEnter={() => onComponentHover?.(component.id)}
+              onPointerLeave={() => onComponentHover?.(null)}
+              onFocus={() => onComponentHover?.(component.id)}
+              onBlur={() => onComponentHover?.(null)}
+              style={{ cursor: "pointer" }}
+            >
+              {segments.map((segment, index) => {
+                if (segment.isSymbolSegment) {
+                  return null;
+                }
+                return (
+                  <line
+                    key={`segment-${component.id}-${index}`}
+                    x1={segment.start.x}
+                    y1={segment.start.y}
+                    x2={segment.end.x}
+                    y2={segment.end.y}
+                    stroke={accentColor}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                    opacity={groupOpacity}
+                  />
+                );
+              })}
+              <g
+                transform={composeSymbolTransform(symbolStart, symbolEnd, orientation)}
+                opacity={groupOpacity}
+              >
+                {renderComponentSymbol(component.kind, length, accentColor, strokeWidth)}
+              </g>
               <text
                 x={midX}
-                y={midY - 6}
+                y={midY - 10}
                 textAnchor="middle"
-                fill="var(--muted-foreground)"
-                fontSize={10}
+                fill={glyphFill}
+                fontSize={11}
                 fontWeight={600}
               >
-                {componentLabel(component.kind)}
+                {getComponentGlyph(component.kind)}
               </text>
+              <title>{describeComponent(component)}</title>
             </g>
           );
         })}
+
+        {previewPath && (
+          <path
+            d={previewPath}
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth={2}
+            strokeDasharray="8 6"
+            opacity={0.6}
+          />
+        )}
 
         {nodes.map(nodeId => {
           const position = resolvedPositions[nodeId];
@@ -1139,15 +1997,31 @@ const CircuitCanvas = ({
           const isActive =
             (selectingField === "from" && highlightedFrom === nodeId) ||
             (selectingField === "to" && highlightedTo === nodeId);
-          const ringColor = isActive ? "hsl(var(--primary))" : "rgba(148,163,184,0.8)";
+          const isHighlighted = highlightedNodes?.has(nodeId);
+          const ringColor = isActive
+            ? "hsl(var(--primary))"
+            : isHighlighted
+            ? "hsl(var(--primary))"
+            : "rgba(148,163,184,0.8)";
+          const strokeWidth = isActive ? 3 : isHighlighted ? 2.4 : 1.5;
+          const coordinate = `${Math.round(position.x)}, ${Math.round(position.y)}`;
           return (
             <g key={nodeId}>
+              <title>
+                {nodeId} • ({coordinate})
+              </title>
               <circle
                 cx={position.x}
                 cy={position.y}
                 r={14}
-                fill={isGround ? "#0f172a" : "#1e293b"}
-                opacity={0.25}
+                fill={
+                  isGround
+                    ? "#0f172a"
+                    : isHighlighted
+                    ? "hsl(var(--primary) / 0.18)"
+                    : "#1e293b"
+                }
+                opacity={isHighlighted ? 0.45 : 0.25}
               />
               <circle
                 cx={position.x}
@@ -1155,14 +2029,14 @@ const CircuitCanvas = ({
                 r={10}
                 fill={isGround ? "#0f172a" : "#020817"}
                 stroke={ringColor}
-                strokeWidth={isActive ? 3 : 1.5}
+                strokeWidth={strokeWidth}
                 onPointerDown={event => beginDrag(nodeId, event)}
               />
               <text
                 x={position.x}
                 y={position.y + 24}
                 textAnchor="middle"
-                fill="var(--foreground)"
+                fill={isHighlighted ? "hsl(var(--primary))" : "var(--foreground)"}
                 fontSize={11}
                 fontWeight={600}
               >
@@ -1205,11 +2079,19 @@ const NodeListEditor = ({ nodes, lockedNodes, onRename, onRemove }: NodeListEdit
                 readOnly={isGround}
                 onBlur={event => {
                   const next = event.target.value.trim();
-                  if (!next || next === node) {
+                  const sanitized = sanitizeIdentifier(next);
+                  const isUnchanged = sanitized === node || sanitized.length === 0;
+                  const hasConflict = nodes.some(
+                    other => other !== node && other.toLowerCase() === sanitized.toLowerCase()
+                  );
+
+                  if (isGround || isUnchanged || hasConflict) {
                     event.target.value = node;
                     return;
                   }
-                  onRename(node, next);
+
+                  event.target.value = sanitized;
+                  onRename(node, sanitized);
                 }}
               />
               <Button
@@ -1293,6 +2175,229 @@ const MiniChart = ({ label, time, values, color }: MiniChartProps) => {
   );
 };
 
+interface ComponentInspectorProps {
+  component: CircuitComponent;
+  nodes: string[];
+  onUpdate: (updater: (component: CircuitComponent) => CircuitComponent) => void;
+  onRemove: () => void;
+}
+
+const ComponentInspector = ({ component, nodes, onUpdate, onRemove }: ComponentInspectorProps) => {
+  const label = COMPONENT_LOOKUP[component.kind]?.label ?? component.kind;
+  const glyph = getComponentGlyph(component.kind);
+  const isSource = component.kind === "voltage-source" || component.kind === "current-source";
+  const isPassive =
+    component.kind === "resistor" || component.kind === "capacitor" || component.kind === "inductor";
+  const valueUnit =
+    component.kind === "resistor"
+      ? "Ω"
+      : component.kind === "capacitor"
+      ? "F"
+      : component.kind === "inductor"
+      ? "H"
+      : component.kind === "current-source"
+      ? "A"
+      : component.kind === "voltage-source"
+      ? "V"
+      : "";
+
+  const handleNodeChange = (field: "from" | "to", value: string) => {
+    onUpdate(prev => ({ ...prev, [field]: value } as CircuitComponent));
+  };
+
+  const handleSwap = () => {
+    onUpdate(prev => ({ ...prev, from: prev.to, to: prev.from } as CircuitComponent));
+  };
+
+  const handleValueChange = (value: number) => {
+    onUpdate(prev => {
+      if (prev.kind === "resistor" || prev.kind === "capacitor" || prev.kind === "inductor") {
+        return { ...prev, value: Math.max(Math.abs(value) || DEFAULT_NEW_COMPONENT.value, 1e-9) } as typeof prev;
+      }
+      if (prev.kind === "voltage-source" || prev.kind === "current-source") {
+        return { ...prev, value: Math.max(Math.abs(value) || DEFAULT_NEW_COMPONENT.value, 1e-9) } as typeof prev;
+      }
+      return prev;
+    });
+  };
+
+  const handleWaveformChange = (waveform: "dc" | "ac") => {
+    onUpdate(prev => {
+      if (prev.kind === "voltage-source" || prev.kind === "current-source") {
+        const next = { ...prev, waveform } as typeof prev;
+        if (waveform === "dc") {
+          next.amplitude = undefined;
+          next.frequency = undefined;
+          next.phase = undefined;
+          next.offset = undefined;
+        } else {
+          next.amplitude = prev.amplitude ?? prev.value;
+          next.frequency = prev.frequency ?? DEFAULT_NEW_COMPONENT.frequency;
+          next.phase = prev.phase ?? DEFAULT_NEW_COMPONENT.phase;
+          next.offset = prev.offset ?? 0;
+        }
+        return next;
+      }
+      return prev;
+    });
+  };
+
+  const handleSourceField = (field: "amplitude" | "frequency" | "phase" | "offset", value: number) => {
+    onUpdate(prev => {
+      if (prev.kind === "voltage-source" || prev.kind === "current-source") {
+        let sanitized = value;
+        if (field === "amplitude") {
+          sanitized = Math.max(Math.abs(value) || prev.value, 1e-9);
+        } else if (field === "frequency") {
+          sanitized = Math.max(Math.abs(value) || DEFAULT_NEW_COMPONENT.frequency, 0);
+        } else if (field === "offset") {
+          sanitized = Number.isFinite(value) ? value : 0;
+        } else if (field === "phase") {
+          sanitized = Number.isFinite(value) ? value : 0;
+        }
+        return { ...prev, [field]: sanitized } as typeof prev;
+      }
+      return prev;
+    });
+  };
+
+  const waveform = isSource ? component.waveform : undefined;
+  const amplitude = isSource && component.waveform === "ac" ? component.amplitude ?? component.value : component.value;
+  const frequency = isSource && component.waveform === "ac" ? component.frequency ?? DEFAULT_NEW_COMPONENT.frequency : undefined;
+  const phase = isSource && component.waveform === "ac" ? component.phase ?? DEFAULT_NEW_COMPONENT.phase : undefined;
+  const offset = isSource && component.waveform === "ac" ? component.offset ?? 0 : undefined;
+
+  return (
+    <div className="space-y-3 rounded border bg-muted/30 p-3 text-xs">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-semibold capitalize">{label}</p>
+          <p className="font-mono text-[11px] text-muted-foreground">
+            {component.from} → {component.to}
+          </p>
+        </div>
+        <Badge variant="secondary" className="font-mono">
+          {glyph}
+        </Badge>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="flex items-center gap-2">
+          <Label className="w-12">From</Label>
+          <Select value={component.from} onValueChange={value => handleNodeChange("from", value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {nodes.map(node => (
+                <SelectItem key={node} value={node}>
+                  {node}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="w-12">To</Label>
+          <Select value={component.to} onValueChange={value => handleNodeChange("to", value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {nodes.map(node => (
+                <SelectItem key={node} value={node}>
+                  {node}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {isSource ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label className="w-20">Waveform</Label>
+            <Select value={waveform} onValueChange={value => handleWaveformChange(value as "dc" | "ac")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dc">DC</SelectItem>
+                <SelectItem value="ac">AC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {component.waveform === "dc" ? (
+            <div className="flex items-center gap-2">
+              <Label className="w-20">
+                {component.kind === "current-source" ? "Current" : "Voltage"} ({valueUnit})
+              </Label>
+              <Input
+                type="number"
+                value={component.value}
+                onChange={e => handleValueChange(parseFloat(e.target.value) || component.value)}
+              />
+            </div>
+          ) : (
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <Label className="w-20">
+                  {component.kind === "current-source" ? "Amplitude" : "Amplitude"} ({valueUnit})
+                </Label>
+                <Input
+                  type="number"
+                  value={amplitude ?? component.value}
+                  onChange={e => handleSourceField("amplitude", parseFloat(e.target.value) || amplitude || component.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="w-20">Frequency (Hz)</Label>
+                <Input
+                  type="number"
+                  value={frequency}
+                  onChange={e => handleSourceField("frequency", parseFloat(e.target.value) || DEFAULT_NEW_COMPONENT.frequency)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="w-20">Phase (rad)</Label>
+                <Input
+                  type="number"
+                  value={phase}
+                  onChange={e => handleSourceField("phase", parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="w-20">Offset ({valueUnit})</Label>
+                <Input
+                  type="number"
+                  value={offset}
+                  onChange={e => handleSourceField("offset", parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      ) : isPassive ? (
+        <div className="flex items-center gap-2">
+          <Label className="w-20">Value ({valueUnit})</Label>
+          <Input
+            type="number"
+            value={component.value}
+            onChange={e => handleValueChange(parseFloat(e.target.value) || component.value)}
+          />
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={handleSwap}>
+          Swap terminals
+        </Button>
+        <Button size="sm" variant="destructive" onClick={onRemove}>
+          Remove component
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 function describeComponent(component: CircuitComponent): string {
   switch (component.kind) {
     case "resistor":
@@ -1307,6 +2412,10 @@ function describeComponent(component: CircuitComponent): string {
       return component.waveform === "ac"
         ? `${component.amplitude ?? component.value} V AC`
         : `${component.value} V DC`;
+    case "current-source":
+      return component.waveform === "ac"
+        ? `${component.amplitude ?? component.value} A AC`
+        : `${component.value} A DC`;
     default:
       return "";
   }
