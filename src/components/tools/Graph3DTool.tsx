@@ -3,8 +3,8 @@ import { useTheme } from 'next-themes';
 import * as THREE from 'three';
 import { ToolProps } from '@/lib/tools/types';
 import { useScene3D } from '@/hooks/useScene3D';
-import { SurfaceEvaluator } from '@/lib/computation/evaluators/SurfaceEvaluator';
-import { ParametricCurveEvaluator } from '@/lib/computation/evaluators/ParametricCurveEvaluator';
+import { SurfaceEvaluator, type EvaluationOptions, type SurfaceData } from '@/lib/computation/evaluators/SurfaceEvaluator';
+import { ParametricCurveEvaluator, type CurveData } from '@/lib/computation/evaluators/ParametricCurveEvaluator';
 import { Surface3D } from '@/components/3d/Surface3D';
 import { Curve3DBatch } from '@/components/3d/Curve3D';
 import { cartesianSpace, getSpace } from '@/lib/computation/spaces';
@@ -12,12 +12,14 @@ import { Graph3DControls } from './Graph3DControls';
 import { inferType, MathType } from '@/lib/types';
 import { expressionEngine } from '@/lib/expression';
 
+type Graph3DColorMode = Exclude<NonNullable<EvaluationOptions['colorMode']>, 'custom'>;
+
 type Graph3DConfig = {
   resolution: number;
   wireframe: boolean;
   showGrid: boolean;
   showAxes: boolean;
-  colorMode: 'height' | 'domain' | 'gradient' | 'none';
+  colorMode: Graph3DColorMode;
   spaceId: string;
   opacity: number;
 };
@@ -124,13 +126,13 @@ export const Graph3DTool = ({
 
   // Evaluate all expressions to renderable data (surfaces or curves)
   const resolutionSetting = mergedConfig.resolution || 30;
-  const colorModeSetting = mergedConfig.colorMode ?? 'height';
+  const colorModeSetting: Graph3DColorMode = mergedConfig.colorMode ?? 'height';
 
   const renderableData = useMemo(() => {
     if (!isActive || !isReady) return { surfaces: [], curves: [] };
 
-    const surfaces: Array<{ data: any; color?: string; id: string; useVertexColors: boolean }> = [];
-    const curves: Array<{ data: any; color?: string; id: string }> = [];
+    const surfaces: Array<{ data: SurfaceData; color?: string; id: string; useVertexColors: boolean }> = [];
+    const curves: Array<{ data: CurveData; color?: string; id: string }> = [];
 
     expressions.forEach(expr => {
         try {

@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { ToolControlsProps } from "@/lib/tools/types";
 import { MathSpace } from "@/lib/computation/spaces/types";
 import { getAllSpaces } from "@/lib/computation/spaces";
+import type { EvaluationOptions } from "@/lib/computation/evaluators/SurfaceEvaluator";
 import { ChevronDown, ChevronUp } from "lucide-react";
+
+type Graph3DColorMode = Exclude<NonNullable<EvaluationOptions["colorMode"]>, "custom">;
 
 interface Graph3DControlsProps extends ToolControlsProps {
   space: MathSpace;
@@ -28,6 +31,7 @@ export function Graph3DControls({
   const spaces = useMemo(() => getAllSpaces(), []);
   const [isOpen, setIsOpen] = useState(!collapsible ? true : defaultOpen);
   const resolution = toolConfig.resolution || 50;
+  const colorMode = (toolConfig.colorMode as Graph3DColorMode | undefined) ?? "height";
   
   return (
     <Card className="w-72 space-y-4 bg-background/95 p-4 backdrop-blur">
@@ -114,8 +118,10 @@ export function Graph3DControls({
           <div className="space-y-2">
             <Label>Color Mode</Label>
             <Select
-              value={toolConfig.colorMode || "height"}
-              onValueChange={(value) => onConfigChange?.({ ...toolConfig, colorMode: value })}
+              value={colorMode}
+              onValueChange={(value) =>
+                onConfigChange?.({ ...toolConfig, colorMode: value as Graph3DColorMode })
+              }
             >
               <SelectTrigger>
                 <SelectValue />
@@ -124,6 +130,7 @@ export function Graph3DControls({
                 <SelectItem value="height">Height</SelectItem>
                 <SelectItem value="domain">Domain (Complex)</SelectItem>
                 <SelectItem value="gradient">Gradient</SelectItem>
+                <SelectItem value="none">Solid Color</SelectItem>
               </SelectContent>
             </Select>
           </div>
