@@ -34,6 +34,10 @@ import {
   stageComponentForNodeDrop,
   retargetComponentToNode,
 } from "@/lib/circuits/editorModel";
+import {
+  buildDifferentialEquations,
+  DifferentialEquation,
+} from "@/lib/circuits/differentialEquations";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +45,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { toast } from "@/components/ui/use-toast";
-import { Pause, Play, Upload, Trash2 } from "lucide-react";
+import { Pause, Play, Upload, Trash2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { solveSymbolicCircuit } from "@/lib/circuits/symbolic";
 
@@ -84,14 +94,6 @@ const computeAnchoredPosition = (origin: NodePosition, index: number, fallbackIn
 
 const AUTO_NODE_VALUE = "__auto__";
 
-type DifferentialEquation = {
-  id: string;
-  label: string;
-  plain: string;
-  latex: string;
-};
-
-
 const DEFAULT_COMPONENTS: CircuitComponent[] = [
   {
     id: "g1",
@@ -126,6 +128,27 @@ const DRAG_DATA_COMPONENT = "application/x-circuit-component";
 
 const DEFAULT_NODE_NAMES = extractCircuitNodes(DEFAULT_COMPONENTS);
 
+type HotkeyHint = { combo: string; action: string };
+
+const HOTKEY_HINTS = [
+  { combo: "W", action: "Stage wire and connect nodes" },
+  { combo: "R", action: "Stage resistor" },
+  { combo: "C", action: "Stage capacitor" },
+  { combo: "L", action: "Stage inductor" },
+  { combo: "V", action: "Stage voltage source" },
+  { combo: "I", action: "Stage current source" },
+  { combo: "G", action: "Drop ground at selected node" },
+  { combo: "Ctrl/Cmd + Enter", action: "Commit staged component" },
+  { combo: "Backspace / Delete", action: "Remove selected component" },
+  { combo: "Esc", action: "Clear selections and node picking" },
+];
+
+const EDITOR_TIPS = [
+  "Drag components from the library directly onto the canvas to autoconnect.",
+  "Drop a netlist item onto a node to retarget its leads instantly.",
+  "Rename nodes from the list to annotate probe points and exports.",
+];
+
 export function CircuitTool({ isActive }: ToolProps) {
   const [components, setComponents] = useState<CircuitComponent[]>(DEFAULT_COMPONENTS);
   const [newComponent, setNewComponent] = useState<NewComponentState>(DEFAULT_NEW_COMPONENT);
@@ -143,6 +166,7 @@ export function CircuitTool({ isActive }: ToolProps) {
   const [selectingNodeField, setSelectingNodeField] = useState<"from" | "to" | null>(null);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const playRef = useRef<number | null>(null);
   const symbolicResult = useMemo(() => {
     try {
@@ -152,131 +176,10 @@ export function CircuitTool({ isActive }: ToolProps) {
     }
   }, [components]);
 
-  const differentialEquations = useMemo<DifferentialEquation[]>(() => {
-    const equations: DifferentialEquation[] = [];
-
-    const voltageLabel = (node: string) => `V_${sanitizeIdentifier(node)}(t)`;
-    const voltageLabelLatex = (node: string) => `V_{${sanitizeIdentifier(node)}}(t)`;
-    const currentLabel = (id: string) => `I_${sanitizeIdentifier(id)}(t)`;
-    const currentLabelLatex = (id: string) => `I_{${sanitizeIdentifier(id)}}(t)`;
-    const toTimeDomainPlain = (expr: string) => expr.replace(/\bs\b/g, "d/dt");
-    const toTimeDomainLatex = (expr: string) => expr.replace(/s/g, "\\frac{d}{dt}");
-
-    components.forEach(component => {
-      switch (component.kind) {
-        case "resistor":
-          equations.push({
-            id: `res-${component.id}`,
-            label: `${component.id} (Resistor)`,
-            plain: `${currentLabel(component.id)} = (${voltageLabel(component.from)} - ${voltageLabel(component.to)}) / ${component.value}`,
-            latex: `${currentLabelLatex(component.id)} = \\frac{${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)}}{${component.value}}`,
-          });
-          break;
-        case "capacitor":
-          equations.push({
-            id: `cap-${component.id}`,
-            label: `${component.id} (Capacitor)`,
-            plain: `${currentLabel(component.id)} = ${component.value} * d/dt (${voltageLabel(component.from)} - ${voltageLabel(component.to)})`,
-            latex: `${currentLabelLatex(component.id)} = ${component.value}\\,\\frac{d}{dt}\\left(${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)}\\right)`,
-          });
-          break;
-        case "inductor":
-          equations.push({
-            id: `ind-${component.id}`,
-            label: `${component.id} (Inductor)`,
-            plain: `${voltageLabel(component.from)} - ${voltageLabel(component.to)} = ${component.value} * d/dt ${currentLabel(component.id)}`,
-            latex: `${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)} = ${component.value}\\,\\frac{d}{dt}${currentLabelLatex(component.id)}`,
-          });
-          break;
-        case "voltage-source": {
-          const header = `${component.id} (Voltage Source)`;
-          if (component.waveform === "ac") {
-            const amplitude = component.amplitude ?? component.value;
-            const frequency = component.frequency ?? DEFAULT_NEW_COMPONENT.frequency;
-            const phase = component.phase ?? 0;
-            const offset = component.offset ?? 0;
-            equations.push({
-              id: `vs-${component.id}`,
-              label: header,
-              plain: `${voltageLabel(component.from)} - ${voltageLabel(component.to)} = ${offset} + ${amplitude} * sin(2*pi * ${frequency} * t + ${phase})`,
-              latex: `${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)} = ${offset} + ${amplitude}\\sin(2\\pi ${frequency} t + ${phase})`,
-            });
-          } else {
-            equations.push({
-              id: `vs-${component.id}`,
-              label: header,
-              plain: `${voltageLabel(component.from)} - ${voltageLabel(component.to)} = ${component.value}`,
-              latex: `${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)} = ${component.value}`,
-            });
-          }
-          break;
-        }
-        case "current-source": {
-          const header = `${component.id} (Current Source)`;
-          if (component.waveform === "ac") {
-            const amplitude = component.amplitude ?? component.value;
-            const frequency = component.frequency ?? DEFAULT_NEW_COMPONENT.frequency;
-            const phase = component.phase ?? 0;
-            const offset = component.offset ?? 0;
-            equations.push({
-              id: `is-${component.id}`,
-              label: header,
-              plain: `${currentLabel(component.id)} = ${offset} + ${amplitude} * sin(2*pi * ${frequency} * t + ${phase})`,
-              latex: `${currentLabelLatex(component.id)} = ${offset} + ${amplitude}\\sin(2\\pi ${frequency} t + ${phase})`,
-            });
-          } else {
-            equations.push({
-              id: `is-${component.id}`,
-              label: header,
-              plain: `${currentLabel(component.id)} = ${component.value}`,
-              latex: `${currentLabelLatex(component.id)} = ${component.value}`,
-            });
-          }
-          break;
-        }
-        default:
-          break;
-      }
-    });
-
-    Object.entries(symbolicResult.nodeVoltages).forEach(([node, data]) => {
-      if (!data) return;
-      const currentExpr = data.current.trim();
-      if (currentExpr === "0") {
-        return;
-      }
-      equations.push({
-        id: `node-${node}`,
-        label: `Node ${node} KCL`,
-        plain: `${currentLabel(node)} = ${toTimeDomainPlain(currentExpr)}`,
-        latex: `${currentLabelLatex(node)} = ${toTimeDomainLatex(data.currentLatex)}`,
-      });
-    });
-
-    return equations;
-  }, [components, symbolicResult]);
-
-  const circuitNodes = useMemo(() => {
-    const nodes = new Set<string>(extractCircuitNodes(components));
-    extraNodes.forEach(node => nodes.add(node));
-    return Array.from(nodes);
-  }, [components, extraNodes]);
-
-  const connectedNodes = useMemo(() => {
-    const used = new Set<string>();
-    components.forEach(component => {
-      if (component.from) {
-        used.add(component.from);
-      }
-      if (component.to) {
-        used.add(component.to);
-      }
-      if (component.kind === "ground") {
-        used.add(CANONICAL_GROUND);
-      }
-    });
-    return used;
-  }, [components]);
+  const differentialEquations = useMemo<DifferentialEquation[]>(
+    () => buildDifferentialEquations(components),
+    [components]
+  );
 
   useEffect(() => {
     setNodePositions(prev => {
@@ -401,8 +304,18 @@ export function CircuitTool({ isActive }: ToolProps) {
     if (selectedNode) {
       nodes.add(selectedNode);
     }
+    if (hoveredNodeId) {
+      nodes.add(hoveredNodeId);
+    }
     return nodes;
-  }, [selectedComponent, selectingNodeField, newComponent.from, newComponent.to, selectedNode]);
+  }, [
+    selectedComponent,
+    selectingNodeField,
+    newComponent.from,
+    newComponent.to,
+    selectedNode,
+    hoveredNodeId,
+  ]);
 
   const handleComponentKindSelect = (kind: CircuitKind) => {
     setNewComponent(prev => stageComponentFromKind(prev, kind));
@@ -927,6 +840,10 @@ export function CircuitTool({ isActive }: ToolProps) {
     setSelectedNode(nodeId);
   };
 
+  const handleNodeHover = useCallback((nodeId: string | null) => {
+    setHoveredNodeId(nodeId);
+  }, []);
+
   const handleNodeDropComponentInstance = (componentId: string, nodeId: string) => {
     setComponents(prev =>
       prev.map(component => {
@@ -1190,8 +1107,10 @@ export function CircuitTool({ isActive }: ToolProps) {
               focusedComponentId={selectedComponentId}
               hoveredComponentId={hoveredComponentId}
               highlightedNodes={highlightedNodes}
+              hoveredNodeId={hoveredNodeId}
               onNodePositionChange={handleNodePositionChange}
               onNodeSelect={handleNodeSelect}
+              onNodeHover={handleNodeHover}
               onNodeFocus={nodeId => {
                 setSelectedNode(nodeId);
                 setSelectedComponentId(null);
@@ -1292,6 +1211,11 @@ export function CircuitTool({ isActive }: ToolProps) {
             </div>
           </Card>
           <Card className="space-y-4 p-4">
+            <h3 className="text-sm font-semibold">Workflow Tips</h3>
+            <ShortcutLegend items={HOTKEY_HINTS} />
+            <TipsList tips={EDITOR_TIPS} />
+          </Card>
+          <Card className="space-y-4 p-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Netlist ({components.length})</h3>
             </div>
@@ -1299,6 +1223,9 @@ export function CircuitTool({ isActive }: ToolProps) {
               {components.map(component => {
                 const isActive = selectedComponentId === component.id;
                 const label = COMPONENT_LOOKUP[component.kind]?.label ?? component.kind;
+                const fromLabel = component.from || "(unset)";
+                const toLabel =
+                  component.to || (component.kind === "ground" ? CANONICAL_GROUND : "(unset)");
                 return (
                   <div
                     key={component.id}
@@ -1333,9 +1260,17 @@ export function CircuitTool({ isActive }: ToolProps) {
                         </Badge>
                         <span className="text-xs font-semibold capitalize">{label}</span>
                       </div>
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {component.from} &rarr; {component.to}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                        <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                          {fromLabel}
+                        </Badge>
+                        <span aria-hidden="true" className="text-muted-foreground">
+                          →
+                        </span>
+                        <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                          {toLabel}
+                        </Badge>
+                      </div>
                       <span className="text-muted-foreground">{describeComponent(component)}</span>
                     </div>
                     <Button
@@ -1374,6 +1309,15 @@ export function CircuitTool({ isActive }: ToolProps) {
                 Select a component to inspect and tweak its parameters.
               </p>
             )}
+          </Card>
+          <Card className="space-y-3 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Symbolic Equations</h3>
+              <Badge variant="outline" className="font-mono text-[11px]">
+                {differentialEquations.length}
+              </Badge>
+            </div>
+            <DifferentialEquationList equations={differentialEquations} />
           </Card>
         </div>
         <div className="flex flex-col gap-4">
@@ -2107,8 +2051,10 @@ interface CircuitCanvasProps {
   focusedComponentId?: string | null;
   hoveredComponentId?: string | null;
   highlightedNodes?: Set<string>;
+  hoveredNodeId?: string | null;
   onNodePositionChange: (nodeId: string, position: NodePosition) => void;
   onNodeSelect: (nodeId: string) => void;
+  onNodeHover?: (nodeId: string | null) => void;
   onNodeFocus?: (nodeId: string) => void;
   onComponentHover?: (componentId: string | null) => void;
   onComponentSelect?: (componentId: string) => void;
@@ -2126,8 +2072,10 @@ const CircuitCanvas = ({
   focusedComponentId,
   hoveredComponentId,
   highlightedNodes,
+  hoveredNodeId,
   onNodePositionChange,
   onNodeSelect,
+  onNodeHover,
   onNodeFocus,
   onComponentHover,
   onComponentSelect,
@@ -2172,21 +2120,29 @@ const CircuitCanvas = ({
         )
       : null;
 
+  const pointerToCanvas = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const scaleX = CANVAS_WIDTH / rect.width;
+    const scaleY = CANVAS_HEIGHT / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
   const beginDrag = (nodeId: string, event: React.PointerEvent<SVGCircleElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const scaleX = CANVAS_WIDTH / rect.width;
-    const scaleY = CANVAS_HEIGHT / rect.height;
-    const pointerX = (event.clientX - rect.left) * scaleX;
-    const pointerY = (event.clientY - rect.top) * scaleY;
+    const pointer = pointerToCanvas(event.clientX, event.clientY);
+    if (!pointer) return;
     const current = resolvedPositions[nodeId];
     dragMovedRef.current = false;
+    onNodeHover?.(nodeId);
     setDragState({
       nodeId,
-      offsetX: pointerX - current.x,
-      offsetY: pointerY - current.y,
+      offsetX: pointer.x - current.x,
+      offsetY: pointer.y - current.y,
     });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -2196,21 +2152,35 @@ const CircuitCanvas = ({
     onNodeSelect(nodeId);
   };
 
+  const handleCanvasPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!onNodeHover || dragState) return;
+    const pointer = pointerToCanvas(event.clientX, event.clientY);
+    if (!pointer) return;
+    let closestId: string | null = null;
+    let closestDistance = Infinity;
+    nodes.forEach(nodeId => {
+      const position = resolvedPositions[nodeId];
+      const distance = Math.hypot(position.x - pointer.x, position.y - pointer.y);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestId = nodeId;
+      }
+    });
+    const threshold = 32;
+    onNodeHover(closestDistance <= threshold ? closestId : null);
+  };
+
   useEffect(() => {
     if (!dragState) return;
 
     const handlePointerMove = (event: PointerEvent) => {
       event.preventDefault();
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return;
+      const pointer = pointerToCanvas(event.clientX, event.clientY);
+      if (!pointer) return;
       dragMovedRef.current = true;
-      const scaleX = CANVAS_WIDTH / rect.width;
-      const scaleY = CANVAS_HEIGHT / rect.height;
-      const pointerX = (event.clientX - rect.left) * scaleX;
-      const pointerY = (event.clientY - rect.top) * scaleY;
       const nextPosition = {
-        x: pointerX - dragState.offsetX,
-        y: pointerY - dragState.offsetY,
+        x: pointer.x - dragState.offsetX,
+        y: pointer.y - dragState.offsetY,
       };
       onNodePositionChange(dragState.nodeId, nextPosition);
     };
@@ -2234,13 +2204,9 @@ const CircuitCanvas = ({
   const componentStroke = (kind: CircuitKind) => COMPONENT_COLORS[kind] ?? "#94a3b8";
 
   const resolveDropPosition = (clientX: number, clientY: number): NodePosition | null => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    const scaleX = CANVAS_WIDTH / rect.width;
-    const scaleY = CANVAS_HEIGHT / rect.height;
-    const pointerX = (clientX - rect.left) * scaleX;
-    const pointerY = (clientY - rect.top) * scaleY;
-    return applyNodeSnap({ x: pointerX, y: pointerY });
+    const pointer = pointerToCanvas(clientX, clientY);
+    if (!pointer) return null;
+    return applyNodeSnap(pointer);
   };
 
   const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -2295,6 +2261,8 @@ const CircuitCanvas = ({
         ref={svgRef}
         viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
         className="h-[360px] w-full select-none touch-none"
+        onPointerMove={handleCanvasPointerMove}
+        onPointerLeave={() => onNodeHover?.(null)}
       >
         <defs>
           <pattern id={minorGridId} width={SNAP_GRID_SIZE} height={SNAP_GRID_SIZE} patternUnits="userSpaceOnUse">
@@ -2425,12 +2393,14 @@ const CircuitCanvas = ({
             (selectingField === "from" && highlightedFrom === nodeId) ||
             (selectingField === "to" && highlightedTo === nodeId);
           const isHighlighted = highlightedNodes?.has(nodeId);
-          const ringColor = isActive
-            ? "hsl(var(--primary))"
-            : isHighlighted
-            ? "hsl(var(--primary))"
-            : "rgba(148,163,184,0.8)";
-          const strokeWidth = isActive ? 3 : isHighlighted ? 2.4 : 1.5;
+          const isHover = hoveredNodeId === nodeId;
+          const ringColor =
+            isActive || isHover
+              ? "hsl(var(--primary))"
+              : isHighlighted
+              ? "hsl(var(--primary) / 0.7)"
+              : "rgba(148,163,184,0.8)";
+          const strokeWidth = isActive || isHover ? 3 : isHighlighted ? 2.4 : 1.5;
           const coordinate = `${Math.round(position.x)}, ${Math.round(position.y)}`;
           return (
             <g key={nodeId}>
@@ -2444,11 +2414,13 @@ const CircuitCanvas = ({
                 fill={
                   isGround
                     ? "#0f172a"
+                    : isActive || isHover
+                    ? "hsl(var(--primary) / 0.22)"
                     : isHighlighted
-                    ? "hsl(var(--primary) / 0.18)"
+                    ? "hsl(var(--primary) / 0.12)"
                     : "#1e293b"
                 }
-                opacity={isHighlighted ? 0.45 : 0.25}
+                opacity={isActive || isHover || isHighlighted ? 0.55 : 0.25}
               />
               <circle
                 cx={position.x}
@@ -2460,12 +2432,14 @@ const CircuitCanvas = ({
                 onDragOver={handleNodeDragOver}
                 onDrop={event => handleNodeDrop(nodeId, event)}
                 onPointerDown={event => beginDrag(nodeId, event)}
+                onPointerEnter={() => onNodeHover?.(nodeId)}
+                onPointerLeave={() => onNodeHover?.(null)}
               />
               <text
                 x={position.x}
                 y={position.y + 24}
                 textAnchor="middle"
-                fill={isHighlighted ? "hsl(var(--primary))" : "var(--foreground)"}
+                fill={isActive || isHover || isHighlighted ? "hsl(var(--primary))" : "var(--foreground)"}
                 fontSize={11}
                 fontWeight={600}
               >
@@ -2625,21 +2599,82 @@ interface DifferentialEquationListProps {
 
 const DifferentialEquationList = ({ equations }: DifferentialEquationListProps) => {
   if (!equations.length) {
-    return <p className="text-xs text-muted-foreground">Add reactive elements or sources to generate symbolic equations.</p>;
+    return (
+      <p className="text-xs text-muted-foreground">
+        Add reactive elements or sources to generate symbolic equations.
+      </p>
+    );
   }
 
+  const copyValue = async (value: string, label: string) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({
+        title: "Copied to clipboard",
+        description: label,
+      });
+    } catch (error) {
+      console.error("Failed to copy differential equation", error);
+    }
+  };
+
   return (
-    <div className="space-y-2 text-xs">
+    <Accordion type="single" collapsible className="w-full space-y-2">
       {equations.map(eq => (
-        <div key={eq.id} className="rounded border px-3 py-2">
-          <p className="font-semibold">{eq.label}</p>
-          <p className="font-mono text-[11px]">{eq.plain}</p>
-          <p className="text-[11px] text-muted-foreground break-words">{eq.latex}</p>
-        </div>
+        <AccordionItem key={eq.id} value={eq.id} className="overflow-hidden rounded border">
+          <AccordionTrigger className="px-3 py-2 text-left text-sm font-semibold">
+            {eq.label}
+          </AccordionTrigger>
+          <AccordionContent className="space-y-3 px-3 pb-3 pt-0 text-xs">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-mono text-[11px] leading-relaxed">{eq.plain}</p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={`Copy ${eq.label} equation`}
+                onClick={() => copyValue(eq.plain, `${eq.label} equation`)}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="rounded bg-muted/30 px-2 py-1 font-mono text-[11px] leading-relaxed text-muted-foreground">
+              {eq.latex}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
       ))}
-    </div>
+    </Accordion>
   );
 };
+const ShortcutLegend = ({ items }: { items: HotkeyHint[] }) => (
+  <div className="space-y-1 text-xs">
+    {items.map(item => (
+      <div
+        key={item.combo}
+        className="flex items-center gap-3 rounded border px-2 py-1"
+      >
+        <Badge variant="secondary" className="font-mono text-[11px]">
+          {item.combo}
+        </Badge>
+        <span className="text-muted-foreground">{item.action}</span>
+      </div>
+    ))}
+  </div>
+);
+
+const TipsList = ({ tips }: { tips: string[] }) => (
+  <ul className="space-y-1 text-xs text-muted-foreground">
+    {tips.map(tip => (
+      <li key={tip} className="flex items-start gap-2">
+        <span className="mt-[2px] text-[10px]">•</span>
+        <span>{tip}</span>
+      </li>
+    ))}
+  </ul>
+);
+
 interface MiniChartProps {
   label: string;
   time: Float32Array | null;
@@ -2966,17 +3001,3 @@ function buildPiecewiseExpression(time: Float32Array, values: Float32Array, labe
   parts.push(`1,${values[values.length - 1].toFixed(6)}`);
   return `${identifier}(t)=piecewise(${parts.join(",")})`;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

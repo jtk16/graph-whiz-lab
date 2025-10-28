@@ -591,72 +591,47 @@ const DomainCanvas = ({
 
 const DomainAxesOverlay = ({ extent }: { extent: number }) => {
   const precision = useMemo(() => (extent >= 10 ? 0 : extent >= 4 ? 1 : 2), [extent]);
-  const horizontalTicks = useMemo(() => {
+  const ticks = useMemo(() => {
     if (extent <= 0) {
-      return [{ value: 0, position: 50, label: "0" }];
+      return { horizontal: ["0"], vertical: ["0"] };
     }
     const half = extent / 2;
-    const denominator = 2 * extent;
-    const candidates = [-extent, -half, 0, half, extent];
-    return candidates.map(value => ({
-      value,
-      position: ((value + extent) / denominator) * 100,
-      label: formatAxisLabel(value, precision),
-    }));
-  }, [extent, precision]);
-
-  const verticalTicks = useMemo(() => {
-    if (extent <= 0) {
-      return [{ value: 0, position: 50, label: "0" }];
-    }
-    const half = extent / 2;
-    const denominator = 2 * extent;
-    const candidates = [extent, half, 0, -half, -extent];
-    return candidates.map(value => ({
-      value,
-      position: ((extent - value) / denominator) * 100,
-      label: formatAxisLabel(value, precision),
-    }));
+    const values = [-extent, -half, 0, half, extent];
+    const labels = values.map(value => formatAxisLabel(value, precision));
+    return {
+      horizontal: labels,
+      vertical: [...labels].reverse(),
+    };
   }, [extent, precision]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium text-white/80">
-      <div className="relative h-full w-full px-6 py-6">
-        <div className="absolute inset-x-6 top-1/2 border-t border-white/25" />
-        <div className="absolute inset-y-6 left-1/2 border-l border-white/25" />
+    <div className="pointer-events-none absolute inset-0 text-[10px] font-semibold text-white/75">
+      <div className="absolute inset-6">
+        <div className="absolute left-1/2 top-0 bottom-0 -translate-x-1/2 border-l border-white/25" />
+        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t border-white/25" />
 
-        <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white/80 shadow-sm">
+        <div className="absolute left-1/2 top-2 -translate-x-1/2 text-[11px] uppercase tracking-wide text-white/85">
           Im(z)
         </div>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white/80 shadow-sm">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] uppercase tracking-wide text-white/85">
           Re(z)
         </div>
 
-        {horizontalTicks.map(tick => (
-          <div
-            key={`hx-${tick.value}`}
-            className="absolute bottom-11 flex -translate-x-1/2 flex-col items-center gap-1 text-white/70"
-            style={{ left: `${tick.position}%` }}
-          >
-            <div className="h-3 w-px bg-white/40" />
-            <span className="rounded bg-black/60 px-1.5 py-[1px] text-[9px] font-semibold leading-none tracking-wide">
-              {tick.label}
+        <div className="absolute bottom-6 left-6 right-6 flex justify-between text-[9px] font-medium uppercase tracking-wide">
+          {ticks.horizontal.map(label => (
+            <span key={`hx-${label}`} className="px-1 text-white/75">
+              {label}
             </span>
-          </div>
-        ))}
+          ))}
+        </div>
 
-        {verticalTicks.map(tick => (
-          <div
-            key={`vy-${tick.value}`}
-            className="absolute left-11 flex -translate-y-1/2 items-center gap-1 text-white/70"
-            style={{ top: `${tick.position}%` }}
-          >
-            <div className="w-3 border-t border-white/40" />
-            <span className="rounded bg-black/60 px-1.5 py-[1px] text-[9px] font-semibold leading-none tracking-wide">
-              {tick.label}
+        <div className="absolute left-6 top-6 bottom-6 flex flex-col justify-between text-[9px] font-medium uppercase tracking-wide">
+          {ticks.vertical.map(label => (
+            <span key={`vy-${label}`} className="px-1 text-white/75">
+              {label}
             </span>
-          </div>
-        ))}
+          ))}
+        </div>
 
         <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/80 shadow" />
       </div>
@@ -778,7 +753,6 @@ const ComplexSurfaceMini = ({
 
     const grid = new THREE.GridHelper(1, Math.min(24, Math.max(8, Math.round(axisLength * 4))));
     grid.position.set(bounds.center[0], 0, bounds.center[2]);
-    grid.rotation.x = Math.PI / 2;
     grid.scale.set(Math.max(bounds.size[0], 0.0001), 1, Math.max(bounds.size[2], 0.0001));
     const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
     gridMaterials.forEach(material => {
