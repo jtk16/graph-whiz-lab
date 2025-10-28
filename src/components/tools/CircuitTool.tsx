@@ -181,6 +181,23 @@ export function CircuitTool({ isActive }: ToolProps) {
     [components]
   );
   const circuitNodes = useMemo(() => extractCircuitNodes(components), [components]);
+  const connectedNodes = useMemo(() => {
+    const set = new Set<string>();
+    components.forEach(component => {
+      if (!component) return;
+      switch (component.kind) {
+        case "ground":
+          if (component.from) set.add(component.from);
+          if (component.to) set.add(component.to);
+          break;
+        default:
+          if (component.from) set.add(component.from);
+          if (component.to) set.add(component.to);
+          break;
+      }
+    });
+    return set;
+  }, [components]);
 
   useEffect(() => {
     setNodePositions(prev => {
