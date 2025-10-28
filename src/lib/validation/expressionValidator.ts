@@ -5,6 +5,12 @@ import { getBuiltinFunctions } from '../runtime/callables';
 import { UndefinedIdentifierError, CircularDependencyError } from '../errors/RuntimeError';
 import { getSuggestions } from './suggestions';
 
+const DEBUG_EXPRESSION_VALIDATOR = false;
+const validatorDebug = (...args: unknown[]): void => {
+  if (!DEBUG_EXPRESSION_VALIDATOR) return;
+  console.log(...args);
+};
+
 export interface ValidationError {
   type: 'undefined_identifier' | 'circular_dependency' | 'parse_error';
   message: string;
@@ -66,29 +72,29 @@ export function validateExpression(
   for (const match of matches) {
     const identifier = match[1];
     
-    console.log(`  Checking identifier: '${identifier}'`);
+    validatorDebug(`  Checking identifier: '${identifier}'`);
     
     // Skip the LHS identifier (the thing being defined)
     if (lhsIdentifier && identifier === lhsIdentifier) {
-      console.log(`    ✓ Skipped (LHS identifier being defined)`);
+      validatorDebug(`    ✓ Skipped (LHS identifier being defined)`);
       continue;
     }
     
     // Skip local parameters (function arguments)
     if (localParameters.has(identifier)) {
-      console.log(`    ✓ Skipped (local parameter)`);
+      validatorDebug(`    ✓ Skipped (local parameter)`);
       continue;
     }
     
     // Skip built-in functions and reserved names
     if (getBuiltinFunctions().has(identifier) || RESERVED_NAMES.includes(identifier)) {
-      console.log(`    ✓ Skipped (builtin/reserved)`);
+      validatorDebug(`    ✓ Skipped (builtin/reserved)`);
       continue;
     }
     
     // Skip constants
     if (identifier in CONSTANTS) {
-      console.log(`    ✓ Skipped (constant)`);
+      validatorDebug(`    ✓ Skipped (constant)`);
       continue;
     }
     
@@ -96,12 +102,12 @@ export function validateExpression(
     const existsAsVariable = identifier in context.variables;
     const existsAsFunction = identifier in context.functions;
     
-    console.log(`    Variable? ${existsAsVariable}, Function? ${existsAsFunction}`);
-    console.log(`    Available functions:`, Object.keys(context.functions));
-    console.log(`    Available variables:`, Object.keys(context.variables));
+    validatorDebug(`    Variable? ${existsAsVariable}, Function? ${existsAsFunction}`);
+    validatorDebug(`    Available functions:`, Object.keys(context.functions));
+    validatorDebug(`    Available variables:`, Object.keys(context.variables));
     
     if (!existsAsVariable && !existsAsFunction) {
-      console.log(`    ❌ UNDEFINED`);
+      validatorDebug(`    ❌ UNDEFINED`);
       const suggestions = getSuggestions(identifier, context);
       errors.push({
         type: 'undefined_identifier',
@@ -110,7 +116,7 @@ export function validateExpression(
         suggestions,
       });
     } else {
-      console.log(`    ✓ Valid`);
+      validatorDebug(`    ✓ Valid`);
     }
   }
   

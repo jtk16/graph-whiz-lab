@@ -23,6 +23,7 @@ export const SNAP_GRID_SIZE = 24;
 export const CANVAS_WIDTH = 760;
 export const CANVAS_HEIGHT = 360;
 export const NODE_MARGIN = 32;
+export const CANONICAL_GROUND = "gnd";
 
 export const DEFAULT_NEW_COMPONENT: NewComponentState = {
   kind: "resistor",
@@ -73,6 +74,11 @@ export const COMPONENT_LIBRARY: ComponentDefinition[] = [
     label: "Wire",
     description: "Directly connect nodes without impedance.",
   },
+  {
+    kind: "ground",
+    label: "Ground",
+    description: "Reference node held at zero potential.",
+  },
 ];
 
 export const COMPONENT_LOOKUP: Record<CircuitKind, ComponentDefinition> = COMPONENT_LIBRARY.reduce(
@@ -90,6 +96,7 @@ export const COMPONENT_COLORS: Record<CircuitKind, string> = {
   "current-source": "#14b8a6",
   "voltage-source": "#22c55e",
   wire: "#94a3b8",
+  ground: "#64748b",
 };
 
 export const clamp = (value: number, min: number, max: number) =>
@@ -112,10 +119,18 @@ export const sanitizeIdentifier = (raw: string): string => {
 };
 
 export const extractCircuitNodes = (components: CircuitComponent[]): string[] => {
-  const nodes = new Set<string>(["gnd"]);
+  const nodes = new Set<string>();
   components.forEach(component => {
-    nodes.add(component.from);
-    nodes.add(component.to);
+    if (component.from) {
+      nodes.add(component.from);
+    }
+    if (component.to) {
+      nodes.add(component.to);
+    }
+    if (component.kind === "ground") {
+      nodes.add(component.from);
+      nodes.add(CANONICAL_GROUND);
+    }
   });
   return Array.from(nodes);
 };
@@ -145,6 +160,14 @@ export const stageComponentFromKind = (
 ): NewComponentState => {
   if (current.kind === kind) {
     return current;
+  }
+  if (kind === "ground") {
+    return {
+      ...current,
+      kind,
+      to: CANONICAL_GROUND,
+      waveform: "dc",
+    };
   }
   if (kind === "voltage-source" || kind === "current-source") {
     return {
@@ -176,6 +199,8 @@ export const componentGlyph = (kind: CircuitKind) => {
       return "I";
     case "voltage-source":
       return "V";
+    case "ground":
+      return "G";
     case "wire":
     default:
       return "W";
@@ -200,6 +225,7 @@ export const hotkeyToKind: Record<string, CircuitKind> = {
   l: "inductor",
   v: "voltage-source",
   i: "current-source",
+  g: "ground",
 };
 
 export const stageComponentForNodeDrop = (
@@ -208,6 +234,9 @@ export const stageComponentForNodeDrop = (
   nodeId: string
 ): NewComponentState => {
   const staged = stageComponentFromKind(current, kind);
+  if (kind === "ground") {
+    return { ...staged, from: nodeId, to: CANONICAL_GROUND };
+  }
   const nextTo = staged.to && staged.to !== nodeId ? staged.to : "";
   return { ...staged, from: nodeId, to: nextTo };
 };
@@ -216,6 +245,12 @@ export const retargetComponentToNode = (
   component: CircuitComponent,
   nodeId: string
 ): CircuitComponent => {
+  if (component.kind === "ground") {
+    if (component.from === nodeId) {
+      return component;
+    }
+    return { ...component, from: nodeId };
+  }
   if (component.to === nodeId) {
     return component;
   }

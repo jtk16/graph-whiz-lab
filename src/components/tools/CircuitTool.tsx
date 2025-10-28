@@ -4,6 +4,7 @@ import { ToolProps } from "@/lib/tools/types";
 import {
   CircuitComponent,
   SimulationResult,
+  SimulationMetrics,
   simulateCircuit,
 } from "@/lib/circuits/simulator";
 import {
@@ -27,6 +28,7 @@ import {
   generateNodeName,
   gridKeyForPosition,
   hotkeyToKind,
+  CANONICAL_GROUND,
   sanitizeIdentifier,
   stageComponentFromKind,
   stageComponentForNodeDrop,
@@ -82,12 +84,26 @@ const computeAnchoredPosition = (origin: NodePosition, index: number, fallbackIn
 
 const AUTO_NODE_VALUE = "__auto__";
 
+type DifferentialEquation = {
+  id: string;
+  label: string;
+  plain: string;
+  latex: string;
+};
+
+
 const DEFAULT_COMPONENTS: CircuitComponent[] = [
+  {
+    id: "g1",
+    kind: "ground",
+    from: "n0",
+    to: CANONICAL_GROUND,
+  },
   {
     id: "vs1",
     kind: "voltage-source",
     from: "vin",
-    to: "gnd",
+    to: "n0",
     waveform: "dc",
     value: 5,
   },
@@ -95,7 +111,7 @@ const DEFAULT_COMPONENTS: CircuitComponent[] = [
     id: "r1",
     kind: "resistor",
     from: "vin",
-    to: "gnd",
+    to: "n0",
     value: 1000,
   },
 ];
@@ -115,6 +131,7 @@ export function CircuitTool({ isActive }: ToolProps) {
   const [newComponent, setNewComponent] = useState<NewComponentState>(DEFAULT_NEW_COMPONENT);
   const [simConfig, setSimConfig] = useState(DEFAULT_SIM);
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [metrics, setMetrics] = useState<SimulationMetrics | null>(null);
   const [status, setStatus] = useState<string>("");
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -135,12 +152,112 @@ export function CircuitTool({ isActive }: ToolProps) {
     }
   }, [components]);
 
-  const circuitNodes = useMemo(() => {
-    const nodes = new Set<string>(["gnd"]);
+  const differentialEquations = useMemo<DifferentialEquation[]>(() => {
+    const equations: DifferentialEquation[] = [];
+
+    const voltageLabel = (node: string) => `V_${sanitizeIdentifier(node)}(t)`;
+    const voltageLabelLatex = (node: string) => `V_{${sanitizeIdentifier(node)}}(t)`;
+    const currentLabel = (id: string) => `I_${sanitizeIdentifier(id)}(t)`;
+    const currentLabelLatex = (id: string) => `I_{${sanitizeIdentifier(id)}}(t)`;
+    const toTimeDomainPlain = (expr: string) => expr.replace(/\bs\b/g, "d/dt");
+    const toTimeDomainLatex = (expr: string) => expr.replace(/s/g, "\\frac{d}{dt}");
+
     components.forEach(component => {
-      nodes.add(component.from);
-      nodes.add(component.to);
+      switch (component.kind) {
+        case "resistor":
+          equations.push({
+            id: `res-${component.id}`,
+            label: `${component.id} (Resistor)`,
+            plain: `${currentLabel(component.id)} = (${voltageLabel(component.from)} - ${voltageLabel(component.to)}) / ${component.value}`,
+            latex: `${currentLabelLatex(component.id)} = \\frac{${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)}}{${component.value}}`,
+          });
+          break;
+        case "capacitor":
+          equations.push({
+            id: `cap-${component.id}`,
+            label: `${component.id} (Capacitor)`,
+            plain: `${currentLabel(component.id)} = ${component.value} * d/dt (${voltageLabel(component.from)} - ${voltageLabel(component.to)})`,
+            latex: `${currentLabelLatex(component.id)} = ${component.value}\\,\\frac{d}{dt}\\left(${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)}\\right)`,
+          });
+          break;
+        case "inductor":
+          equations.push({
+            id: `ind-${component.id}`,
+            label: `${component.id} (Inductor)`,
+            plain: `${voltageLabel(component.from)} - ${voltageLabel(component.to)} = ${component.value} * d/dt ${currentLabel(component.id)}`,
+            latex: `${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)} = ${component.value}\\,\\frac{d}{dt}${currentLabelLatex(component.id)}`,
+          });
+          break;
+        case "voltage-source": {
+          const header = `${component.id} (Voltage Source)`;
+          if (component.waveform === "ac") {
+            const amplitude = component.amplitude ?? component.value;
+            const frequency = component.frequency ?? DEFAULT_NEW_COMPONENT.frequency;
+            const phase = component.phase ?? 0;
+            const offset = component.offset ?? 0;
+            equations.push({
+              id: `vs-${component.id}`,
+              label: header,
+              plain: `${voltageLabel(component.from)} - ${voltageLabel(component.to)} = ${offset} + ${amplitude} * sin(2*pi * ${frequency} * t + ${phase})`,
+              latex: `${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)} = ${offset} + ${amplitude}\\sin(2\\pi ${frequency} t + ${phase})`,
+            });
+          } else {
+            equations.push({
+              id: `vs-${component.id}`,
+              label: header,
+              plain: `${voltageLabel(component.from)} - ${voltageLabel(component.to)} = ${component.value}`,
+              latex: `${voltageLabelLatex(component.from)} - ${voltageLabelLatex(component.to)} = ${component.value}`,
+            });
+          }
+          break;
+        }
+        case "current-source": {
+          const header = `${component.id} (Current Source)`;
+          if (component.waveform === "ac") {
+            const amplitude = component.amplitude ?? component.value;
+            const frequency = component.frequency ?? DEFAULT_NEW_COMPONENT.frequency;
+            const phase = component.phase ?? 0;
+            const offset = component.offset ?? 0;
+            equations.push({
+              id: `is-${component.id}`,
+              label: header,
+              plain: `${currentLabel(component.id)} = ${offset} + ${amplitude} * sin(2*pi * ${frequency} * t + ${phase})`,
+              latex: `${currentLabelLatex(component.id)} = ${offset} + ${amplitude}\\sin(2\\pi ${frequency} t + ${phase})`,
+            });
+          } else {
+            equations.push({
+              id: `is-${component.id}`,
+              label: header,
+              plain: `${currentLabel(component.id)} = ${component.value}`,
+              latex: `${currentLabelLatex(component.id)} = ${component.value}`,
+            });
+          }
+          break;
+        }
+        default:
+          break;
+      }
     });
+
+    Object.entries(symbolicResult.nodeVoltages).forEach(([node, data]) => {
+      if (!data) return;
+      const currentExpr = data.current.trim();
+      if (currentExpr === "0") {
+        return;
+      }
+      equations.push({
+        id: `node-${node}`,
+        label: `Node ${node} KCL`,
+        plain: `${currentLabel(node)} = ${toTimeDomainPlain(currentExpr)}`,
+        latex: `${currentLabelLatex(node)} = ${toTimeDomainLatex(data.currentLatex)}`,
+      });
+    });
+
+    return equations;
+  }, [components, symbolicResult]);
+
+  const circuitNodes = useMemo(() => {
+    const nodes = new Set<string>(extractCircuitNodes(components));
     extraNodes.forEach(node => nodes.add(node));
     return Array.from(nodes);
   }, [components, extraNodes]);
@@ -148,8 +265,15 @@ export function CircuitTool({ isActive }: ToolProps) {
   const connectedNodes = useMemo(() => {
     const used = new Set<string>();
     components.forEach(component => {
-      used.add(component.from);
-      used.add(component.to);
+      if (component.from) {
+        used.add(component.from);
+      }
+      if (component.to) {
+        used.add(component.to);
+      }
+      if (component.kind === "ground") {
+        used.add(CANONICAL_GROUND);
+      }
     });
     return used;
   }, [components]);
@@ -184,7 +308,12 @@ export function CircuitTool({ isActive }: ToolProps) {
         nextFrom = circuitNodes[0];
         changed = true;
       }
-      if (!circuitNodes.includes(nextTo)) {
+      if (prev.kind === "ground") {
+        if (nextTo !== CANONICAL_GROUND) {
+          nextTo = CANONICAL_GROUND;
+          changed = true;
+        }
+      } else if (!circuitNodes.includes(nextTo)) {
         nextTo = circuitNodes[Math.min(1, circuitNodes.length - 1)] ?? nextFrom;
         changed = true;
       }
@@ -277,7 +406,7 @@ export function CircuitTool({ isActive }: ToolProps) {
 
   const handleComponentKindSelect = (kind: CircuitKind) => {
     setNewComponent(prev => stageComponentFromKind(prev, kind));
-    setSelectingNodeField(null);
+    setSelectingNodeField(kind === "ground" ? "from" : null);
   };
 
   const handleNodePositionChange = (nodeId: string, position: NodePosition) => {
@@ -295,6 +424,9 @@ export function CircuitTool({ isActive }: ToolProps) {
       return;
     }
     setNewComponent(prev => {
+      if (prev.kind === "ground") {
+        return { ...prev, from: nodeId, to: CANONICAL_GROUND };
+      }
       if (!prev.from || prev.from === nodeId) {
         return { ...prev, from: nodeId };
       }
@@ -346,15 +478,6 @@ export function CircuitTool({ isActive }: ToolProps) {
   };
 
   const handleRemoveNode = (nodeId: string) => {
-    if (nodeId.toLowerCase() === "gnd" || nodeId === "0") {
-      toast({
-        title: "Ground node is required",
-        description: "Ground cannot be removed from the circuit.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const removedComponents = new Set<string>();
     setComponents(prev =>
       prev.filter(component => {
@@ -425,7 +548,25 @@ export function CircuitTool({ isActive }: ToolProps) {
       });
     });
 
+    components.forEach(component => {
+      if (component.kind === "ground" && component.from && component.from !== CANONICAL_GROUND) {
+        aliasEntries.push([component.from, CANONICAL_GROUND]);
+      }
+    });
+
     if (aliasEntries.length === 0) {
+      const usesGround = components.some(component => component.kind === "ground");
+      if (!usesGround) {
+        setNodePositions(prev => {
+          if (!(CANONICAL_GROUND in prev)) {
+            return prev;
+          }
+          const next = { ...prev };
+          delete next[CANONICAL_GROUND];
+          return next;
+        });
+        setExtraNodes(prev => prev.filter(node => node !== CANONICAL_GROUND));
+      }
       return;
     }
 
@@ -457,7 +598,7 @@ export function CircuitTool({ isActive }: ToolProps) {
       to: aliasMap.get(prev.to) ?? prev.to,
     }));
     setSelectedNode(prev => (prev ? aliasMap.get(prev) ?? prev : prev));
-  }, [nodePositions]);
+  }, [nodePositions, components]);
 
   const handleAddNode = () => {
     const name = generateNodeName(circuitNodes);
@@ -466,13 +607,20 @@ export function CircuitTool({ isActive }: ToolProps) {
       ...prev,
       [name]: defaultNodePosition(Object.keys(prev).length),
     }));
-    setNewComponent(prev => ({ ...prev, to: name }));
+    setNewComponent(prev => ({
+      ...prev,
+      ...(prev.kind === "ground" ? { from: name } : { to: name }),
+    }));
   };
 
   const addComponent = useCallback(
     (stateOverride?: NewComponentState, anchor?: NodePosition) => {
       const placement = { ...(stateOverride ?? newComponent) };
       const kind = placement.kind;
+      const isGround = kind === "ground";
+      if (isGround) {
+        placement.to = CANONICAL_GROUND;
+      }
       const id = `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
       const existingNodes = new Set<string>(circuitNodes);
@@ -495,11 +643,11 @@ export function CircuitTool({ isActive }: ToolProps) {
 
       let fromId = ensureNode(placement.from);
       let toCandidate = placement.to;
-      if (toCandidate === fromId) {
+      if (!isGround && toCandidate === fromId) {
         toCandidate = "";
       }
       let toId = ensureNode(toCandidate);
-      if (toId === fromId) {
+      if (!isGround && toId === fromId) {
         toId = ensureNode("");
       }
 
@@ -516,7 +664,15 @@ export function CircuitTool({ isActive }: ToolProps) {
       }
 
       let component: CircuitComponent;
-      if (kind === "wire") {
+      if (isGround) {
+        toId = ensureNode(CANONICAL_GROUND);
+        component = {
+          id,
+          kind: "ground",
+          from: fromId,
+          to: toId,
+        } as CircuitComponent;
+      } else if (kind === "wire") {
         component = {
           id,
           kind: "wire",
@@ -579,18 +735,29 @@ export function CircuitTool({ isActive }: ToolProps) {
       setSelectingNodeField(null);
       setSelectedComponentId(component.id);
       setHoveredComponentId(component.id);
-      setSelectedNode(prev => (createdNodes.length ? createdNodes[0] : prev));
+      setSelectedNode(prev =>
+        createdNodes.length
+          ? createdNodes.find(node => node !== CANONICAL_GROUND) ?? createdNodes[0]
+          : isGround
+          ? fromId
+          : prev
+      );
       setNewComponent({
         ...placement,
         from: "",
-        to: "",
+        to: isGround ? CANONICAL_GROUND : "",
       });
       setResult(null);
+      setMetrics(null);
       setIsPlaying(false);
       setPlayhead(0);
 
       const label = COMPONENT_LOOKUP[kind]?.label ?? kind;
-      setStatus(`${label} placed between ${fromId} and ${toId}`);
+      if (isGround) {
+        setStatus(`${label} anchored at ${fromId}`);
+      } else {
+        setStatus(`${label} placed between ${fromId} and ${toId}`);
+      }
     },
     [newComponent, circuitNodes, nodePositions]
   );
@@ -606,6 +773,7 @@ export function CircuitTool({ isActive }: ToolProps) {
     if (invalidComponent) {
       const message = `Component ${invalidComponent.id} must connect two distinct nodes.`;
       setResult(null);
+      setMetrics(null);
       setStatus(message);
       toast({
         title: "Invalid circuit",
@@ -615,14 +783,33 @@ export function CircuitTool({ isActive }: ToolProps) {
       return;
     }
 
+    const hasGround = components.some(component => component.kind === "ground");
+    if (!hasGround) {
+      const message = "Add at least one ground component before running the simulation.";
+      setResult(null);
+      setMetrics(null);
+      setStatus(message);
+      toast({
+        title: "Ground reference missing",
+        description: message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const res = simulateCircuit(components, simConfig);
       setResult(res);
+      setMetrics(res.metrics ?? null);
       setPlayhead(0);
-      setStatus(`Simulated ${res.time.length} steps (${simConfig.duration}s)`);
+      const summary = res.metrics
+        ? `Assembly ${res.metrics.assemblyMs.toFixed(2)} ms, solve ${res.metrics.solveMs.toFixed(2)} ms.`
+        : "Simulation completed.";
+      setStatus(`Simulated ${res.time.length} steps (${simConfig.duration}s). ${summary}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Simulation failed";
       setResult(null);
+      setMetrics(null);
       setStatus(message);
       toast({
         title: "Simulation failed",
@@ -776,7 +963,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 </Badge>
               </div>
               <div className="rounded border bg-background/80 px-3 py-2 font-mono text-[11px]">
-                {`${newComponent.from || "auto"} -> ${newComponent.to || "auto"}`}
+                {`${newComponent.from || "auto"} &rarr; ${newComponent.to || "auto"}`}
               </div>
               <div className="space-y-3 text-xs">
                 <div className="flex items-center gap-2">
@@ -794,8 +981,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label className="w-20">From</Label>
+                <div className={cn("flex items-center gap-2", newComponent.kind === "ground" && "md:col-span-2")}>\r\n                  <Label className="w-20">From</Label>
                   <Select
                     value={newComponent.from ? newComponent.from : AUTO_NODE_VALUE}
                     onValueChange={value =>
@@ -1148,7 +1334,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                         <span className="text-xs font-semibold capitalize">{label}</span>
                       </div>
                       <span className="font-mono text-[11px] text-muted-foreground">
-                        {component.from} â†’ {component.to}
+                        {component.from} &rarr; {component.to}
                       </span>
                       <span className="text-muted-foreground">{describeComponent(component)}</span>
                     </div>
@@ -2341,7 +2527,7 @@ const NodeListEditor = ({ nodes, lockedNodes, onRename, onRemove }: NodeListEdit
                 size="icon"
                 variant="ghost"
                 className={cn("h-8 w-8", isConnected && !isGround ? "text-destructive" : undefined)}
-                disabled={isGround}
+                disabled={isConnected}
                 onClick={() => onRemove(node)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -2357,6 +2543,103 @@ const NodeListEditor = ({ nodes, lockedNodes, onRename, onRemove }: NodeListEdit
   );
 };
 
+interface TimeStepSnapshotProps {
+  result: SimulationResult | null;
+  components: CircuitComponent[];
+  nodeList: string[];
+  playhead: number;
+}
+
+const TimeStepSnapshot = ({ result, components, nodeList, playhead }: TimeStepSnapshotProps) => {
+  if (!result) {
+    return <p className="text-xs text-muted-foreground">Run a simulation to inspect time-step values.</p>;
+  }
+
+  const timeValue = result.time[playhead] ?? 0;
+
+  const nodeRows = nodeList.filter(node => node !== CANONICAL_GROUND).map(node => {
+    const values = result.nodeVoltages[node];
+    if (!values) {
+      return null;
+    }
+    const voltage = values[playhead] ?? 0;
+    return { node, voltage };
+  }).filter(Boolean) as Array<{ node: string; voltage: number }>;
+
+  const componentRows = components
+    .filter(component => component.kind !== "ground")
+    .map(component => {
+      const currents = result.componentCurrents[component.id];
+      if (!currents) {
+        return null;
+      }
+      return { id: component.id, current: currents[playhead] ?? 0 };
+    })
+    .filter(Boolean) as Array<{ id: string; current: number }>;
+
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span>t = {timeValue.toFixed(6)} s</span>
+        <span>{result.time.length} samples</span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="rounded border px-3 py-2">
+          <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Node voltages</p>
+          {nodeRows.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">No nodes available.</p>
+          ) : (
+            <ul className="space-y-1">
+              {nodeRows.map(row => (
+                <li key={row.node} className="flex justify-between font-mono text-[11px]">
+                  <span>{row.node}</span>
+                  <span>{row.voltage.toFixed(4)} V</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded border px-3 py-2">
+          <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Branch currents</p>
+          {componentRows.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">No components to report.</p>
+          ) : (
+            <ul className="space-y-1">
+              {componentRows.map(row => (
+                <li key={row.id} className="flex justify-between font-mono text-[11px]">
+                  <span>{row.id}</span>
+                  <span>{row.current.toFixed(6)} A</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface DifferentialEquationListProps {
+  equations: DifferentialEquation[];
+}
+
+const DifferentialEquationList = ({ equations }: DifferentialEquationListProps) => {
+  if (!equations.length) {
+    return <p className="text-xs text-muted-foreground">Add reactive elements or sources to generate symbolic equations.</p>;
+  }
+
+  return (
+    <div className="space-y-2 text-xs">
+      {equations.map(eq => (
+        <div key={eq.id} className="rounded border px-3 py-2">
+          <p className="font-semibold">{eq.label}</p>
+          <p className="font-mono text-[11px]">{eq.plain}</p>
+          <p className="text-[11px] text-muted-foreground break-words">{eq.latex}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
 interface MiniChartProps {
   label: string;
   time: Float32Array | null;
@@ -2429,6 +2712,7 @@ const ComponentInspector = ({ component, nodes, onUpdate, onRemove }: ComponentI
   const isSource = component.kind === "voltage-source" || component.kind === "current-source";
   const isPassive =
     component.kind === "resistor" || component.kind === "capacitor" || component.kind === "inductor";
+  const isGround = component.kind === "ground";
   const valueUnit =
     component.kind === "resistor"
       ? "Î©"
@@ -2514,7 +2798,7 @@ const ComponentInspector = ({ component, nodes, onUpdate, onRemove }: ComponentI
         <div>
           <p className="text-sm font-semibold capitalize">{label}</p>
           <p className="font-mono text-[11px] text-muted-foreground">
-            {component.from} â†’ {component.to}
+            {component.from} &rarr; {component.to}
           </p>
         </div>
         <Badge variant="secondary" className="font-mono">
@@ -2522,8 +2806,7 @@ const ComponentInspector = ({ component, nodes, onUpdate, onRemove }: ComponentI
         </Badge>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
-        <div className="flex items-center gap-2">
-          <Label className="w-12">From</Label>
+        <div className={cn("flex items-center gap-2", isGround && "md:col-span-2")}>\r\n          <Label className="w-12">From</Label>
           <Select value={component.from} onValueChange={value => handleNodeChange("from", value)}>
             <SelectTrigger>
               <SelectValue />
@@ -2553,6 +2836,11 @@ const ComponentInspector = ({ component, nodes, onUpdate, onRemove }: ComponentI
           </Select>
         </div>
       </div>
+      {isGround && (
+        <p className="text-[11px] text-muted-foreground">
+          Ground enforces {component.from || "(unset)"} at 0 V.
+        </p>
+      )}
       {isSource ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -2657,6 +2945,8 @@ function describeComponent(component: CircuitComponent): string {
       return component.waveform === "ac"
         ? `${component.amplitude ?? component.value} A AC`
         : `${component.value} A DC`;
+    case "ground":
+      return `Ground reference at ${component.from}`;
     default:
       return "";
   }
@@ -2676,4 +2966,17 @@ function buildPiecewiseExpression(time: Float32Array, values: Float32Array, labe
   parts.push(`1,${values[values.length - 1].toFixed(6)}`);
   return `${identifier}(t)=piecewise(${parts.join(",")})`;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -9,6 +9,16 @@ const debug = (...args: unknown[]) => {
   console.log(...args);
 };
 
+const warn = (...args: unknown[]) => {
+  if (!DEBUG_DEFINITION_CONTEXT) return;
+  console.warn(...args);
+};
+
+const error = (...args: unknown[]) => {
+  if (!DEBUG_DEFINITION_CONTEXT) return;
+  console.error(...args);
+};
+
 export const RESERVED_NAMES = ['x', 'y', 'z', 'pi', 'e', 'i'];
 
 export const CONSTANTS: Record<string, number> = {
@@ -99,13 +109,13 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       debug(`[${idx}] Function detected: ${funcName}, params:`, params);
       
       if (RESERVED_NAMES.includes(funcName)) {
-        console.warn(`[${idx}] ❌ Cannot define function with reserved name: ${funcName}`);
+        warn(`[${idx}] ❌ Cannot define function with reserved name: ${funcName}`);
         return;
       }
 
       // Check for circular dependency
       if (processing.has(funcName)) {
-        console.error(`[${idx}] ❌ Circular dependency detected for function: ${funcName}`);
+        error(`[${idx}] ❌ Circular dependency detected for function: ${funcName}`);
         return;
       }
 
@@ -123,7 +133,7 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
         debug(`[${idx}] ✅ Successfully added function '${funcName}' with params`, params);
         debug(`[${idx}] Current functions in context:`, Object.keys(context.functions));
       } catch (e) {
-        console.error(`[${idx}] ❌ Failed to parse function body:`, e);
+        error(`[${idx}] ❌ Failed to parse function body:`, e);
       } finally {
         processing.delete(funcName);
       }
@@ -139,13 +149,13 @@ export function buildDefinitionContext(expressions: Array<{ normalized: string }
       debug(`[${idx}] Variable detected: ${varName}`);
       
       if (RESERVED_NAMES.includes(varName)) {
-        console.warn(`[${idx}] ❌ Cannot define variable with reserved name: ${varName}`);
+        warn(`[${idx}] ❌ Cannot define variable with reserved name: ${varName}`);
         return;
       }
 
       // Check for circular dependency
       if (processing.has(varName)) {
-        console.error(`[${idx}] ❌ Circular dependency detected for variable: ${varName}`);
+        error(`[${idx}] ❌ Circular dependency detected for variable: ${varName}`);
         return;
       }
 

@@ -5,6 +5,12 @@ import { MathSpace } from '../spaces/types';
 import { isNumber } from '@/lib/runtime/value';
 import { EDGE_TABLE, TRI_TABLE, EDGE_CONNECTIONS, CUBE_CORNERS } from '../marchingCubesLUT';
 
+const DEBUG_SURFACE_EVALUATOR = false;
+const surfaceDebug = (...args: unknown[]): void => {
+  if (!DEBUG_SURFACE_EVALUATOR) return;
+  console.log(...args);
+};
+
 export type SurfaceColorMode = 'height' | 'gradient' | 'domain' | 'custom' | 'none';
 
 /**
@@ -79,7 +85,7 @@ export class SurfaceEvaluator {
         try {
           // Log first evaluation for debugging
           if (i === 0 && j === 0) {
-            console.log('SurfaceEvaluator: First point evaluation', {
+            surfaceDebug('SurfaceEvaluator: First point evaluation', {
               coords,
               ast: this.ast.type
             });
@@ -90,7 +96,7 @@ export class SurfaceEvaluator {
           
           // Log first result
           if (i === 0 && j === 0) {
-            console.log('SurfaceEvaluator: First point result:', {
+            surfaceDebug('SurfaceEvaluator: First point result:', {
               kind: result.kind,
               value: result.kind === 'number' ? result.value : 'N/A'
             });
@@ -195,7 +201,7 @@ export class SurfaceEvaluator {
       indices: new Uint32Array(indices),
     };
     
-    console.log('SurfaceEvaluator: Generated surface data', {
+    surfaceDebug('SurfaceEvaluator: Generated surface data', {
       vertexCount: surfaceData.vertices.length / 3,
       indexCount: surfaceData.indices.length,
       hasColors: !!surfaceData.colors
@@ -261,7 +267,7 @@ export class SurfaceEvaluator {
    * For expressions like: x^2 + y^2 + z^2 = 1
    */
   evaluateImplicitSurface(options: ImplicitSurfaceOptions): SurfaceData {
-    console.log('evaluateImplicitSurface called', {
+    surfaceDebug('evaluateImplicitSurface called', {
       bounds: options.bounds,
       resolution: options.resolution,
       isoValue: options.isoValue
@@ -270,7 +276,7 @@ export class SurfaceEvaluator {
     const implicitFn = this.createImplicit3DFunction();
     
     // Test implicit function with known values
-    console.log('Testing implicit function:', {
+    surfaceDebug('Testing implicit function:', {
       'f(0,0,0)': implicitFn(0, 0, 0),
       'f(1,0,0)': implicitFn(1, 0, 0),
       'f(0,1,0)': implicitFn(0, 1, 0),
@@ -384,7 +390,7 @@ export class SurfaceEvaluator {
     // Compute normals
     const normalsArray = this.computeNormals(vertices, indices);
     
-    console.log('Marching cubes complete', {
+    surfaceDebug('Marching cubes complete', {
       totalCubes: resolution ** 3,
       totalVertices: vertices.length / 3,
       totalTriangles: indices.length / 3,
@@ -397,7 +403,7 @@ export class SurfaceEvaluator {
       indices: new Uint32Array(indices),
     };
     
-    console.log('SurfaceEvaluator (implicit): Generated surface data', {
+    surfaceDebug('SurfaceEvaluator (implicit): Generated surface data', {
       vertexCount: surfaceData.vertices.length / 3,
       indexCount: surfaceData.indices.length
     });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { simulateCircuit, CircuitComponent } from "@/lib/circuits/simulator";
 
 const sampleAverage = (series: Float32Array | undefined) => {
@@ -50,9 +50,10 @@ describe("Circuit simulator", () => {
           gnd ------------ gnd
     */
     const components: CircuitComponent[] = [
-      { id: "vs1", kind: "voltage-source", from: "vin", to: "gnd", waveform: "dc", value: 10 },
+      { id: "g1", kind: "ground", from: "n0", to: "gnd" },
+      { id: "vs1", kind: "voltage-source", from: "vin", to: "n0", waveform: "dc", value: 10 },
       { id: "r_top", kind: "resistor", from: "vin", to: "vout", value: 1_000 },
-      { id: "r_bottom", kind: "resistor", from: "vout", to: "gnd", value: 1_000 },
+      { id: "r_bottom", kind: "resistor", from: "vout", to: "n0", value: 1_000 },
     ];
     const result = simulateCircuit(components, { dt: 0.001, duration: 0.01 });
     const vin = sampleAverage(result.nodeVoltages.vin);
@@ -70,9 +71,10 @@ describe("Circuit simulator", () => {
           gnd ------------ gnd
     */
     const components: CircuitComponent[] = [
-      { id: "vs1", kind: "voltage-source", from: "vin", to: "gnd", waveform: "dc", value: 5 },
+      { id: "g1", kind: "ground", from: "n0", to: "gnd" },
+      { id: "vs1", kind: "voltage-source", from: "vin", to: "n0", waveform: "dc", value: 5 },
       { id: "r1", kind: "resistor", from: "vin", to: "vout", value: 1_000 },
-      { id: "c1", kind: "capacitor", from: "vout", to: "gnd", value: 0.0001 },
+      { id: "c1", kind: "capacitor", from: "vout", to: "n0", value: 0.0001 },
     ];
     const result = simulateCircuit(components, { dt: 0.0005, duration: 0.5 });
     const initial = result.nodeVoltages.vout?.[0] ?? 0;
@@ -91,8 +93,9 @@ describe("Circuit simulator", () => {
            gnd
     */
     const components: CircuitComponent[] = [
-      { id: "is1", kind: "current-source", from: "iout", to: "gnd", waveform: "dc", value: 0.002 },
-      { id: "rload", kind: "resistor", from: "iout", to: "gnd", value: 10_000 },
+      { id: "g1", kind: "ground", from: "n0", to: "gnd" },
+      { id: "is1", kind: "current-source", from: "iout", to: "n0", waveform: "dc", value: 0.002 },
+      { id: "rload", kind: "resistor", from: "iout", to: "n0", value: 10_000 },
     ];
     const result = simulateCircuit(components, { dt: 0.0005, duration: 0.05 });
     const voltage = sampleAverage(result.nodeVoltages.iout);
@@ -114,11 +117,12 @@ describe("Circuit simulator", () => {
     const dt = 1 / (frequency * 240);
     const duration = 4 / frequency;
     const components: CircuitComponent[] = [
+      { id: "g1", kind: "ground", from: "n0", to: "gnd" },
       {
         id: "is1",
         kind: "current-source",
         from: "n1",
-        to: "gnd",
+        to: "n0",
         waveform: "ac",
         value: amplitude,
         amplitude,
@@ -126,7 +130,7 @@ describe("Circuit simulator", () => {
         phase: 0,
         offset: 0,
       },
-      { id: "rload", kind: "resistor", from: "n1", to: "gnd", value: 1_000 },
+      { id: "rload", kind: "resistor", from: "n1", to: "n0", value: 1_000 },
     ];
     const result = simulateCircuit(components, { dt, duration });
     const quarterPeriod = 1 / (4 * frequency);
@@ -145,3 +149,7 @@ describe("Circuit simulator", () => {
     expect(Object.keys(result.componentCurrents)).toHaveLength(0);
   });
 });
+
+
+
+

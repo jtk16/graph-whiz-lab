@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   DEFAULT_NEW_COMPONENT,
   NODE_MARGIN,
+  CANONICAL_GROUND,
   applyNodeSnap,
   componentGlyph,
   extractCircuitNodes,
@@ -49,6 +50,12 @@ describe("Circuit editor model helpers", () => {
     );
     expect(stagedCapacitor.kind).toBe("capacitor");
     expect(stagedCapacitor.waveform).toBe("dc");
+  });
+
+  it("stages ground components with the canonical reference", () => {
+    const staged = stageComponentFromKind({ ...DEFAULT_NEW_COMPONENT, kind: "resistor" }, "ground");
+    expect(staged.kind).toBe("ground");
+    expect(staged.to).toBe(CANONICAL_GROUND);
   });
 
   it("stages components dropped on a node by setting the start terminal", () => {
@@ -117,5 +124,9 @@ describe("Circuit editor model helpers", () => {
     expect(componentGlyph("voltage-source")).toBe("V");
     expect(componentGlyph("current-source")).toBe("I");
     expect(componentGlyph("wire")).toBe("W");
+    expect(componentGlyph("ground")).toBe("G");
   });
 });
+
+
+

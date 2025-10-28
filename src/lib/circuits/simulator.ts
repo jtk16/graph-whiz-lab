@@ -1,4 +1,4 @@
-export type CircuitNode = string;
+﻿export type CircuitNode = string;
 
 export type CircuitWaveform = "dc" | "ac";
 
@@ -8,6 +8,12 @@ export type CircuitComponent =
       kind: "wire";
       from: CircuitNode;
       to: CircuitNode;
+    }
+  | {
+      id: string;
+      kind: "ground";
+      from: CircuitNode;
+      to?: CircuitNode;
     }
   | {
       id: string;
@@ -65,6 +71,7 @@ export interface SimulationResult {
   nodeVoltages: Record<string, Float32Array>;
   nodeCurrents: Record<string, Float32Array>;
   componentCurrents: Record<string, Float32Array>;
+  metrics?: SimulationMetrics;
 }
 
 const GROUND_NAMES = new Set(["0", "gnd", "ground", "GND", "GROUND"]);
@@ -72,6 +79,21 @@ const GROUND_NAMES = new Set(["0", "gnd", "ground", "GND", "GROUND"]);
 type Matrix = number[][];
 
 const EPS = 1e-9;
+
+export interface SimulationMetrics {
+  steps: number;
+  assemblyMs: number;
+  solveMs: number;
+  matrixSize: number;
+  componentCount: number;
+}
+
+const now = (): number => {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+};
 
 export function simulateCircuit(components: CircuitComponent[], config: SimulationConfig): SimulationResult {
   const sanitized = components.filter(Boolean);
@@ -87,13 +109,56 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
       nodeVoltages: {},
       nodeCurrents: {},
       componentCurrents: {},
+      metrics: {
+        steps,
+        assemblyMs: 0,
+        solveMs: 0,
+        matrixSize: 0,
+        componentCount: 0,
+      },
     };
   }
   const dt = Math.max(config.dt, 1e-6);
   const steps = Math.max(1, Math.floor(config.duration / dt));
+  const canonicalGround = "gnd";
+  const groundBindings = new Set<string>();
+  sanitized.forEach(component => {
+    if (component.kind === "ground") {
+      if (component.from) {
+        groundBindings.add(component.from);
+      }
+      if (component.to) {
+        groundBindings.add(component.to);
+      }
+    }
+  });
+
+  if (groundBindings.size === 0) {
+    throw new Error("Circuit requires at least one ground reference. Add a ground component.");
+  }
+
+  const normalizeNode = (node: string): string => {
+    if (!node) return node;
+    if (GROUND_NAMES.has(node) || groundBindings.has(node)) {
+      return canonicalGround;
+    }
+    return node;
+  };
+
+  type ActiveComponent = Exclude<CircuitComponent, { kind: "ground" }>;
+
+  const workingComponents: ActiveComponent[] = sanitized
+    .filter((component): component is ActiveComponent => component.kind !== "ground")
+    .map(component => {
+      const updated = { ...component } as ActiveComponent;
+      updated.from = normalizeNode(component.from);
+      updated.to = normalizeNode(component.to);
+      return updated;
+    });
+
   const nodeSet = new Set<string>();
 
-  sanitized.forEach(comp => {
+  workingComponents.forEach(comp => {
     nodeSet.add(comp.from);
     nodeSet.add(comp.to);
   });
@@ -105,27 +170,29 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
     nodeIndex[node] = idx;
   });
 
-  const voltageSources = sanitized.filter(comp => comp.kind === "voltage-source") as Extract<
+  const voltageSources = workingComponents.filter(comp => comp.kind === "voltage-source") as Extract<
     CircuitComponent,
     { kind: "voltage-source" }
   >[];
-  const inductors = sanitized.filter(comp => comp.kind === "inductor") as Extract<
+  const inductors = workingComponents.filter(comp => comp.kind === "inductor") as Extract<
     CircuitComponent,
     { kind: "inductor" }
   >[];
-  const capacitors = sanitized.filter(comp => comp.kind === "capacitor") as Extract<
+  const capacitors = workingComponents.filter(comp => comp.kind === "capacitor") as Extract<
     CircuitComponent,
     { kind: "capacitor" }
   >[];
-  const currentSources = sanitized.filter(comp => comp.kind === "current-source") as Extract<
+  const currentSources = workingComponents.filter(comp => comp.kind === "current-source") as Extract<
     CircuitComponent,
     { kind: "current-source" }
   >[];
-  const resistive = sanitized.filter(
+  const resistive = workingComponents.filter(
     comp => comp.kind === "resistor" || comp.kind === "wire"
   ) as Extract<CircuitComponent, { kind: "resistor" | "wire" }>[];
 
   const dimension = nodeList.length + voltageSources.length + inductors.length;
+  const matrixSize = Math.max(1, dimension);
+
   const time = new Float32Array(steps);
   const nodeVoltages: Record<string, Float32Array> = {};
   const nodeCurrents: Record<string, Float32Array> = {};
@@ -135,8 +202,9 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
     nodeVoltages[node] = new Float32Array(steps);
     nodeCurrents[node] = new Float32Array(steps);
   });
-  sanitized.forEach(comp => {
-    componentCurrents[comp.id] = new Float32Array(steps);
+
+  workingComponents.forEach(component => {
+    componentCurrents[component.id] = new Float32Array(steps);
   });
 
   const capacitorState = new Map<string, number>();
@@ -226,20 +294,46 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
   const voltageSourceOffset = nodeList.length;
   const inductorOffset = nodeList.length + voltageSources.length;
 
+  const metrics: SimulationMetrics = {
+    steps,
+    assemblyMs: 0,
+    solveMs: 0,
+    matrixSize,
+    componentCount: workingComponents.length,
+  };
+
+  const G: Matrix = Array.from({ length: matrixSize }, () => new Array(matrixSize).fill(0));
+  const rhs = new Array(matrixSize).fill(0);
+  const stampedCurrentSources = new Array(currentSources.length).fill(0);
+
+  const getVoltageAt = (node: string, solution: number[]): number => {
+    if (GROUND_NAMES.has(node)) return 0;
+    const idx = nodeIndex[node];
+    if (idx === undefined) return 0;
+    return solution[idx] ?? 0;
+  };
+
   for (let step = 0; step < steps; step++) {
     const t = step * dt;
     time[step] = t;
-    const size = Math.max(1, dimension);
-    const G: Matrix = Array.from({ length: size }, () => new Array(size).fill(0));
-    const rhs = new Array(size).fill(0);
-    const stampedCurrentSources: number[] = [];
 
-    const getVoltageAt = (node: string, solution: number[]): number => {
-      if (GROUND_NAMES.has(node)) return 0;
-      const idx = nodeIndex[node];
-      if (idx === undefined) return 0;
-      return solution[idx] ?? 0;
-    };
+    for (let row = 0; row < matrixSize; row++) {
+      rhs[row] = 0;
+      const rowRef = G[row];
+      for (let col = 0; col < matrixSize; col++) {
+        rowRef[col] = 0;
+      }
+    }
+
+    nodeList.forEach(node => {
+      nodeCurrents[node][step] = 0;
+    });
+
+    for (let i = 0; i < stampedCurrentSources.length; i++) {
+      stampedCurrentSources[i] = 0;
+    }
+
+    const assemblyStart = now();
 
     resistive.forEach(res => {
       const value = res.kind === "wire" ? 1e-6 : Math.max(res.value, 1e-6);
@@ -255,31 +349,8 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
       const n1 = getNodeIndex(cap.from);
       const n2 = getNodeIndex(cap.to);
       stampConductance(G, n1, n2, Ceq);
-      stampCurrent(rhs, n1, n2, Ceq * prevV);
-    });
-
-    voltageSources.forEach((src, index) => {
-      const row = voltageSourceOffset + index;
-      const n1 = getNodeIndex(src.from);
-      const n2 = getNodeIndex(src.to);
-      if (n1 >= 0) {
-        G[n1][row] += 1;
-        G[row][n1] += 1;
-      }
-      if (n2 >= 0) {
-        G[n2][row] -= 1;
-        G[row][n2] -= 1;
-      }
-      const value = evaluateSource(src, t);
-      rhs[row] += value;
-    });
-
-    currentSources.forEach((src, index) => {
-      const n1 = getNodeIndex(src.from);
-      const n2 = getNodeIndex(src.to);
-      const value = evaluateSource(src, t);
-      stampedCurrentSources[index] = value;
-      stampCurrent(rhs, n1, n2, value);
+      const history = Ceq * prevV;
+      stampCurrent(rhs, n1, n2, history);
     });
 
     inductors.forEach((ind, index) => {
@@ -300,16 +371,38 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
       rhs[row] += coeff * prevCurrent;
     });
 
-    let solution: number[];
-    try {
-      solution = solveLinear(G, rhs);
-    } catch (error) {
-      throw error;
-    }
+    voltageSources.forEach((src, index) => {
+      const row = voltageSourceOffset + index;
+      const n1 = getNodeIndex(src.from);
+      const n2 = getNodeIndex(src.to);
+      if (n1 >= 0) {
+        G[n1][row] += 1;
+        G[row][n1] += 1;
+      }
+      if (n2 >= 0) {
+        G[n2][row] -= 1;
+        G[row][n2] -= 1;
+      }
+      const value = evaluateSource(src, t);
+      rhs[row] += value;
+    });
+
+    currentSources.forEach((src, index) => {
+      const value = evaluateSource(src, t);
+      const n1 = getNodeIndex(src.from);
+      const n2 = getNodeIndex(src.to);
+      stampCurrent(rhs, n1, n2, value);
+      stampedCurrentSources[index] = value;
+    });
+
+    metrics.assemblyMs += now() - assemblyStart;
+
+    const solveStart = now();
+    const solution = solveLinear(G, rhs);
+    metrics.solveMs += now() - solveStart;
 
     nodeList.forEach(node => {
-      const idx = nodeIndex[node];
-      nodeVoltages[node][step] = idx !== undefined ? solution[idx] ?? 0 : 0;
+      nodeVoltages[node][step] = getVoltageAt(node, solution);
     });
 
     resistive.forEach(res => {
@@ -330,8 +423,9 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
       const v1 = getVoltageAt(cap.from, solution);
       const v2 = getVoltageAt(cap.to, solution);
       const prevV = capacitorState.get(cap.id) ?? 0;
-      const current = cap.value * ((v1 - v2) - prevV) / dt;
-      capacitorState.set(cap.id, v1 - v2);
+      const deltaV = v1 - v2;
+      const current = cap.value * (deltaV - prevV) / dt;
+      capacitorState.set(cap.id, deltaV);
       componentCurrents[cap.id][step] = current;
       if (!GROUND_NAMES.has(cap.from)) {
         nodeCurrents[cap.from][step] += current;
@@ -378,10 +472,14 @@ export function simulateCircuit(components: CircuitComponent[], config: Simulati
     });
   }
 
+  metrics.assemblyMs = Number(metrics.assemblyMs.toFixed(3));
+  metrics.solveMs = Number(metrics.solveMs.toFixed(3));
+
   return {
     time,
     nodeVoltages,
     nodeCurrents,
     componentCurrents,
+    metrics,
   };
 }

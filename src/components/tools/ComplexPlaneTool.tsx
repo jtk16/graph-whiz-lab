@@ -39,6 +39,9 @@ const DEFAULT_CONFIG: ComplexPlaneConfig = {
   logMagnitude: true,
 };
 
+const MIN_PLOT_SIZE = 220;
+const MAX_PLOT_SIZE = 360;
+
 interface ComplexRenderable {
   id: string;
   color: string;
@@ -501,6 +504,7 @@ const ComplexExpressionCard = ({
   data: ComplexRenderable;
   config: ComplexPlaneConfig;
 }) => {
+  const plotSize = useResponsivePlotSize();
   return (
     <Card className="space-y-4 p-4">
       <div className="flex items-start justify-between gap-4">
@@ -526,16 +530,21 @@ const ComplexExpressionCard = ({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <DomainCanvas imageData={data.domainImage} label="Domain coloring" extent={config.extent} />
+        <DomainCanvas
+          imageData={data.domainImage}
+          label="Domain coloring"
+          extent={config.extent}
+          size={plotSize}
+        />
         <StatsPanel stats={data.stats} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {config.showRealSurface && (
-          <ComplexSurfaceMini data={data.realSurface} label="Re(f(z))" />
+          <ComplexSurfaceMini data={data.realSurface} label="Re(f(z))" size={plotSize} />
         )}
         {config.showImagSurface && (
-          <ComplexSurfaceMini data={data.imagSurface} label="Im(f(z))" />
+          <ComplexSurfaceMini data={data.imagSurface} label="Im(f(z))" size={plotSize} />
         )}
       </div>
     </Card>
@@ -546,10 +555,12 @@ const DomainCanvas = ({
   imageData,
   label,
   extent,
+  size,
 }: {
   imageData: ImageData | null;
   label: string;
   extent: number;
+  size: number;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -565,35 +576,105 @@ const DomainCanvas = ({
   return (
     <div className="rounded-lg border bg-background/60 p-2">
       <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
-      <div className="relative aspect-square w-full max-h-[260px] overflow-hidden rounded-md bg-black/80">
-        <canvas ref={canvasRef} className="h-full w-full" />
-        <DomainAxesOverlay extent={extent} />
+      <div className="flex w-full justify-center">
+        <div
+          className="relative aspect-square w-full overflow-hidden rounded-md bg-black/80 shadow-inner"
+          style={{ maxWidth: size, maxHeight: size }}
+        >
+          <canvas ref={canvasRef} className="h-full w-full" />
+          <DomainAxesOverlay extent={extent} />
+        </div>
       </div>
     </div>
   );
 };
 
 const DomainAxesOverlay = ({ extent }: { extent: number }) => {
-  const formattedExtent = useMemo(() => extent.toFixed(extent >= 10 ? 0 : extent >= 4 ? 1 : 2), [extent]);
+  const precision = useMemo(() => (extent >= 10 ? 0 : extent >= 4 ? 1 : 2), [extent]);
+  const horizontalTicks = useMemo(() => {
+    if (extent <= 0) {
+      return [{ value: 0, position: 50, label: "0" }];
+    }
+    const half = extent / 2;
+    const denominator = 2 * extent;
+    const candidates = [-extent, -half, 0, half, extent];
+    return candidates.map(value => ({
+      value,
+      position: ((value + extent) / denominator) * 100,
+      label: formatAxisLabel(value, precision),
+    }));
+  }, [extent, precision]);
+
+  const verticalTicks = useMemo(() => {
+    if (extent <= 0) {
+      return [{ value: 0, position: 50, label: "0" }];
+    }
+    const half = extent / 2;
+    const denominator = 2 * extent;
+    const candidates = [extent, half, 0, -half, -extent];
+    return candidates.map(value => ({
+      value,
+      position: ((extent - value) / denominator) * 100,
+      label: formatAxisLabel(value, precision),
+    }));
+  }, [extent, precision]);
+
   return (
-    <div className="pointer-events-none absolute inset-0 text-[10px] font-medium text-white/80">
-      <div className="absolute inset-x-0 top-1/2 border-t border-white/25" />
-      <div className="absolute inset-y-0 left-1/2 border-l border-white/25" />
-      <div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
-        Im(z) = +{formattedExtent}
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium text-white/80">
+      <div className="relative h-full w-full px-6 py-6">
+        <div className="absolute inset-x-6 top-1/2 border-t border-white/25" />
+        <div className="absolute inset-y-6 left-1/2 border-l border-white/25" />
+
+        <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white/80 shadow-sm">
+          Im(z)
+        </div>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white/80 shadow-sm">
+          Re(z)
+        </div>
+
+        {horizontalTicks.map(tick => (
+          <div
+            key={`hx-${tick.value}`}
+            className="absolute bottom-11 flex -translate-x-1/2 flex-col items-center gap-1 text-white/70"
+            style={{ left: `${tick.position}%` }}
+          >
+            <div className="h-3 w-px bg-white/40" />
+            <span className="rounded bg-black/60 px-1.5 py-[1px] text-[9px] font-semibold leading-none tracking-wide">
+              {tick.label}
+            </span>
+          </div>
+        ))}
+
+        {verticalTicks.map(tick => (
+          <div
+            key={`vy-${tick.value}`}
+            className="absolute left-11 flex -translate-y-1/2 items-center gap-1 text-white/70"
+            style={{ top: `${tick.position}%` }}
+          >
+            <div className="w-3 border-t border-white/40" />
+            <span className="rounded bg-black/60 px-1.5 py-[1px] text-[9px] font-semibold leading-none tracking-wide">
+              {tick.label}
+            </span>
+          </div>
+        ))}
+
+        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/80 shadow" />
       </div>
-      <div className="absolute left-1/2 bottom-2 -translate-x-1/2 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
-        Im(z) = -{formattedExtent}
-      </div>
-      <div className="absolute left-2 top-1/2 -translate-y-1/2 -translate-x-1/2 rotate-90 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
-        Re(z) = -{formattedExtent}
-      </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 translate-x-1/2 -rotate-90 rounded-md bg-black/60 px-2 py-1 uppercase tracking-wide text-white/80 shadow-sm">
-        Re(z) = +{formattedExtent}
-      </div>
-      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/80 shadow" />
     </div>
   );
+};
+
+const formatAxisLabel = (value: number, precision: number): string => {
+  const rounded = Number.parseFloat(value.toFixed(precision));
+  if (!Number.isFinite(rounded) || Math.abs(rounded) < 1e-6) {
+    return "0";
+  }
+  const sign = rounded > 0 ? "+" : "-";
+  const magnitude =
+    precision > 0
+      ? Math.abs(rounded).toFixed(precision).replace(/\.?0+$/, "")
+      : Math.abs(rounded).toFixed(0);
+  return `${sign}${magnitude}`;
 };
 
 const StatsPanel = ({ stats }: { stats: ComplexStats }) => (
@@ -622,7 +703,15 @@ const StatsPanel = ({ stats }: { stats: ComplexStats }) => (
   </div>
 );
 
-const ComplexSurfaceMini = ({ data, label }: { data?: SurfaceData | null; label: string }) => {
+const ComplexSurfaceMini = ({
+  data,
+  label,
+  size,
+}: {
+  data?: SurfaceData | null;
+  label: string;
+  size: number;
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { scene, sceneVersion, isReady, requestRender, camera, controls } = useScene3D(
     canvasRef,
@@ -645,6 +734,11 @@ const ComplexSurfaceMini = ({ data, label }: { data?: SurfaceData | null; label:
     if (!scene) return;
     scene.background = new THREE.Color("#0c0c12");
   }, [scene]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    requestRender();
+  }, [isReady, requestRender, size]);
 
   useEffect(() => {
     if (!camera || !controls || !bounds) return;
@@ -716,45 +810,71 @@ const ComplexSurfaceMini = ({ data, label }: { data?: SurfaceData | null; label:
   return (
     <div className="rounded-lg border bg-background/60 p-2">
       <div className="mb-2 text-xs font-semibold text-muted-foreground">{label}</div>
-      <div className="relative aspect-square w-full max-h-[260px] overflow-hidden rounded-md bg-black/80">
-        <canvas ref={canvasRef} className="h-full w-full" />
-        {!orientedData && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-            No valid samples
-          </div>
-        )}
-        {isReady && scene && orientedData && (
-          <Surface3D
-            scene={scene}
-            sceneVersion={sceneVersion}
-            data={orientedData}
-            color="#9b87f5"
-            wireframe={false}
-            opacity={0.9}
-            requestRender={requestRender}
-          />
-        )}
-        {orientedData && (
-          <div className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded-md bg-black/50 p-2 text-[10px] font-medium uppercase tracking-wide text-white shadow-sm backdrop-blur">
-            <span className="text-[9px] text-white/80">Axes</span>
-            <div className="flex items-center gap-2 normal-case">
-              <span className="h-2 w-2 rounded-full bg-red-400" />
-              X → Re(z)
+      <div className="flex w-full justify-center">
+        <div
+          className="relative aspect-square w-full overflow-hidden rounded-md bg-black/80 shadow-inner"
+          style={{ maxWidth: size, maxHeight: size }}
+        >
+          <canvas ref={canvasRef} className="h-full w-full" />
+          {!orientedData && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+              No valid samples
             </div>
-            <div className="flex items-center gap-2 normal-case">
-              <span className="h-2 w-2 rounded-full bg-green-400" />
-              Y → {valueAxisLabel}
+          )}
+          {isReady && scene && orientedData && (
+            <Surface3D
+              scene={scene}
+              sceneVersion={sceneVersion}
+              data={orientedData}
+              color="#9b87f5"
+              wireframe={false}
+              opacity={0.9}
+              requestRender={requestRender}
+            />
+          )}
+          {orientedData && (
+            <div className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded-md bg-black/50 p-2 text-[10px] font-medium uppercase tracking-wide text-white shadow-sm backdrop-blur">
+              <span className="text-[9px] text-white/80">Axes</span>
+              <div className="flex items-center gap-2 normal-case">
+                <span className="h-2 w-2 rounded-full bg-red-400" />
+                X → Re(z)
+              </div>
+              <div className="flex items-center gap-2 normal-case">
+                <span className="h-2 w-2 rounded-full bg-green-400" />
+                Y → {valueAxisLabel}
+              </div>
+              <div className="flex items-center gap-2 normal-case">
+                <span className="h-2 w-2 rounded-full bg-blue-400" />
+                Z → Im(z)
+              </div>
             </div>
-            <div className="flex items-center gap-2 normal-case">
-              <span className="h-2 w-2 rounded-full bg-blue-400" />
-              Z → Im(z)
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
 };
+
+function useResponsivePlotSize(): number {
+  const [size, setSize] = useState<number>((MIN_PLOT_SIZE + MAX_PLOT_SIZE) / 2);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const computeSize = () => {
+      const base = Math.min(window.innerWidth, window.innerHeight);
+      const next = Math.max(
+        MIN_PLOT_SIZE,
+        Math.min(MAX_PLOT_SIZE, Math.round(base * 0.35))
+      );
+      setSize(prev => (Math.abs(prev - next) < 1 ? prev : next));
+    };
+    computeSize();
+    window.addEventListener("resize", computeSize);
+    return () => window.removeEventListener("resize", computeSize);
+  }, []);
+
+  return size;
+}
 
 type SurfaceBounds = {
   center: [number, number, number];

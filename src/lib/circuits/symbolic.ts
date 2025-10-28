@@ -149,8 +149,44 @@ const GROUND_NAMES = new Set(["0", "gnd", "GND", "ground", "GROUND"]);
 export function solveSymbolicCircuit(components: CircuitComponent[]): SymbolicCircuitResult {
   resetSimplifyCache();
   const sanitized = components.filter(Boolean);
-  const nodeSet = new Set<string>();
+  const canonicalGround = "gnd";
+  const groundBindings = new Set<string>();
   sanitized.forEach(component => {
+    if (component.kind === "ground") {
+      if (component.from) {
+        groundBindings.add(component.from);
+      }
+      if (component.to) {
+        groundBindings.add(component.to);
+      }
+    }
+  });
+
+  if (groundBindings.size === 0) {
+    throw new Error("Symbolic analysis requires at least one ground reference. Add a ground component.");
+  }
+
+  const normalizeNode = (node: string): string => {
+    if (!node) return node;
+    if (GROUND_NAMES.has(node) || groundBindings.has(node)) {
+      return canonicalGround;
+    }
+    return node;
+  };
+
+  type ActiveComponent = Exclude<CircuitComponent, { kind: "ground" }>;
+
+  const workingComponents: ActiveComponent[] = sanitized
+    .filter((component): component is ActiveComponent => component.kind !== "ground")
+    .map(component => {
+      const updated = { ...component } as ActiveComponent;
+      updated.from = normalizeNode(component.from);
+      updated.to = normalizeNode(component.to);
+      return updated;
+    });
+
+  const nodeSet = new Set<string>();
+  workingComponents.forEach(component => {
     if (!GROUND_NAMES.has(component.from)) nodeSet.add(component.from);
     if (!GROUND_NAMES.has(component.to)) nodeSet.add(component.to);
   });
@@ -159,11 +195,11 @@ export function solveSymbolicCircuit(components: CircuitComponent[]): SymbolicCi
   nodeList.forEach((node, idx) => {
     nodeIndex[node] = idx;
   });
-  const voltageSources = sanitized.filter(comp => comp.kind === "voltage-source") as Extract<
+  const voltageSources = workingComponents.filter(comp => comp.kind === "voltage-source") as Extract<
     CircuitComponent,
     { kind: "voltage-source" }
   >[];
-  const inductors = sanitized.filter(comp => comp.kind === "inductor") as Extract<
+  const inductors = workingComponents.filter(comp => comp.kind === "inductor") as Extract<
     CircuitComponent,
     { kind: "inductor" }
   >[];
@@ -205,7 +241,7 @@ export function solveSymbolicCircuit(components: CircuitComponent[]): SymbolicCi
     if (n2 >= 0) rhs[n2] = sub(rhs[n2], value);
   };
 
-  sanitized.forEach(component => {
+  workingComponents.forEach(component => {
     if (
       component.kind === "resistor" ||
       component.kind === "wire" ||
@@ -288,7 +324,7 @@ export function solveSymbolicCircuit(components: CircuitComponent[]): SymbolicCi
 
   nodeList.forEach(node => {
     let totalCurrent = ZERO;
-    sanitized.forEach(component => {
+    workingComponents.forEach(component => {
       if (component.kind === "resistor" || component.kind === "wire" || component.kind === "capacitor" || component.kind === "inductor") {
         if (component.from === node || component.to === node) {
           const adm = admittanceForComponent(component);
