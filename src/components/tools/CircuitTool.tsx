@@ -180,6 +180,7 @@ export function CircuitTool({ isActive }: ToolProps) {
     () => buildDifferentialEquations(components),
     [components]
   );
+  const circuitNodes = useMemo(() => extractCircuitNodes(components), [components]);
 
   useEffect(() => {
     setNodePositions(prev => {
