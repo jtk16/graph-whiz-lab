@@ -2108,6 +2108,8 @@ const CircuitCanvas = ({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragPosition = useRef<NodePosition | null>(null);
   const rawPatternId = useId();
   const patternId = useMemo(() => rawPatternId.replace(/:/g, "_"), [rawPatternId]);
   const minorGridId = `${patternId}_minor`;
@@ -2196,24 +2198,46 @@ const CircuitCanvas = ({
       const pointer = pointerToCanvas(event.clientX, event.clientY);
       if (!pointer) return;
       dragMovedRef.current = true;
-      const nextPosition = {
+      pendingDragPosition.current = {
         x: pointer.x - dragState.offsetX,
         y: pointer.y - dragState.offsetY,
       };
-      onNodePositionChange(dragState.nodeId, nextPosition);
+      if (dragRafRef.current === null) {
+        dragRafRef.current = window.requestAnimationFrame(() => {
+          dragRafRef.current = null;
+          if (pendingDragPosition.current) {
+            onNodePositionChange(dragState.nodeId, pendingDragPosition.current);
+            pendingDragPosition.current = null;
+          }
+        });
+      }
     };
 
     const handlePointerUp = () => {
       if (dragState && !dragMovedRef.current) {
         triggerNodeSelection(dragState.nodeId);
       }
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      if (pendingDragPosition.current) {
+        onNodePositionChange(dragState.nodeId, pendingDragPosition.current);
+        pendingDragPosition.current = null;
+      }
       dragMovedRef.current = false;
       setDragState(null);
+      onNodeHover?.(null);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     return () => {
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      pendingDragPosition.current = null;
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
