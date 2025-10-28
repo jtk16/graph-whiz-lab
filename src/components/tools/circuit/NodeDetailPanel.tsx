@@ -1,8 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Copy, Upload } from "lucide-react";
 import type { CircuitComponent, SimulationResult } from "@/lib/circuits/simulator";
 import type { DifferentialEquation } from "@/lib/circuits/differentialEquations";
 import { sanitizeIdentifier } from "@/lib/circuits/editorModel";
+import { toast } from "@/components/ui/use-toast";
+
+export type ShortcutHint = { combo: string; action: string };
 
 export interface NodeDetailProps {
   node: string;
@@ -203,7 +213,7 @@ interface DifferentialEquationListProps {
   equations: DifferentialEquation[];
 }
 
-const DifferentialEquationList = ({ equations }: DifferentialEquationListProps) => {
+export const DifferentialEquationList = ({ equations }: DifferentialEquationListProps) => {
   if (!equations.length) {
     return (
       <p className="text-xs text-muted-foreground">
@@ -254,7 +264,8 @@ const DifferentialEquationList = ({ equations }: DifferentialEquationListProps) 
     </Accordion>
   );
 };
-const ShortcutLegend = ({ items }: { items: HotkeyHint[] }) => (
+
+export const ShortcutLegend = ({ items }: { items: ShortcutHint[] }) => (
   <div className="space-y-1 text-xs">
     {items.map(item => (
       <div
@@ -270,11 +281,11 @@ const ShortcutLegend = ({ items }: { items: HotkeyHint[] }) => (
   </div>
 );
 
-const TipsList = ({ tips }: { tips: string[] }) => (
+export const TipsList = ({ tips }: { tips: string[] }) => (
   <ul className="space-y-1 text-xs text-muted-foreground">
     {tips.map(tip => (
       <li key={tip} className="flex items-start gap-2">
-        <span className="mt-[2px] text-[10px]">•</span>
+        <span className="mt-[2px] text-[10px]">-</span>
         <span>{tip}</span>
       </li>
     ))}

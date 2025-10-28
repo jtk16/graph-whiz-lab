@@ -55,7 +55,13 @@ import { solveSymbolicCircuit } from "@/lib/circuits/symbolic";
 import { CircuitCanvas } from "./CircuitCanvas";
 import { ComponentPalette } from "./ComponentPalette";
 import { ComponentInspector } from "./ComponentInspector";
-import { NodeDetailPanel } from "./NodeDetailPanel";
+import {
+  NodeDetailPanel,
+  ShortcutLegend,
+  TipsList,
+  DifferentialEquationList,
+  ShortcutHint,
+} from "./NodeDetailPanel";
 import { NodeListEditor } from "./NodeListEditor";
 import { DRAG_DATA_COMPONENT, DRAG_DATA_KIND } from "./constants";
 import { buildPiecewiseExpression, describeComponent } from "./utils";
@@ -130,9 +136,7 @@ const DEFAULT_SIM = {
 
 const DEFAULT_NODE_NAMES = extractCircuitNodes(DEFAULT_COMPONENTS);
 
-type HotkeyHint = { combo: string; action: string };
-
-const HOTKEY_HINTS = [
+const HOTKEY_HINTS: ShortcutHint[] = [
   { combo: "W", action: "Stage wire and connect nodes" },
   { combo: "R", action: "Stage resistor" },
   { combo: "C", action: "Stage capacitor" },
