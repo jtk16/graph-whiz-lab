@@ -68,8 +68,8 @@ import {
   ShortcutLegend,
   TipsList,
   DifferentialEquationList,
-  ShortcutHint,
 } from "./NodeDetailPanel";
+import type { ShortcutHint } from "./NodeDetailPanel";
 import { NodeListEditor } from "./NodeListEditor";
 import { DRAG_DATA_COMPONENT, DRAG_DATA_KIND } from "./constants";
 import { buildPiecewiseExpression, describeComponent, componentValueLabel } from "./utils";
