@@ -531,18 +531,6 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, [components.length, handleZoomToFit]);
 
   useEffect(() => {
-    if (activeTool !== "wire") {
-      cancelWireDraft();
-    }
-  }, [activeTool, cancelWireDraft]);
-
-  useEffect(() => {
-    if (wireDraft && !allNodes.includes(wireDraft.startNodeId)) {
-      cancelWireDraft();
-    }
-  }, [wireDraft, allNodes, cancelWireDraft]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Space" || event.repeat) return;
       const target = event.target as HTMLElement | null;
@@ -1128,6 +1116,18 @@ export function CircuitTool({ isActive }: ToolProps) {
     cancelWireDraft();
     setActiveTool("select");
   }, [cancelWireDraft]);
+
+  useEffect(() => {
+    if (activeTool !== "wire") {
+      cancelWireDraft();
+    }
+  }, [activeTool, cancelWireDraft]);
+
+  useEffect(() => {
+    if (wireDraft && !allNodes.includes(wireDraft.startNodeId)) {
+      cancelWireDraft();
+    }
+  }, [wireDraft, allNodes, cancelWireDraft]);
 
   const addProbe = useCallback(
     (nodeId: string) => {
