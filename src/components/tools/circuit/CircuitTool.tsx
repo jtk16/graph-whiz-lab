@@ -1057,118 +1057,6 @@ export function CircuitTool({ isActive }: ToolProps) {
     wasCreated: boolean;
   }
 
-  const handleWireStart = useCallback(
-    (point: WirePoint) => {
-      setActiveTool("wire");
-      setWireDraft({
-        startNodeId: point.nodeId,
-        startPosition: point.position,
-        startWasNew: point.wasCreated,
-      });
-      setWirePreview(point.position);
-      setSelectedNode(point.nodeId);
-      setSelectingNodeField(null);
-      setStatus("Wire tool active – click to place junctions and route segments. Press Esc to cancel.");
-    },
-    [setStatus]
-  );
-
-  const handleWirePreviewUpdate = useCallback((position: NodePosition) => {
-    setWirePreview(position);
-  }, []);
-
-  const handleWireComplete = useCallback(
-    (point: WirePoint) => {
-      if (!wireDraft) {
-        return;
-      }
-      const fromId = wireDraft.startNodeId;
-      const toId = point.nodeId;
-      if (fromId === toId) {
-        if (point.wasCreated) {
-          discardJunction(point.nodeId);
-        }
-        setWirePreview(point.position);
-        return;
-      }
-      addComponent(
-        {
-          ...DEFAULT_NEW_COMPONENT,
-          kind: "wire",
-          from: fromId,
-          to: toId,
-        },
-        point.position
-      );
-      setStatus(`Wire routed ${fromId} → ${toId}`);
-      setWireDraft({
-        startNodeId: toId,
-        startPosition: point.position,
-        startWasNew: false,
-      });
-    setWirePreview(point.position);
-    setSelectedNode(toId);
-  },
-  [wireDraft, addComponent, discardJunction, setStatus, setSelectedNode]
-);
-
-  const handleWireCancel = useCallback(() => {
-    cancelWireDraft();
-    setActiveTool("select");
-  }, [cancelWireDraft]);
-
-  useEffect(() => {
-    if (activeTool !== "wire") {
-      cancelWireDraft();
-    }
-  }, [activeTool, cancelWireDraft]);
-
-  useEffect(() => {
-    if (wireDraft && !allNodes.includes(wireDraft.startNodeId)) {
-      cancelWireDraft();
-    }
-  }, [wireDraft, allNodes, cancelWireDraft]);
-
-  const addProbe = useCallback(
-    (nodeId: string) => {
-      setProbes(prev => {
-        if (prev.some(probe => probe.nodeId === nodeId)) {
-          return prev;
-        }
-        return [
-          ...prev,
-          {
-            id: `probe-${nodeId}-${Date.now().toString(36)}`,
-            nodeId,
-            offset: { x: 36, y: -52 },
-          },
-        ];
-      });
-      setStatus(`Probe attached to ${nodeId}`);
-    },
-    [setStatus]
-  );
-
-  const removeProbe = useCallback(
-    (probeId: string) => {
-      setProbes(prev => {
-        const existing = prev.find(probe => probe.id === probeId);
-        if (!existing) {
-          return prev;
-        }
-        setStatus(`Removed probe from ${existing.nodeId}`);
-        return prev.filter(probe => probe.id !== probeId);
-      });
-    },
-    [setStatus]
-  );
-
-  const updateProbeOffset = useCallback((probeId: string, offset: { x: number; y: number }) => {
-    setProbes(prev =>
-      prev.map(probe => (probe.id === probeId ? { ...probe, offset } : probe))
-    );
-  }, []);
-
   const addComponent = useCallback(
     (stateOverride?: NewComponentState, anchor?: NodePosition) => {
       const placement = { ...(stateOverride ?? newComponent) };
@@ -1317,6 +1205,118 @@ export function CircuitTool({ isActive }: ToolProps) {
     },
     [newComponent, allNodes, nodePositions]
   );
+
+  const handleWireStart = useCallback(
+    (point: WirePoint) => {
+      setActiveTool("wire");
+      setWireDraft({
+        startNodeId: point.nodeId,
+        startPosition: point.position,
+        startWasNew: point.wasCreated,
+      });
+      setWirePreview(point.position);
+      setSelectedNode(point.nodeId);
+      setSelectingNodeField(null);
+      setStatus("Wire tool active – click to place junctions and route segments. Press Esc to cancel.");
+    },
+    [setStatus]
+  );
+
+  const handleWirePreviewUpdate = useCallback((position: NodePosition) => {
+    setWirePreview(position);
+  }, []);
+
+  const handleWireComplete = useCallback(
+    (point: WirePoint) => {
+      if (!wireDraft) {
+        return;
+      }
+      const fromId = wireDraft.startNodeId;
+      const toId = point.nodeId;
+      if (fromId === toId) {
+        if (point.wasCreated) {
+          discardJunction(point.nodeId);
+        }
+        setWirePreview(point.position);
+        return;
+      }
+      addComponent(
+        {
+          ...DEFAULT_NEW_COMPONENT,
+          kind: "wire",
+          from: fromId,
+          to: toId,
+        },
+        point.position
+      );
+      setStatus(`Wire routed ${fromId} → ${toId}`);
+      setWireDraft({
+        startNodeId: toId,
+        startPosition: point.position,
+        startWasNew: false,
+      });
+    setWirePreview(point.position);
+    setSelectedNode(toId);
+  },
+  [wireDraft, addComponent, discardJunction, setStatus, setSelectedNode]
+);
+
+  const handleWireCancel = useCallback(() => {
+    cancelWireDraft();
+    setActiveTool("select");
+  }, [cancelWireDraft]);
+
+  useEffect(() => {
+    if (activeTool !== "wire") {
+      cancelWireDraft();
+    }
+  }, [activeTool, cancelWireDraft]);
+
+  useEffect(() => {
+    if (wireDraft && !allNodes.includes(wireDraft.startNodeId)) {
+      cancelWireDraft();
+    }
+  }, [wireDraft, allNodes, cancelWireDraft]);
+
+  const addProbe = useCallback(
+    (nodeId: string) => {
+      setProbes(prev => {
+        if (prev.some(probe => probe.nodeId === nodeId)) {
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            id: `probe-${nodeId}-${Date.now().toString(36)}`,
+            nodeId,
+            offset: { x: 36, y: -52 },
+          },
+        ];
+      });
+      setStatus(`Probe attached to ${nodeId}`);
+    },
+    [setStatus]
+  );
+
+  const removeProbe = useCallback(
+    (probeId: string) => {
+      setProbes(prev => {
+        const existing = prev.find(probe => probe.id === probeId);
+        if (!existing) {
+          return prev;
+        }
+        setStatus(`Removed probe from ${existing.nodeId}`);
+        return prev.filter(probe => probe.id !== probeId);
+      });
+    },
+    [setStatus]
+  );
+
+  const updateProbeOffset = useCallback((probeId: string, offset: { x: number; y: number }) => {
+    setProbes(prev =>
+      prev.map(probe => (probe.id === probeId ? { ...probe, offset } : probe))
+    );
+  }, []);
 
   const removeComponents = useCallback(
     (ids: Iterable<string>) => {
