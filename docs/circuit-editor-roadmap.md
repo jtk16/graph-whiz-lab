@@ -155,3 +155,4 @@
 - Refreshed node list with connection counts, editable rows, and destructive delete affordances; ground nodes can now be removed directly.
 - Component palette now scrolls within a bounded panel for long libraries; presets remain accessible via dropdown.
 - Delete hotkey now removes multi-selection of components or nodes; viewport reset/fit actions surface in the workspace header.
+- Overhauled the circuit workspace visuals: infinite zoomable sheet, IEC-style symbols with value labels, collapsible junction manager, searchable component palette with hotkeys, and inline symbolic equation summaries.

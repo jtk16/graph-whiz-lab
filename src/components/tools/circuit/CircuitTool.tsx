@@ -55,8 +55,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
-import { Pause, Play, Upload, Trash2, ZoomIn, ZoomOut, Scan, RefreshCcw } from "lucide-react";
+import { Pause, Play, Upload, Trash2, ZoomIn, ZoomOut, Scan, RefreshCcw, ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { solveSymbolicCircuit } from "@/lib/circuits/symbolic";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -71,8 +72,16 @@ import {
 } from "./NodeDetailPanel";
 import { NodeListEditor } from "./NodeListEditor";
 import { DRAG_DATA_COMPONENT, DRAG_DATA_KIND } from "./constants";
-import { buildPiecewiseExpression, describeComponent } from "./utils";
+import { buildPiecewiseExpression, describeComponent, componentValueLabel } from "./utils";
 import type { ViewportState } from "./types";
+
+type ActiveTool = "select" | "wire";
+
+interface WireDraft {
+  startNodeId: string;
+  startPosition: NodePosition;
+  startWasNew: boolean;
+}
 
 const ANCHOR_OFFSET_STEPS = Array.from({ length: 8 }, (_, index) => index + 2);
 
@@ -259,8 +268,18 @@ export function CircuitTool({ isActive }: ToolProps) {
     scale: 1,
   });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [activeTool, setActiveTool] = useState<ActiveTool>("select");
+  const [wireDraft, setWireDraft] = useState<WireDraft | null>(null);
+  const [wirePreview, setWirePreview] = useState<NodePosition | null>(null);
+  const [probes, setProbes] = useState<Array<{ id: string; nodeId: string; offset: { x: number; y: number } }>>([]);
+  const [showNodePanel, setShowNodePanel] = useState(false);
   const playRef = useRef<number | null>(null);
   const circuitNodes = useMemo(() => extractCircuitNodes(components), [components]);
+  const allNodes = useMemo(() => {
+    const set = new Set<string>(circuitNodes);
+    extraNodes.forEach(node => set.add(node));
+    return Array.from(set);
+  }, [circuitNodes, extraNodes]);
   const nodeConnectionCounts = useMemo(() => {
     const counts: Record<string, number> = Object.create(null);
     components.forEach(component => {
@@ -273,6 +292,36 @@ export function CircuitTool({ isActive }: ToolProps) {
     });
     return counts;
   }, [components]);
+  const liveVoltages = useMemo(() => {
+    if (!result) return {};
+    const map: Record<string, number> = {};
+    Object.entries(result.nodeVoltages).forEach(([node, series]) => {
+      map[node] = series[playhead] ?? 0;
+    });
+    return map;
+  }, [result, playhead]);
+  const liveCurrents = useMemo(() => {
+    if (!result) return {};
+    const map: Record<string, number> = {};
+    Object.entries(result.nodeCurrents).forEach(([node, series]) => {
+      map[node] = series[playhead] ?? 0;
+    });
+    return map;
+  }, [result, playhead]);
+  const voltageScale = useMemo(() => {
+    const magnitudes = Object.values(liveVoltages).map(value => Math.abs(value));
+    const max = magnitudes.length ? Math.max(...magnitudes) : 0;
+    return max > 1 ? max : 1;
+  }, [liveVoltages]);
+  const probeDisplays = useMemo(
+    () =>
+      probes.map(probe => ({
+        ...probe,
+        voltage: liveVoltages[probe.nodeId] ?? null,
+        current: liveCurrents[probe.nodeId] ?? null,
+      })),
+    [probes, liveVoltages, liveCurrents]
+  );
   const symbolicResult = useMemo(() => {
     try {
       return solveSymbolicCircuit(components);
@@ -305,6 +354,10 @@ export function CircuitTool({ isActive }: ToolProps) {
     setMetrics(null);
     setPlayhead(0);
     setIsPlaying(false);
+    setWireDraft(null);
+    setWirePreview(null);
+    setActiveTool("select");
+    setProbes([]);
     const descriptionText = description ? `${label} - ${description}` : label;
     toast({
       title: "Preset loaded",
@@ -349,7 +402,7 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, [components, selectedComponentId]);
 
   useEffect(() => {
-    const validNodeIds = new Set(circuitNodes);
+    const validNodeIds = new Set(allNodes);
     setSelectedNodeIds(prev => {
       const filtered = new Set<string>();
       prev.forEach(id => {
@@ -372,7 +425,7 @@ export function CircuitTool({ isActive }: ToolProps) {
       }
       return filtered;
     });
-  }, [circuitNodes, selectedNode]);
+  }, [allNodes, selectedNode]);
 
   const clampScale = useCallback((next: number) => Math.min(Math.max(next, 0.25), 4), []);
 
@@ -428,7 +481,7 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, []);
 
   const handleZoomToFit = useCallback(() => {
-    if (circuitNodes.length === 0) {
+    if (allNodes.length === 0) {
       setViewport({ origin: { x: 0, y: 0 }, scale: 1 });
       setStatus("Viewport centered on origin");
       return;
@@ -437,7 +490,7 @@ export function CircuitTool({ isActive }: ToolProps) {
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    circuitNodes.forEach(nodeId => {
+    allNodes.forEach(nodeId => {
       const position = nodePositions[nodeId];
       if (!position) {
         return;
@@ -470,7 +523,24 @@ export function CircuitTool({ isActive }: ToolProps) {
       scale: nextScale,
     });
     setStatus("Framed circuit to fit viewport");
-  }, [circuitNodes, nodePositions, clampScale]);
+  }, [allNodes, nodePositions, clampScale]);
+
+  useEffect(() => {
+    if (!components.length) return;
+    handleZoomToFit();
+  }, [components.length, handleZoomToFit]);
+
+  useEffect(() => {
+    if (activeTool !== "wire") {
+      cancelWireDraft();
+    }
+  }, [activeTool, cancelWireDraft]);
+
+  useEffect(() => {
+    if (wireDraft && !allNodes.includes(wireDraft.startNodeId)) {
+      cancelWireDraft();
+    }
+  }, [wireDraft, allNodes, cancelWireDraft]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -499,12 +569,12 @@ export function CircuitTool({ isActive }: ToolProps) {
       const next = { ...prev };
       let changed = false;
       Object.keys(next).forEach(key => {
-        if (!circuitNodes.includes(key)) {
+        if (!allNodes.includes(key)) {
           delete next[key];
           changed = true;
         }
       });
-      circuitNodes.forEach((node, index) => {
+      allNodes.forEach((node, index) => {
         if (!next[node]) {
           next[node] = defaultNodePosition(index);
           changed = true;
@@ -512,16 +582,16 @@ export function CircuitTool({ isActive }: ToolProps) {
       });
       return changed ? next : prev;
     });
-  }, [circuitNodes]);
+  }, [allNodes]);
 
   useEffect(() => {
-    if (circuitNodes.length === 0) return;
+    if (allNodes.length === 0) return;
     setNewComponent(prev => {
       let changed = false;
       let nextFrom = prev.from;
       let nextTo = prev.to;
-      if (!circuitNodes.includes(nextFrom)) {
-        nextFrom = circuitNodes[0];
+      if (!allNodes.includes(nextFrom)) {
+        nextFrom = allNodes[0];
         changed = true;
       }
       if (prev.kind === "ground") {
@@ -529,13 +599,20 @@ export function CircuitTool({ isActive }: ToolProps) {
           nextTo = CANONICAL_GROUND;
           changed = true;
         }
-      } else if (!circuitNodes.includes(nextTo)) {
-        nextTo = circuitNodes[Math.min(1, circuitNodes.length - 1)] ?? nextFrom;
+      } else if (!allNodes.includes(nextTo)) {
+        nextTo = allNodes[Math.min(1, allNodes.length - 1)] ?? nextFrom;
         changed = true;
       }
       return changed ? { ...prev, from: nextFrom, to: nextTo } : prev;
     });
-  }, [circuitNodes]);
+  }, [allNodes]);
+
+  useEffect(() => {
+    setProbes(prev => {
+      const filtered = prev.filter(probe => allNodes.includes(probe.nodeId));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [allNodes]);
 
   useEffect(() => {
     if (selectedComponentId && !components.some(component => component.id === selectedComponentId)) {
@@ -587,13 +664,13 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, [isActive, isPlaying]);
 
   const nodeList = useMemo(() => {
-    const nodes = new Set<string>(circuitNodes);
+    const nodes = new Set<string>(allNodes);
     if (result) {
       Object.keys(result.nodeVoltages).forEach(node => nodes.add(node));
     }
     Object.keys(symbolicResult.nodeVoltages).forEach(node => nodes.add(node));
     return Array.from(nodes);
-  }, [circuitNodes, result, symbolicResult]);
+  }, [allNodes, result, symbolicResult]);
 
   const selectedComponents = useMemo(
     () => components.filter(component => selectedComponentIds.has(component.id)),
@@ -640,6 +717,15 @@ export function CircuitTool({ isActive }: ToolProps) {
   ]);
 
   const handleComponentKindSelect = (kind: CircuitKind) => {
+    if (kind === "wire") {
+      setNewComponent(prev => ({ ...prev, kind: "wire" }));
+      setActiveTool("wire");
+      setSelectingNodeField(null);
+      setStatus("Wire tool active – click the canvas to place junctions and route wires.");
+      return;
+    }
+    cancelWireDraft();
+    setActiveTool("select");
     setNewComponent(prev => stageComponentFromKind(prev, kind));
     setSelectingNodeField(kind === "ground" ? "from" : null);
   };
@@ -731,7 +817,7 @@ export function CircuitTool({ isActive }: ToolProps) {
     if (nodeId.toLowerCase() === "gnd") {
       return;
     }
-    const exists = circuitNodes.some(
+    const exists = allNodes.some(
       node => node.toLowerCase() === normalizedName.toLowerCase() && node !== nodeId
     );
     if (exists) {
@@ -771,6 +857,7 @@ export function CircuitTool({ isActive }: ToolProps) {
         return !matches;
       })
     );
+    setProbes(prev => prev.filter(probe => probe.nodeId !== nodeId));
 
     if (removedComponents.size > 0) {
       setSelectedComponentIds(prev => {
@@ -816,15 +903,15 @@ export function CircuitTool({ isActive }: ToolProps) {
 
     if (removedComponents.size > 0) {
       toast({
-        title: `Removed node ${nodeId}`,
+        title: `Removed junction ${nodeId}`,
         description: `Detached ${removedComponents.size} component${removedComponents.size === 1 ? "" : "s"}.`,
       });
-      setStatus(`Removed node ${nodeId} and ${removedComponents.size} connected component${removedComponents.size === 1 ? "" : "s"}.`);
+      setStatus(`Removed junction ${nodeId} and ${removedComponents.size} connected component${removedComponents.size === 1 ? "" : "s"}.`);
     } else {
       toast({
-        title: `Removed node ${nodeId}`,
+        title: `Removed junction ${nodeId}`,
       });
-      setStatus(`Removed node ${nodeId}.`);
+      setStatus(`Removed junction ${nodeId}.`);
     }
   }, []);
 
@@ -905,7 +992,7 @@ export function CircuitTool({ isActive }: ToolProps) {
   }, [nodePositions, components]);
 
   const handleAddNode = () => {
-    const name = generateNodeName(circuitNodes);
+    const name = generateNodeName(allNodes);
     setExtraNodes(prev => [...prev, name]);
     setNodePositions(prev => ({
       ...prev,
@@ -917,6 +1004,171 @@ export function CircuitTool({ isActive }: ToolProps) {
     }));
   };
 
+  const createJunctionAt = useCallback(
+    (position: NodePosition): string => {
+      const snapped = applyNodeSnap(position);
+      const existing = new Set<string>([...allNodes]);
+      const name = generateNodeName(Array.from(existing));
+      setExtraNodes(prev => (prev.includes(name) ? prev : [...prev, name]));
+      setNodePositions(prev => ({
+        ...prev,
+        [name]: snapped,
+      }));
+      setSelectedNode(name);
+      setSelectedNodeIds(prev => {
+        const next = new Set(prev);
+        next.add(name);
+        return next;
+      });
+      return name;
+    },
+    [allNodes]
+  );
+
+  const discardJunction = useCallback(
+    (nodeId: string) => {
+      const inUse = components.some(component => component.from === nodeId || component.to === nodeId);
+      if (inUse) {
+        return;
+      }
+      setExtraNodes(prev => prev.filter(node => node !== nodeId));
+      setNodePositions(prev => {
+        if (!(nodeId in prev)) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[nodeId];
+        return next;
+      });
+      setSelectedNodeIds(prev => {
+        if (!prev.has(nodeId)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.delete(nodeId);
+        return next;
+      });
+      setSelectedNode(prev => (prev === nodeId ? null : prev));
+    },
+    [components]
+  );
+
+  const cancelWireDraft = useCallback(() => {
+    setWirePreview(null);
+    setWireDraft(prev => {
+      if (prev?.startWasNew) {
+        discardJunction(prev.startNodeId);
+      }
+      return null;
+    });
+  }, [discardJunction]);
+
+  interface WirePoint {
+    nodeId: string;
+    position: NodePosition;
+    wasCreated: boolean;
+  }
+
+  const handleWireStart = useCallback(
+    (point: WirePoint) => {
+      setActiveTool("wire");
+      setWireDraft({
+        startNodeId: point.nodeId,
+        startPosition: point.position,
+        startWasNew: point.wasCreated,
+      });
+      setWirePreview(point.position);
+      setSelectedNode(point.nodeId);
+      setSelectingNodeField(null);
+      setStatus("Wire tool active – click to place junctions and route segments. Press Esc to cancel.");
+    },
+    [setStatus]
+  );
+
+  const handleWirePreviewUpdate = useCallback((position: NodePosition) => {
+    setWirePreview(position);
+  }, []);
+
+  const handleWireComplete = useCallback(
+    (point: WirePoint) => {
+      if (!wireDraft) {
+        return;
+      }
+      const fromId = wireDraft.startNodeId;
+      const toId = point.nodeId;
+      if (fromId === toId) {
+        if (point.wasCreated) {
+          discardJunction(point.nodeId);
+        }
+        setWirePreview(point.position);
+        return;
+      }
+      addComponent(
+        {
+          ...DEFAULT_NEW_COMPONENT,
+          kind: "wire",
+          from: fromId,
+          to: toId,
+        },
+        point.position
+      );
+      setStatus(`Wire routed ${fromId} → ${toId}`);
+      setWireDraft({
+        startNodeId: toId,
+        startPosition: point.position,
+        startWasNew: false,
+      });
+    setWirePreview(point.position);
+    setSelectedNode(toId);
+  },
+  [wireDraft, addComponent, discardJunction, setStatus, setSelectedNode]
+);
+
+  const handleWireCancel = useCallback(() => {
+    cancelWireDraft();
+    setActiveTool("select");
+  }, [cancelWireDraft]);
+
+  const addProbe = useCallback(
+    (nodeId: string) => {
+      setProbes(prev => {
+        if (prev.some(probe => probe.nodeId === nodeId)) {
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            id: `probe-${nodeId}-${Date.now().toString(36)}`,
+            nodeId,
+            offset: { x: 36, y: -52 },
+          },
+        ];
+      });
+      setStatus(`Probe attached to ${nodeId}`);
+    },
+    [setStatus]
+  );
+
+  const removeProbe = useCallback(
+    (probeId: string) => {
+      setProbes(prev => {
+        const existing = prev.find(probe => probe.id === probeId);
+        if (!existing) {
+          return prev;
+        }
+        setStatus(`Removed probe from ${existing.nodeId}`);
+        return prev.filter(probe => probe.id !== probeId);
+      });
+    },
+    [setStatus]
+  );
+
+  const updateProbeOffset = useCallback((probeId: string, offset: { x: number; y: number }) => {
+    setProbes(prev =>
+      prev.map(probe => (probe.id === probeId ? { ...probe, offset } : probe))
+    );
+  }, []);
+
   const addComponent = useCallback(
     (stateOverride?: NewComponentState, anchor?: NodePosition) => {
       const placement = { ...(stateOverride ?? newComponent) };
@@ -927,7 +1179,7 @@ export function CircuitTool({ isActive }: ToolProps) {
       }
       const id = `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
-      const existingNodes = new Set<string>(circuitNodes);
+      const existingNodes = new Set<string>(allNodes);
       const createdNodes: string[] = [];
 
       const ensureNode = (candidate?: string | null): string => {
@@ -1063,7 +1315,7 @@ export function CircuitTool({ isActive }: ToolProps) {
         setStatus(`${label} placed between ${fromId} and ${toId}`);
       }
     },
-    [newComponent, circuitNodes, nodePositions]
+    [newComponent, allNodes, nodePositions]
   );
 
   const removeComponents = useCallback(
@@ -1230,8 +1482,17 @@ export function CircuitTool({ isActive }: ToolProps) {
       const hotkeyKind = hotkeyToKind[lower];
       if (hotkeyKind) {
         event.preventDefault();
-        setNewComponent(prev => stageComponentFromKind(prev, hotkeyKind));
-        setSelectingNodeField(null);
+        if (hotkeyKind === "wire") {
+          setNewComponent(prev => ({ ...prev, kind: "wire" }));
+          setActiveTool("wire");
+          setSelectingNodeField(null);
+          setStatus("Wire tool active – click to place junctions and route wires.");
+        } else {
+          cancelWireDraft();
+          setActiveTool("select");
+          setNewComponent(prev => stageComponentFromKind(prev, hotkeyKind));
+          setSelectingNodeField(hotkeyKind === "ground" ? "from" : null);
+        }
         return;
       }
 
@@ -1256,8 +1517,9 @@ export function CircuitTool({ isActive }: ToolProps) {
       }
 
       if (event.key === "Escape") {
-        if (selectingNodeField || selectedComponentId || hoveredComponentId || selectedNode) {
+        if (wireDraft || selectingNodeField || selectedComponentId || hoveredComponentId || selectedNode) {
           event.preventDefault();
+          cancelWireDraft();
           setSelectingNodeField(null);
           setSelectedComponentId(null);
           setHoveredComponentId(null);
@@ -1280,6 +1542,8 @@ export function CircuitTool({ isActive }: ToolProps) {
     selectingNodeField,
     hoveredComponentId,
     selectedNode,
+    wireDraft,
+    cancelWireDraft,
   ]);
 
   const handleCanvasDropKind = (kind: CircuitKind, position?: NodePosition) => {
@@ -1370,7 +1634,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={AUTO_NODE_VALUE}>Auto</SelectItem>
-                      {circuitNodes.map(node => (
+                      {allNodes.map(node => (
                         <SelectItem key={node} value={node}>
                           {node}
                         </SelectItem>
@@ -1401,7 +1665,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={AUTO_NODE_VALUE}>Auto</SelectItem>
-                      {circuitNodes.map(node => (
+                      {allNodes.map(node => (
                         <SelectItem key={node} value={node}>
                           {node}
                         </SelectItem>
@@ -1533,7 +1797,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                   Place component
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  Components create nodes automatically; drag or overlap nodes to form connections.
+                  Drop components onto the sheet, then draw wires with W or by clicking junctions.
                 </span>
               </div>
             </div>
@@ -1543,7 +1807,7 @@ export function CircuitTool({ isActive }: ToolProps) {
               <div>
                 <h3 className="text-sm font-semibold">Visual circuit workspace</h3>
                 <p className="text-xs text-muted-foreground">
-                  Choose a symbol, then drag or click nodes to route the schematic.
+                  Pan with space-drag, zoom with the wheel, and snap wires to the orthogonal grid.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -1591,15 +1855,35 @@ export function CircuitTool({ isActive }: ToolProps) {
                     {`${Math.round(viewport.scale * 100)}%`}
                   </Badge>
                 </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeTool === "wire" ? "default" : "outline"}
+                  onClick={() => {
+                    if (activeTool === "wire") {
+                      cancelWireDraft();
+                      setActiveTool("select");
+                    } else {
+                      setNewComponent(prev => ({ ...prev, kind: "wire" }));
+                      setActiveTool("wire");
+                      setStatus("Wire tool active – click to place junctions and route wires.");
+                    }
+                  }}
+                >
+                  Wire tool
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleAddNode}>
-                  Add node
+                  Add junction
                 </Button>
               </div>
             </div>
             <CircuitCanvas
-              nodes={circuitNodes}
+              nodes={allNodes}
               components={components}
               nodePositions={nodePositions}
+              activeTool={activeTool}
+              wireDraft={wireDraft}
+              wirePreview={wirePreview}
               selectingField={selectingNodeField}
               pendingConnection={{ from: newComponent.from, to: newComponent.to }}
               focusedComponentId={selectedComponentId}
@@ -1633,18 +1917,74 @@ export function CircuitTool({ isActive }: ToolProps) {
               onNodeDropComponentKind={handleNodeDropKind}
               onNodeDropComponentInstance={handleNodeDropComponentInstance}
               onMarqueeSelection={handleMarqueeSelection}
+              onWireStart={handleWireStart}
+              onWirePreview={handleWirePreviewUpdate}
+              onWireComplete={handleWireComplete}
+              onWireCancel={handleWireCancel}
+              onCreateJunction={createJunctionAt}
+              probes={probeDisplays}
+              onProbeOffsetChange={updateProbeOffset}
+              onRemoveProbe={removeProbe}
+              liveVoltages={liveVoltages}
+              liveCurrents={liveCurrents}
+              voltageScale={voltageScale}
               isSpacePressed={isSpacePressed}
             />
-            <NodeListEditor
-              nodes={circuitNodes}
-              connectionCounts={nodeConnectionCounts}
-              selectedNodeIds={selectedNodeIds}
-              onRename={handleRenameNode}
-              onRemove={handleRemoveNode}
-            />
+            <Card className="bg-slate-900/60 p-3 text-xs text-slate-300">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+                  Symbolic differential equations
+                </h4>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {differentialEquations.length}
+                </Badge>
+              </div>
+              {differentialEquations.length ? (
+                <div className="mt-2 space-y-2 font-mono text-[11px]">
+                  {differentialEquations.slice(0, 3).map(eq => (
+                    <div
+                      key={eq.id}
+                      className="rounded border border-slate-800/60 bg-slate-950/60 px-2 py-1 text-slate-200"
+                    >
+                      <p className="font-semibold text-primary/80">{eq.label}</p>
+                      <p>{eq.plain}</p>
+                    </div>
+                  ))}
+                  {differentialEquations.length > 3 && (
+                    <p className="text-[10px] text-slate-400">
+                      View the full system in the analysis panel below.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Run a simulation to derive the Laplace-domain model of this circuit.
+                </p>
+              )}
+            </Card>
+            <Collapsible open={showNodePanel} onOpenChange={setShowNodePanel}>
+              <CollapsibleTrigger className="flex w-full items-center justify-between rounded border border-slate-800/70 bg-slate-900/50 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
+                <span>Nets & junctions ({allNodes.length})</span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-slate-400 transition-transform duration-200",
+                    showNodePanel ? "rotate-180" : "rotate-0"
+                  )}
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <NodeListEditor
+                  nodes={allNodes}
+                  connectionCounts={nodeConnectionCounts}
+                  selectedNodeIds={selectedNodeIds}
+                  onRename={handleRenameNode}
+                  onRemove={handleRemoveNode}
+                />
+              </CollapsibleContent>
+            </Collapsible>
             {selectingNodeField && (
               <p className="rounded bg-primary/5 px-3 py-1 text-xs text-primary">
-                Click a node to set the {selectingNodeField === "from" ? "start" : "end"} connection.
+                Click a junction to set the {selectingNodeField === "from" ? "start" : "end"} connection.
               </p>
             )}
           </div>
@@ -1754,6 +2094,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 const fromLabel = component.from || "(unset)";
                 const toLabel =
                   component.to || (component.kind === "ground" ? CANONICAL_GROUND : "(unset)");
+                const valueLabel = componentValueLabel(component);
                 return (
                   <div
                     key={component.id}
@@ -1796,6 +2137,9 @@ export function CircuitTool({ isActive }: ToolProps) {
                           {getComponentGlyph(component.kind)}
                         </Badge>
                         <span className="text-xs font-semibold capitalize">{label}</span>
+                        {component.kind !== "wire" && (
+                          <span className="font-mono text-[11px] text-primary/80">{valueLabel}</span>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
                         <Badge variant="outline" className="font-mono text-[10px] uppercase">
@@ -1833,7 +2177,7 @@ export function CircuitTool({ isActive }: ToolProps) {
             {selectedComponent ? (
               <ComponentInspector
                 component={selectedComponent}
-                nodes={circuitNodes}
+                nodes={allNodes}
                 onUpdate={updater =>
                   setComponents(prev =>
                     prev.map(comp => (comp.id === selectedComponent.id ? updater(comp) : comp))
@@ -1866,6 +2210,8 @@ export function CircuitTool({ isActive }: ToolProps) {
                   const currents = result?.nodeCurrents[node];
                   const vNow = voltages ? voltages[playhead] ?? 0 : 0;
                   const iNow = currents ? currents[playhead] ?? 0 : 0;
+                  const probeForNode = probes.find(probe => probe.nodeId === node) ?? null;
+                  const hasProbe = Boolean(probeForNode);
                   return (
                     <div
                       key={node}
@@ -1876,12 +2222,34 @@ export function CircuitTool({ isActive }: ToolProps) {
                       )}
                     >
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-semibold">{node}</span>
+                        <span className="flex items-center gap-2 font-semibold">
+                          {node}
+                          {hasProbe && (
+                            <Badge variant="outline" className="font-mono text-[10px] uppercase text-primary">
+                              Probe
+                            </Badge>
+                          )}
+                        </span>
                         <span className="text-muted-foreground">
                           V = {voltages ? vNow.toFixed(4) : "n/a"} V, I = {currents ? iNow.toExponential(3) : "n/a"} A
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={hasProbe ? "default" : "outline"}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (hasProbe && probeForNode) {
+                              removeProbe(probeForNode.id);
+                            } else {
+                              addProbe(node);
+                            }
+                          }}
+                        >
+                          <Target className="mr-1 h-3 w-3" />
+                          {hasProbe ? "Active" : "Probe"}
+                        </Button>
                         <Button
                           size="sm"
                           variant="secondary"

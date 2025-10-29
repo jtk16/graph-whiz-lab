@@ -344,26 +344,81 @@ export function renderComponentSymbol(
   );
 }
 
+const UNIT_PREFIXES: Array<{ threshold: number; symbol: string; factor: number }> = [
+  { threshold: 1e12, symbol: "T", factor: 1e12 },
+  { threshold: 1e9, symbol: "G", factor: 1e9 },
+  { threshold: 1e6, symbol: "M", factor: 1e6 },
+  { threshold: 1e3, symbol: "k", factor: 1e3 },
+  { threshold: 1, symbol: "", factor: 1 },
+  { threshold: 1e-3, symbol: "m", factor: 1e-3 },
+  { threshold: 1e-6, symbol: "µ", factor: 1e-6 },
+  { threshold: 1e-9, symbol: "n", factor: 1e-9 },
+  { threshold: 1e-12, symbol: "p", factor: 1e-12 },
+];
+
+const formatWithUnit = (value: number, unit: string): string => {
+  if (!Number.isFinite(value)) return `— ${unit}`;
+  const absValue = Math.abs(value);
+  const prefix =
+    UNIT_PREFIXES.find(entry => absValue >= entry.threshold || entry.symbol === "p") ??
+    UNIT_PREFIXES[UNIT_PREFIXES.length - 1];
+  const scaled = value / prefix.factor;
+  const precision =
+    Math.abs(scaled) >= 100
+      ? 0
+      : Math.abs(scaled) >= 10
+      ? 1
+      : Math.abs(scaled) >= 1
+      ? 2
+      : 3;
+  return `${scaled.toFixed(precision)} ${prefix.symbol}${unit}`.trim();
+};
+
+export function componentValueLabel(component: CircuitComponent): string {
+  switch (component.kind) {
+    case "resistor":
+      return formatWithUnit(component.value, "Ω");
+    case "capacitor":
+      return formatWithUnit(component.value, "F");
+    case "inductor":
+      return formatWithUnit(component.value, "H");
+    case "voltage-source":
+      return component.waveform === "ac"
+        ? `${formatWithUnit(component.amplitude ?? component.value, "V")} AC`
+        : `${formatWithUnit(component.value, "V")} DC`;
+    case "current-source":
+      return component.waveform === "ac"
+        ? `${formatWithUnit(component.amplitude ?? component.value, "A")} AC`
+        : `${formatWithUnit(component.value, "A")} DC`;
+    case "wire":
+      return "wire";
+    case "ground":
+      return "0 V";
+    default:
+      return "";
+  }
+}
+
 export function describeComponent(component: CircuitComponent): string {
   switch (component.kind) {
     case "resistor":
-      return `${component.value} ohms`;
+      return `${formatWithUnit(component.value, "Ω")} resistor`;
     case "wire":
-      return "ideal wire";
+      return "Ideal wire";
     case "capacitor":
-      return `${component.value} F`;
+      return `${formatWithUnit(component.value, "F")} capacitor`;
     case "inductor":
-      return `${component.value} H`;
+      return `${formatWithUnit(component.value, "H")} inductor`;
     case "voltage-source":
       return component.waveform === "ac"
-        ? `${component.amplitude ?? component.value} V AC`
-        : `${component.value} V DC`;
+        ? `${formatWithUnit(component.amplitude ?? component.value, "V")} AC source`
+        : `${formatWithUnit(component.value, "V")} DC source`;
     case "current-source":
       return component.waveform === "ac"
-        ? `${component.amplitude ?? component.value} A AC`
-        : `${component.value} A DC`;
+        ? `${formatWithUnit(component.amplitude ?? component.value, "A")} AC source`
+        : `${formatWithUnit(component.value, "A")} DC source`;
     case "ground":
-      return `Ground reference at ${component.from}`;
+      return `Ground reference (${component.from})`;
     default:
       return "";
   }

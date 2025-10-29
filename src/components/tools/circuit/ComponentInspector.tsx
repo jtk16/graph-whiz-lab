@@ -16,6 +16,7 @@ import {
   componentGlyph as getComponentGlyph,
 } from "@/lib/circuits/editorModel";
 import { cn } from "@/lib/utils";
+import { componentValueLabel } from "./utils";
 
 export interface ComponentInspectorProps {
   component: CircuitComponent;
@@ -36,6 +37,7 @@ export const ComponentInspector = ({
   const isPassive =
     component.kind === "resistor" || component.kind === "capacitor" || component.kind === "inductor";
   const isGround = component.kind === "ground";
+  const displayValue = componentValueLabel(component);
   const valueUnit =
     component.kind === "resistor"
       ? "ohms"
@@ -123,6 +125,9 @@ export const ComponentInspector = ({
           <p className="font-mono text-[11px] text-muted-foreground">
             {component.from} &rarr; {component.to}
           </p>
+          {component.kind !== "wire" && (
+            <p className="font-mono text-[11px] text-primary/80">{displayValue}</p>
+          )}
         </div>
         <Badge variant="secondary" className="font-mono">
           {glyph}

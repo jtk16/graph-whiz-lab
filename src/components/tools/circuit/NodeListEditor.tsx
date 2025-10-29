@@ -26,7 +26,7 @@ export const NodeListEditor = ({
   return (
     <div className="rounded-lg border bg-muted/30 p-3">
       <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span>Nodes</span>
+        <span>Junctions</span>
         <span>{nodes.length}</span>
       </div>
       <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -72,7 +72,7 @@ export const NodeListEditor = ({
                 <p className="text-[10px] text-muted-foreground">
                   {hasConnections
                     ? `${connectionCount} connection${connectionCount === 1 ? "" : "s"} attached`
-                    : "Unconnected node"}
+                    : "Unconnected junction"}
                 </p>
               </div>
               <Button
@@ -89,7 +89,7 @@ export const NodeListEditor = ({
         })}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Removing a node will also remove any components attached to it.
+        Removing a junction will also remove any components attached to it.
       </p>
     </div>
   );

@@ -1,9 +1,7 @@
 ﻿import { describe, expect, it } from "vitest";
 import {
-  CANVAS_HEIGHT,
-  CANVAS_WIDTH,
   DEFAULT_NEW_COMPONENT,
-  NODE_MARGIN,
+  SNAP_GRID_SIZE,
   CANONICAL_GROUND,
   applyNodeSnap,
   componentGlyph,
@@ -88,14 +86,16 @@ describe("Circuit editor model helpers", () => {
     expect(flipped.to).toBe("vin");
   });
 
-  it("snaps node movement to the grid and clamps within bounds", () => {
+  it("snaps node movement to the grid without clamping", () => {
     const snapped = applyNodeSnap({ x: 33, y: 47 });
-    expect(snapped.x).toBe(NODE_MARGIN);
+    expect(snapped.x).toBe(24);
     expect(snapped.y).toBe(48);
 
-    const clamped = applyNodeSnap({ x: 5000, y: 5000 });
-    expect(clamped.x).toBe(CANVAS_WIDTH - NODE_MARGIN);
-    expect(clamped.y).toBe(CANVAS_HEIGHT - NODE_MARGIN);
+    const distant = applyNodeSnap({ x: 5000, y: -5000 });
+    expect(Math.abs(distant.x - 5000)).toBeLessThanOrEqual(SNAP_GRID_SIZE);
+    expect(Math.abs(distant.y + 5000)).toBeLessThanOrEqual(SNAP_GRID_SIZE);
+    expect(Math.abs(distant.x) % SNAP_GRID_SIZE).toBe(0);
+    expect(Math.abs(distant.y) % SNAP_GRID_SIZE).toBe(0);
   });
 
   it("extracts circuit nodes including ground", () => {

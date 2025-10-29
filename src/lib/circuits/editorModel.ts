@@ -20,8 +20,8 @@ export interface NewComponentState {
 }
 
 export const SNAP_GRID_SIZE = 24;
-export const CANVAS_WIDTH = 760;
-export const CANVAS_HEIGHT = 360;
+export const CANVAS_WIDTH = 1200;
+export const CANVAS_HEIGHT = 800;
 export const NODE_MARGIN = 32;
 export const CANONICAL_GROUND = "gnd";
 
@@ -103,12 +103,15 @@ export const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 export const defaultNodePosition = (index: number): NodePosition => {
-  const angle = (index / Math.max(1, index + 2)) * Math.PI * 2;
-  const radiusX = CANVAS_WIDTH / 2 - NODE_MARGIN * 2;
-  const radiusY = CANVAS_HEIGHT / 2 - NODE_MARGIN * 2;
+  const spacing = SNAP_GRID_SIZE * 8;
+  const columns = 4;
+  const column = index % columns;
+  const row = Math.floor(index / columns);
+  const x = (column - columns / 2) * spacing;
+  const y = row * spacing;
   return applyNodeSnap({
-    x: CANVAS_WIDTH / 2 + Math.cos(angle) * radiusX * 0.6,
-    y: CANVAS_HEIGHT / 2 + Math.sin(angle) * radiusY * 0.6,
+    x,
+    y,
   });
 };
 
@@ -210,8 +213,8 @@ export const componentGlyph = (kind: CircuitKind) => {
 export function applyNodeSnap(position: NodePosition): NodePosition {
   const applySnap = (value: number) => Math.round(value / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
   return {
-    x: clamp(applySnap(position.x), NODE_MARGIN, CANVAS_WIDTH - NODE_MARGIN),
-    y: clamp(applySnap(position.y), NODE_MARGIN, CANVAS_HEIGHT - NODE_MARGIN),
+    x: applySnap(position.x),
+    y: applySnap(position.y),
   };
 }
 
