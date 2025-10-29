@@ -2007,7 +2007,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 </div>
               </div>
             )}
-            <Card className="bg-slate-900/60 p-3 text-xs text-slate-300">
+            <Card className="bg-white p-3 text-xs text-slate-700">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-200">
                   Symbolic differential equations
@@ -2382,7 +2382,9 @@ export function CircuitTool({ isActive }: ToolProps) {
                 Run a simulation to populate timing metrics and symbolic equations.
               </p>
             )}
-            <DifferentialEquationList equations={differentialEquations} />
+            <div className="max-h-64 overflow-auto">
+              <DifferentialEquationList equations={differentialEquations} />
+            </div>
           </Card>
           <Card className="flex-1 p-4">
             {selectedNode ? (

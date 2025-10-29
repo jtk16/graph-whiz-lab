@@ -1,4 +1,4 @@
-import {
+﻿import {
 
   useCallback,
 
@@ -1532,7 +1532,7 @@ export const CircuitCanvas = ({
 
       ref={containerRef}
 
-      className="relative flex-1 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/70"
+      className="relative flex-1 overflow-hidden rounded-xl border border-slate-300 bg-white"
 
       onDragOver={handleCanvasDragOver}
 
@@ -1583,7 +1583,7 @@ export const CircuitCanvas = ({
 
               fill="none"
 
-              stroke="rgba(148,163,184,0.25)"
+              stroke="rgba(0,0,0,0.08)"
 
               strokeWidth={0.75}
 
@@ -1611,7 +1611,7 @@ export const CircuitCanvas = ({
 
               fill="none"
 
-              stroke="rgba(148,163,184,0.35)"
+              stroke="rgba(0,0,0,0.1)"
 
               strokeWidth={1.2}
 
@@ -1643,9 +1643,9 @@ export const CircuitCanvas = ({
 
           <g pointerEvents="none" opacity={0.25}>
 
-            <line x1={viewport.origin.x - gridBounds.width} y1={0} x2={viewport.origin.x + gridBounds.width} y2={0} stroke="rgba(148,163,184,0.4)" strokeWidth={1.2} strokeDasharray="6 6" />
+            <line x1={viewport.origin.x - gridBounds.width} y1={0} x2={viewport.origin.x + gridBounds.width} y2={0} stroke="rgba(0,0,0,0.2)" strokeWidth={1.2} strokeDasharray="6 6" />
 
-            <line x1={0} y1={viewport.origin.y - gridBounds.height} x2={0} y2={viewport.origin.y + gridBounds.height} stroke="rgba(148,163,184,0.4)" strokeWidth={1.2} strokeDasharray="6 6" />
+            <line x1={0} y1={viewport.origin.y - gridBounds.height} x2={0} y2={viewport.origin.y + gridBounds.height} stroke="rgba(0,0,0,0.2)" strokeWidth={1.2} strokeDasharray="6 6" />
 
           </g>
 
@@ -1874,87 +1874,49 @@ export const CircuitCanvas = ({
           })}
 
           {previewPath && (
-
             <path
-
               d={previewPath}
-
               fill="none"
-
-              stroke="hsl(var(--primary))"
-
+              stroke="#111827"
               strokeWidth={2}
-
               strokeDasharray="8 6"
-
               opacity={0.6}
-
             />
-
           )}
 
           {wirePreviewPath && (
-
             <path
-
               d={wirePreviewPath}
-
               fill="none"
-
-              stroke="hsl(var(--primary))"
-
+              stroke="#111827"
               strokeWidth={2.4}
-
               strokeDasharray="4 4"
-
               opacity={0.75}
-
             />
-
           )}
 
           {wireStartPosition && isTransientStart && (
-
             <circle
-
               cx={wireStartPosition.x}
-
               cy={wireStartPosition.y}
-
               r={6}
-
-              fill="hsl(var(--primary) / 0.2)"
-
-              stroke="hsl(var(--primary))"
-
+              fill="rgba(0,0,0,0.05)"
+              stroke="#111827"
               strokeWidth={2}
-
               pointerEvents="none"
-
             />
-
           )}
 
           {wireStartPosition && wirePreview && !previewMatchesNode && (
-
             <circle
-
               cx={wirePreview.x}
-
               cy={wirePreview.y}
-
               r={4}
-
-              fill="hsl(var(--primary))"
-
-              stroke="hsl(var(--primary) / 0.5)"
-
+              fill="#111827"
+              stroke="rgba(0,0,0,0.4)"
               strokeWidth={1.2}
-
               pointerEvents="none"
-
             />
-
           )}
 
           {nodes.map(nodeId => {
@@ -1974,13 +1936,9 @@ export const CircuitCanvas = ({
             const voltageIntensity =
               voltageScale > 0 ? Math.min(Math.abs(nodeVoltage) / voltageScale, 1) : 0;
             const markerRadius = isGround ? 6 : 5;
-            const baseFill = isGround ? "#0f172a" : "#111827";
-            const dynamicFill = isGround
-              ? baseFill
-              : `hsl(var(--primary) / ${0.25 + 0.45 * voltageIntensity})`;
-            const ringColor = isGround
-              ? "hsl(var(--primary))"
-              : `hsl(var(--primary) / ${0.4 + 0.3 * voltageIntensity})`;
+            const baseFill = "#ffffff";
+            const dynamicFill = baseFill;
+            const ringColor = "#111827";
             const coordinate = `${Math.round(position.x)}, ${Math.round(position.y)}`;
             return (
               <g key={nodeId} data-node-id={nodeId}>

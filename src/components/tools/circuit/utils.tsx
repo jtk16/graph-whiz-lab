@@ -6,7 +6,8 @@ import {
   sanitizeIdentifier,
 } from "@/lib/circuits/editorModel";
 
-export const componentStroke = (kind: CircuitKind) => COMPONENT_COLORS[kind] ?? "#94a3b8";
+// Monochrome stroke color for schematic-style rendering
+export const componentStroke = (kind: CircuitKind) => "#111827";
 
 const MIN_SYMBOL_LENGTH = 56;
 

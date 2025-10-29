@@ -108,7 +108,8 @@ export const ComponentPalette = ({ selectedKind, onSelect }: ComponentPalettePro
 };
 
 function ComponentPreview({ kind }: { kind: CircuitKind }) {
-  const color = COMPONENT_COLORS[kind] ?? "rgba(148,163,184,0.8)";
+  // Monochrome preview color
+  const color = "#111827";
   return (
     <svg viewBox="0 0 100 56" className="h-16 w-full">
       <rect
