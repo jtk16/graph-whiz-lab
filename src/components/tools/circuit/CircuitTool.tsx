@@ -314,11 +314,6 @@ export function CircuitTool({ isActive }: ToolProps) {
     });
     return map;
   }, [result, playhead]);
-  const voltageScale = useMemo(() => {
-    const magnitudes = Object.values(liveVoltages).map(value => Math.abs(value));
-    const max = magnitudes.length ? Math.max(...magnitudes) : 0;
-    return max > 1 ? max : 1;
-  }, [liveVoltages]);
   const probeDisplays = useMemo(
     () =>
       probes.map(probe => ({
@@ -1654,7 +1649,7 @@ export function CircuitTool({ isActive }: ToolProps) {
   const displayedStatus = status && status.trim().length ? status : "Workspace ready.";
 
   return (
-    <div className="flex h-full flex-col gap-3 bg-slate-50 p-4">
+    <div className="flex h-full flex-col gap-4 bg-slate-100 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="min-w-[220px]">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Circuit workspace</p>
@@ -1700,9 +1695,9 @@ export function CircuitTool({ isActive }: ToolProps) {
           </Button>
         </div>
       </div>
-      <Card className="space-y-6 border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-6 xl:grid-cols-[280px,1fr]">
-          <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
+      <Card className="flex-1 overflow-hidden border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid h-full min-h-0 gap-6 xl:grid-cols-[300px,1fr]">
+          <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-2">
             <ComponentPalette
               selectedKind={newComponent.kind}
               onSelect={handleComponentKindSelect}
@@ -1921,8 +1916,13 @@ export function CircuitTool({ isActive }: ToolProps) {
                 </span>
               </div>
             </div>
+          <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold">Workflow Tips</h3>
+            <ShortcutLegend items={HOTKEY_HINTS} />
+            <TipsList tips={EDITOR_TIPS} />
+          </Card>
           </div>
-          <div className="space-y-4">
+          <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-2">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -2041,7 +2041,6 @@ export function CircuitTool({ isActive }: ToolProps) {
               onRemoveProbe={removeProbe}
               liveVoltages={liveVoltages}
               liveCurrents={liveCurrents}
-              voltageScale={voltageScale}
               isSpacePressed={isSpacePressed}
             />
             {contextMenu && (
@@ -2111,7 +2110,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 </div>
               </div>
             )}
-            <Card className="bg-white p-3 text-xs text-slate-700">
+            <Card className="space-y-3 border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-700">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
                   Symbolic differential equations
@@ -2121,24 +2120,11 @@ export function CircuitTool({ isActive }: ToolProps) {
                 </Badge>
               </div>
               {differentialEquations.length ? (
-                <div className="mt-2 space-y-2 font-mono text-[11px]">
-                  {differentialEquations.slice(0, 3).map(eq => (
-                    <div
-                      key={eq.id}
-                      className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700"
-                    >
-                      <p className="font-semibold text-slate-800">{eq.label}</p>
-                      <p>{eq.plain}</p>
-                    </div>
-                  ))}
-                  {differentialEquations.length > 3 && (
-                    <p className="text-[10px] text-slate-500">
-                      View the full system in the analysis panel below.
-                    </p>
-                  )}
+                <div className="max-h-60 overflow-y-auto pr-1">
+                  <DifferentialEquationList equations={differentialEquations} />
                 </div>
               ) : (
-                <p className="mt-2 text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500">
                   Run a simulation to derive the Laplace-domain model of this circuit.
                 </p>
               )}
@@ -2171,8 +2157,8 @@ export function CircuitTool({ isActive }: ToolProps) {
           </div>
         </div>
       </Card>
-      <div className="grid flex-1 gap-4 xl:grid-cols-[320px,1fr]">
-        <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
+      <div className="grid flex-1 min-h-0 gap-4 xl:grid-cols-[320px,1fr]">
+        <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-2">
           <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-800">Simulation Settings</h3>
@@ -2236,11 +2222,6 @@ export function CircuitTool({ isActive }: ToolProps) {
               </div>
               {status && <p className="text-slate-600">{status}</p>}
             </div>
-          </Card>
-          <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold">Workflow Tips</h3>
-            <ShortcutLegend items={HOTKEY_HINTS} />
-            <TipsList tips={EDITOR_TIPS} />
           </Card>
           <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
@@ -2351,7 +2332,7 @@ export function CircuitTool({ isActive }: ToolProps) {
             )}
           </Card>
         </div>
-        <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
+        <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-2">
           <Card className="flex-1 space-y-4 overflow-hidden border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Node Observations</h3>
@@ -2499,6 +2480,5 @@ export function CircuitTool({ isActive }: ToolProps) {
     </div>
   );
 }
-
 
 

@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   COMPONENT_LIBRARY,
-  COMPONENT_COLORS,
   CircuitKind,
   componentGlyph as getComponentGlyph,
   hotkeyToKind,
@@ -40,9 +39,9 @@ export const ComponentPalette = ({ selectedKind, onSelect }: ComponentPalettePro
   }, [query]);
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Component palette</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Component palette</h3>
         <Badge variant="outline" className="font-mono text-[10px] uppercase">
           drag · press hotkey
         </Badge>
@@ -51,9 +50,9 @@ export const ComponentPalette = ({ selectedKind, onSelect }: ComponentPalettePro
         value={query}
         onChange={event => setQuery(event.target.value)}
         placeholder="Search components…"
-        className="h-8 text-xs"
+        className="h-9 text-xs"
       />
-      <div className="space-y-2">
+      <div className="flex-1 space-y-2 overflow-y-auto pr-1">
         {filtered.map(definition => {
           const isActive = definition.kind === selectedKind;
           const hotkey = HOTKEY_BY_KIND[definition.kind];
@@ -70,9 +69,9 @@ export const ComponentPalette = ({ selectedKind, onSelect }: ComponentPalettePro
                 event.dataTransfer.effectAllowed = "copy";
               }}
               className={cn(
-                "group flex items-center justify-between gap-3 rounded-lg border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-left transition",
-                "hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                isActive && "border-primary bg-primary/10"
+                "group flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-left shadow-sm transition",
+                "hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+                isActive && "border-slate-800 bg-slate-100"
               )}
             >
               <div className="flex flex-col gap-1">
@@ -98,7 +97,7 @@ export const ComponentPalette = ({ selectedKind, onSelect }: ComponentPalettePro
           );
         })}
         {filtered.length === 0 && (
-          <p className="rounded border border-dashed border-slate-800/60 bg-slate-950/50 px-3 py-2 text-xs text-muted-foreground">
+          <p className="rounded border border-dashed border-slate-300 bg-white px-3 py-2 text-xs text-muted-foreground">
             No components match “{query}”.
           </p>
         )}
@@ -118,8 +117,8 @@ function ComponentPreview({ kind }: { kind: CircuitKind }) {
         width={100}
         height={56}
         rx={8}
-        fill="var(--muted)"
-        className="opacity-10"
+        fill="#f8fafc"
+        className="stroke-slate-200"
       />
       <g transform="translate(14 28)">
         {renderComponentSymbol(kind, 72, color, 2)}

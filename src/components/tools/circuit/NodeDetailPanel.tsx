@@ -9,7 +9,7 @@ import {
 import { Copy, Upload } from "lucide-react";
 import type { CircuitComponent, SimulationResult } from "@/lib/circuits/simulator";
 import type { DifferentialEquation } from "@/lib/circuits/differentialEquations";
-import { sanitizeIdentifier } from "@/lib/circuits/editorModel";
+import { CANONICAL_GROUND, sanitizeIdentifier } from "@/lib/circuits/editorModel";
 import { toast } from "@/components/ui/use-toast";
 
 export type ShortcutHint = { combo: string; action: string };
@@ -53,7 +53,7 @@ export const NodeDetailPanel = ({
     : null;
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-4 overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold">Node {node}</p>
@@ -93,36 +93,40 @@ export const NodeDetailPanel = ({
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <MiniChart label="Voltage over time" time={time} values={voltageSeries} color="hsl(var(--chart-1))" />
-        <MiniChart label="Current over time" time={time} values={currentSeries} color="hsl(var(--chart-2))" />
+        <MiniChart label="Voltage over time" time={time} values={voltageSeries} color="#111827" />
+        <MiniChart label="Current over time" time={time} values={currentSeries} color="#1f2937" />
       </div>
-      <div className="rounded border p-3 text-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground font-semibold">Symbolic nodal analysis</p>
-          <div className="flex gap-2">
-            {voltageSymbolic && (
+      <div className="flex min-h-[160px] flex-col rounded border bg-muted/20 p-3 text-xs">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="font-semibold text-muted-foreground">Symbolic nodal analysis</p>
+          <div className="flex flex-wrap gap-2">
+            {voltageSymbolic ? (
               <Button size="sm" variant="outline" onClick={() => onExportSymbolic(voltageSymbolic)}>
                 <Upload className="mr-1 h-3 w-3" />
                 Export V(s)
               </Button>
-            )}
-            {currentSymbolic && (
+            ) : null}
+            {currentSymbolic ? (
               <Button size="sm" variant="outline" onClick={() => onExportSymbolic(currentSymbolic)}>
                 <Upload className="mr-1 h-3 w-3" />
                 Export I(s)
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
         {symbolic ? (
-          <div className="space-y-2 font-mono">
-            <div>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+            <div className="space-y-1">
               <p className="text-muted-foreground">Voltage:</p>
-              <p>{voltageSymbolic}</p>
+              <div className="overflow-auto rounded border bg-background px-2 py-1 font-mono text-[11px] leading-relaxed">
+                <pre className="whitespace-pre-wrap">{voltageSymbolic}</pre>
+              </div>
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="text-muted-foreground">Current:</p>
-              <p>{currentSymbolic}</p>
+              <div className="overflow-auto rounded border bg-background px-2 py-1 font-mono text-[11px] leading-relaxed">
+                <pre className="whitespace-pre-wrap">{currentSymbolic}</pre>
+              </div>
             </div>
           </div>
         ) : (

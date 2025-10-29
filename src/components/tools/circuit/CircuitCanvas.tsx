@@ -130,7 +130,6 @@ export interface CircuitCanvasProps {
 
   liveCurrents?: Record<string, number>;
 
-  voltageScale?: number;
 
   isSpacePressed?: boolean;
 
@@ -1583,9 +1582,8 @@ export const CircuitCanvas = ({
 
               fill="none"
 
-              stroke="rgba(0,0,0,0.08)"
-
-              strokeWidth={0.75}
+              stroke="rgba(17,24,39,0.05)"
+              strokeWidth={0.6}
 
             />
 
@@ -1611,9 +1609,8 @@ export const CircuitCanvas = ({
 
               fill="none"
 
-              stroke="rgba(0,0,0,0.1)"
-
-              strokeWidth={1.2}
+              stroke="rgba(15,23,42,0.08)"
+              strokeWidth={0.8}
 
             />
 
@@ -1635,17 +1632,16 @@ export const CircuitCanvas = ({
 
             fill={`url(#${majorGridId})`}
 
-            opacity={0.92}
+            opacity={1}
 
             pointerEvents="none"
 
           />
 
-          <g pointerEvents="none" opacity={0.25}>
+          <g pointerEvents="none" opacity={0.18}>
+            <line x1={viewport.origin.x - gridBounds.width} y1={0} x2={viewport.origin.x + gridBounds.width} y2={0} stroke="rgba(15,23,42,0.18)" strokeWidth={1} strokeDasharray="8 8" />
+            <line x1={0} y1={viewport.origin.y - gridBounds.height} x2={0} y2={viewport.origin.y + gridBounds.height} stroke="rgba(15,23,42,0.18)" strokeWidth={1} strokeDasharray="8 8" />
 
-            <line x1={viewport.origin.x - gridBounds.width} y1={0} x2={viewport.origin.x + gridBounds.width} y2={0} stroke="rgba(0,0,0,0.2)" strokeWidth={1.2} strokeDasharray="6 6" />
-
-            <line x1={0} y1={viewport.origin.y - gridBounds.height} x2={0} y2={viewport.origin.y + gridBounds.height} stroke="rgba(0,0,0,0.2)" strokeWidth={1.2} strokeDasharray="6 6" />
 
           </g>
 
@@ -1679,7 +1675,7 @@ export const CircuitCanvas = ({
 
             const isFocused = component.id === focusedComponentId;
 
-            const strokeWidth = isSelected ? 4 : isHovered ? 3.4 : 2.8;
+            const strokeWidth = isSelected ? 3 : isHovered ? 2.4 : 1.8;
 
             const accentColor = isSelected ? "hsl(var(--primary))" : baseColor;
 
@@ -1932,47 +1928,91 @@ export const CircuitCanvas = ({
             const isHovered = hoveredNodeId === nodeId;
             const isDraggingNode = dragState?.nodeId === nodeId;
             const showLabel = isActive || isHighlighted || isHovered || isDraggingNode;
-            const nodeVoltage = liveVoltages?.[nodeId] ?? 0;
-            const voltageIntensity =
-              voltageScale > 0 ? Math.min(Math.abs(nodeVoltage) / voltageScale, 1) : 0;
-            const markerRadius = isGround ? 6 : 5;
-            const baseFill = "#ffffff";
-            const dynamicFill = baseFill;
-            const ringColor = "#111827";
+            const markerRadius = isGround ? 5 : 4;
+            const outerRadius = markerRadius + 3;
+            const highlight = showLabel || isHighlighted;
+            const groundBaseY = position.y + markerRadius + 6;
             const coordinate = `${Math.round(position.x)}, ${Math.round(position.y)}`;
             return (
               <g key={nodeId} data-node-id={nodeId}>
                 <title>{`${nodeId} - (${coordinate})`}</title>
+                {highlight && (
+                  <circle
+                    cx={position.x}
+                    cy={position.y}
+                    r={outerRadius + 3}
+                    fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={1.4}
+                    strokeDasharray="6 3"
+                  />
+                )}
                 <circle
                   data-node-id={nodeId}
                   cx={position.x}
                   cy={position.y}
-                  r={markerRadius + 2.5}
-                  fill="rgba(15,23,42,0.4)"
-                  stroke="rgba(15,23,42,0.6)"
+                  r={outerRadius}
+                  fill="#ffffff"
+                  stroke={highlight ? "hsl(var(--primary))" : "#0f172a"}
                   strokeWidth={1.4}
+                  onDragOver={handleNodeDragOver}
+                  onDrop={event => handleNodeDrop(nodeId, event)}
                 />
                 <circle
                   data-node-id={nodeId}
                   cx={position.x}
                   cy={position.y}
                   r={markerRadius}
-                  fill={dynamicFill}
-                  stroke={showLabel ? "hsl(var(--primary))" : ringColor}
-                  strokeWidth={showLabel ? 2.4 : 1.6}
-                  onDragOver={handleNodeDragOver}
-                  onDrop={event => handleNodeDrop(nodeId, event)}
+                  fill="#0f172a"
+                  stroke="#0f172a"
+                  strokeWidth={1}
                 />
+                {isGround && (
+                  <>
+                    <line
+                      x1={position.x}
+                      y1={position.y + markerRadius}
+                      x2={position.x}
+                      y2={groundBaseY}
+                      stroke="#0f172a"
+                      strokeWidth={1.2}
+                    />
+                    <line
+                      x1={position.x - 6}
+                      y1={groundBaseY}
+                      x2={position.x + 6}
+                      y2={groundBaseY}
+                      stroke="#0f172a"
+                      strokeWidth={1.2}
+                    />
+                    <line
+                      x1={position.x - 4}
+                      y1={groundBaseY + 4}
+                      x2={position.x + 4}
+                      y2={groundBaseY + 4}
+                      stroke="#0f172a"
+                      strokeWidth={1.2}
+                    />
+                    <line
+                      x1={position.x - 2}
+                      y1={groundBaseY + 8}
+                      x2={position.x + 2}
+                      y2={groundBaseY + 8}
+                      stroke="#0f172a"
+                      strokeWidth={1.2}
+                    />
+                  </>
+                )}
                 {showLabel && (
                   <text
                     x={position.x}
-                    y={position.y + 18}
+                    y={position.y + 20}
                     textAnchor="middle"
-                    fill="hsl(var(--primary))"
+                    fill={highlight ? "hsl(var(--primary))" : "#0f172a"}
                     fontSize={10}
                     fontWeight={600}
                     paintOrder="stroke"
-                    stroke="rgba(10,15,28,0.75)"
+                    stroke="rgba(248,250,252,0.9)"
                     strokeWidth={3}
                   >
                     {nodeId}
@@ -2004,14 +2044,14 @@ export const CircuitCanvas = ({
                   onPointerDown={event => beginProbeDrag(probe.id, event)}
                 >
                   <rect
-                    x={-54}
-                    y={-58}
-                    width={118}
-                    height={64}
-                    rx={8}
-                    fill="rgba(15,23,42,0.88)"
-                    stroke="hsl(var(--primary) / 0.5)"
-                    strokeWidth={1.2}
+                    x={-56}
+                    y={-60}
+                    width={124}
+                    height={68}
+                    rx={10}
+                    fill="#ffffff"
+                    stroke="#0f172a"
+                    strokeWidth={1.1}
                   />
                   <text
                     x={0}
@@ -2019,32 +2059,32 @@ export const CircuitCanvas = ({
                     textAnchor="middle"
                     fontSize={12}
                     fontWeight={600}
-                    fill="hsl(var(--primary))"
+                    fill="#0f172a"
                   >
                     {probe.nodeId}
                   </text>
                   <text
                     x={0}
-                    y={-12}
+                    y={-10}
                     textAnchor="middle"
                     fontSize={11}
-                    fill="var(--foreground)"
+                    fill="#1f2937"
                   >
                     {voltageText}
                   </text>
                   <text
                     x={0}
-                    y={8}
+                    y={10}
                     textAnchor="middle"
                     fontSize={11}
-                    fill="var(--foreground)"
+                    fill="#1f2937"
                   >
                     {currentText}
                   </text>
                 </g>
                 {onRemoveProbe && (
                   <g
-                    transform="translate(52 -56)"
+                    transform="translate(54 -58)"
                     onPointerDown={event => event.stopPropagation()}
                     onClick={() => onRemoveProbe(probe.id)}
                     className="cursor-pointer"
@@ -2055,8 +2095,8 @@ export const CircuitCanvas = ({
                       width={20}
                       height={20}
                       rx={4}
-                      fill="rgba(15,23,42,0.95)"
-                      stroke="hsl(var(--primary) / 0.4)"
+                      fill="#ffffff"
+                      stroke="#0f172a"
                       strokeWidth={1}
                     />
                     <text
@@ -2065,9 +2105,9 @@ export const CircuitCanvas = ({
                       textAnchor="middle"
                       fontSize={12}
                       fontWeight={600}
-                      fill="hsl(var(--primary))"
+                      fill="#0f172a"
                     >
-                      ×
+                      x
                     </text>
                   </g>
                 )}
