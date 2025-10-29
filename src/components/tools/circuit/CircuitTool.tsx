@@ -17,7 +17,8 @@ import {
   NodePosition,
   SNAP_GRID_SIZE,
   applyNodeSnap,
-  clamp,
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
   componentGlyph as getComponentGlyph,
   createInitialPositions,
   defaultNodePosition,
@@ -43,13 +44,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { toast } from "@/components/ui/use-toast";
-import { Pause, Play, Upload, Trash2 } from "lucide-react";
+import { Pause, Play, Upload, Trash2, ZoomIn, ZoomOut, Scan, RefreshCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { solveSymbolicCircuit } from "@/lib/circuits/symbolic";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -149,6 +156,78 @@ const HOTKEY_HINTS: ShortcutHint[] = [
   { combo: "Esc", action: "Clear selections and node picking" },
 ];
 
+const CIRCUIT_PRESETS: Array<{ id: string; label: string; description: string; components: CircuitComponent[] }> = [
+  {
+    id: "starter-supply",
+    label: "Starter (Grounded source)",
+    description: "Baseline DC source with a single load resistor.",
+    components: [
+      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
+      { id: "vs1", kind: "voltage-source", from: "vin", to: "n0", waveform: "dc", value: 5 },
+      { id: "r1", kind: "resistor", from: "vin", to: "n0", value: 1000 },
+    ],
+  },
+  {
+    id: "rc-lowpass",
+    label: "RC Low-Pass Filter",
+    description: "First-order filter with 10 kOhm / 1 uF corner (~15.9 Hz).",
+    components: [
+      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
+      {
+        id: "vs1",
+        kind: "voltage-source",
+        from: "vin",
+        to: "n0",
+        waveform: "ac",
+        value: 0,
+        amplitude: 5,
+        frequency: 1000,
+        phase: 0,
+        offset: 0,
+      },
+      { id: "r1", kind: "resistor", from: "vin", to: "vout", value: 10000 },
+      { id: "c1", kind: "capacitor", from: "vout", to: "n0", value: 1e-6 },
+    ],
+  },
+  {
+    id: "rlc-series",
+    label: "Series RLC Resonator",
+    description: "Driven ladder with 50 Ohm damping and 10 mH / 1 uF tank.",
+    components: [
+      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
+      {
+        id: "vs1",
+        kind: "voltage-source",
+        from: "vin",
+        to: "n0",
+        waveform: "ac",
+        value: 0,
+        amplitude: 3,
+        frequency: 500,
+        phase: 0,
+        offset: 0,
+      },
+      { id: "r1", kind: "resistor", from: "vin", to: "n1", value: 50 },
+      { id: "l1", kind: "inductor", from: "n1", to: "n2", value: 0.01 },
+      { id: "c1", kind: "capacitor", from: "n2", to: "n0", value: 1e-6 },
+    ],
+  },
+  {
+    id: "wheatstone-bridge",
+    label: "Wheatstone Bridge",
+    description: "Balanced bridge with a 10 kOhm sense resistor across the legs.",
+    components: [
+      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
+      { id: "vs1", kind: "voltage-source", from: "vin", to: "n0", waveform: "dc", value: 12 },
+      { id: "r1", kind: "resistor", from: "vin", to: "n1", value: 1000 },
+      { id: "r2", kind: "resistor", from: "n1", to: "n0", value: 1000 },
+      { id: "r3", kind: "resistor", from: "vin", to: "n2", value: 1000 },
+      { id: "r4", kind: "resistor", from: "n2", to: "n0", value: 1000 },
+      { id: "r5", kind: "resistor", from: "n1", to: "n2", value: 10000 },
+    ],
+  },
+];
+
 const EDITOR_TIPS = [
   "Drag components from the library directly onto the canvas to autoconnect.",
   "Drop a netlist item onto a node to retarget its leads instantly.",
@@ -169,18 +248,31 @@ export function CircuitTool({ isActive }: ToolProps) {
   const [nodePositions, setNodePositions] = useState<Record<string, NodePosition>>(() =>
     createInitialPositions(DEFAULT_NODE_NAMES)
   );
-const [selectingNodeField, setSelectingNodeField] = useState<"from" | "to" | null>(null);
-const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
-const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
-const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-const [selectedComponentIds, setSelectedComponentIds] = useState<Set<string>>(new Set());
-const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
-const [viewport, setViewport] = useState<ViewportState>({
-  origin: { x: 0, y: 0 },
-  scale: 1,
-});
+  const [selectingNodeField, setSelectingNodeField] = useState<"from" | "to" | null>(null);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [selectedComponentIds, setSelectedComponentIds] = useState<Set<string>>(new Set());
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
+  const [viewport, setViewport] = useState<ViewportState>({
+    origin: { x: 0, y: 0 },
+    scale: 1,
+  });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const playRef = useRef<number | null>(null);
+  const circuitNodes = useMemo(() => extractCircuitNodes(components), [components]);
+  const nodeConnectionCounts = useMemo(() => {
+    const counts: Record<string, number> = Object.create(null);
+    components.forEach(component => {
+      if (component.from) {
+        counts[component.from] = (counts[component.from] ?? 0) + 1;
+      }
+      if (component.to) {
+        counts[component.to] = (counts[component.to] ?? 0) + 1;
+      }
+    });
+    return counts;
+  }, [components]);
   const symbolicResult = useMemo(() => {
     try {
       return solveSymbolicCircuit(components);
@@ -188,29 +280,47 @@ const [viewport, setViewport] = useState<ViewportState>({
       return { nodeVoltages: {}, branchCurrents: {}, variables: [] };
     }
   }, [components]);
-
   const differentialEquations = useMemo<DifferentialEquation[]>(
     () => buildDifferentialEquations(components),
     [components]
   );
-  const circuitNodes = useMemo(() => extractCircuitNodes(components), [components]);
-  const connectedNodes = useMemo(() => {
-    const set = new Set<string>();
-    components.forEach(component => {
-      if (!component) return;
-      switch (component.kind) {
-        case "ground":
-          if (component.from) set.add(component.from);
-          if (component.to) set.add(component.to);
-          break;
-        default:
-          if (component.from) set.add(component.from);
-          if (component.to) set.add(component.to);
-          break;
-      }
+
+  const applyPreset = (label: string, componentsToLoad: CircuitComponent[], description?: string) => {
+    const cloned = componentsToLoad.map(component => ({ ...component }));
+    setComponents(cloned);
+    const nodes = extractCircuitNodes(cloned);
+    const baselineNodes = new Set(DEFAULT_NODE_NAMES);
+    setExtraNodes(nodes.filter(node => !baselineNodes.has(node)));
+    setNodePositions(createInitialPositions(nodes));
+    setViewport({ origin: { x: 0, y: 0 }, scale: 1 });
+    setSelectedComponentId(null);
+    setSelectedComponentIds(() => new Set());
+    setHoveredComponentId(null);
+    setHoveredNodeId(null);
+    setSelectedNode(null);
+    setSelectedNodeIds(() => new Set());
+    setSelectingNodeField(null);
+    setNewComponent(DEFAULT_NEW_COMPONENT);
+    setResult(null);
+    setMetrics(null);
+    setPlayhead(0);
+    setIsPlaying(false);
+    const descriptionText = description ? `${label} - ${description}` : label;
+    toast({
+      title: "Preset loaded",
+      description: descriptionText,
     });
-    return set;
-  }, [components]);
+    setStatus(`Loaded preset: ${descriptionText}`);
+  };
+
+  const loadPreset = (presetId: string) => {
+    const preset = CIRCUIT_PRESETS.find(entry => entry.id === presetId);
+    if (!preset) {
+      applyPreset("Starter (Grounded source)", DEFAULT_COMPONENTS);
+      return;
+    }
+    applyPreset(preset.label, preset.components, preset.description);
+  };
 
   useEffect(() => {
     const validIds = new Set(components.map(component => component.id));
@@ -276,13 +386,14 @@ const [viewport, setViewport] = useState<ViewportState>({
     }));
   }, []);
 
-  const updateViewportZoom = useCallback(
-    (zoomFactor: number, screenPoint: { x: number; y: number }) => {
+  const applyViewportZoom = useCallback(
+    (zoomFactor: number, anchor?: { x: number; y: number }) => {
       setViewport(prev => {
         const nextScale = clampScale(prev.scale * zoomFactor);
         if (nextScale === prev.scale) {
           return prev;
         }
+        const screenPoint = anchor ?? { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
         const worldPoint = {
           x: screenPoint.x / prev.scale + prev.origin.x,
           y: screenPoint.y / prev.scale + prev.origin.y,
@@ -299,6 +410,67 @@ const [viewport, setViewport] = useState<ViewportState>({
     },
     [clampScale]
   );
+
+  const updateViewportZoom = useCallback(
+    (zoomFactor: number, screenPoint: { x: number; y: number }) => {
+      applyViewportZoom(zoomFactor, screenPoint);
+    },
+    [applyViewportZoom]
+  );
+
+  const handleZoomIn = useCallback(() => applyViewportZoom(1.2), [applyViewportZoom]);
+
+  const handleZoomOut = useCallback(() => applyViewportZoom(1 / 1.2), [applyViewportZoom]);
+
+  const handleResetViewport = useCallback(() => {
+    setViewport({ origin: { x: 0, y: 0 }, scale: 1 });
+    setStatus("Viewport reset");
+  }, []);
+
+  const handleZoomToFit = useCallback(() => {
+    if (circuitNodes.length === 0) {
+      setViewport({ origin: { x: 0, y: 0 }, scale: 1 });
+      setStatus("Viewport centered on origin");
+      return;
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    circuitNodes.forEach(nodeId => {
+      const position = nodePositions[nodeId];
+      if (!position) {
+        return;
+      }
+      minX = Math.min(minX, position.x);
+      minY = Math.min(minY, position.y);
+      maxX = Math.max(maxX, position.x);
+      maxY = Math.max(maxY, position.y);
+    });
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      setViewport({ origin: { x: 0, y: 0 }, scale: 1 });
+      setStatus("Viewport centered on origin");
+      return;
+    }
+    const padding = NODE_MARGIN * 2;
+    const width = Math.max(maxX - minX, 1);
+    const height = Math.max(maxY - minY, 1);
+    const widthWithPadding = width + padding;
+    const heightWithPadding = height + padding;
+    const scaleX = CANVAS_WIDTH / widthWithPadding;
+    const scaleY = CANVAS_HEIGHT / heightWithPadding;
+    const nextScale = clampScale(Math.min(scaleX, scaleY));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    setViewport({
+      origin: {
+        x: centerX - CANVAS_WIDTH / (2 * nextScale),
+        y: centerY - CANVAS_HEIGHT / (2 * nextScale),
+      },
+      scale: nextScale,
+    });
+    setStatus("Framed circuit to fit viewport");
+  }, [circuitNodes, nodePositions, clampScale]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -588,7 +760,7 @@ const [viewport, setViewport] = useState<ViewportState>({
     setSelectedNode(prev => (prev === nodeId ? normalizedName : prev));
   };
 
-  const handleRemoveNode = (nodeId: string) => {
+  const handleRemoveNode = useCallback((nodeId: string) => {
     const removedComponents = new Set<string>();
     setComponents(prev =>
       prev.filter(component => {
@@ -654,7 +826,7 @@ const [viewport, setViewport] = useState<ViewportState>({
       });
       setStatus(`Removed node ${nodeId}.`);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const buckets = new Map<string, string[]>();
@@ -894,23 +1066,43 @@ const [viewport, setViewport] = useState<ViewportState>({
     [newComponent, circuitNodes, nodePositions]
   );
 
-  const removeComponent = useCallback(
-    (id: string) => {
-      setComponents(prev => prev.filter(comp => comp.id !== id));
+  const removeComponents = useCallback(
+    (ids: Iterable<string>) => {
+      const removalSet = new Set(ids);
+      if (removalSet.size === 0) {
+        return;
+      }
+
+      setComponents(prev => prev.filter(component => !removalSet.has(component.id)));
+
       setSelectedComponentIds(prev => {
-        if (!prev.has(id)) {
+        if (prev.size === 0) {
           return prev;
         }
+        let changed = false;
         const next = new Set(prev);
-        next.delete(id);
+        removalSet.forEach(id => {
+          if (next.delete(id)) {
+            changed = true;
+          }
+        });
+        if (!changed) {
+          return prev;
+        }
         const nextArray = Array.from(next);
         setSelectedComponentId(nextArray.length ? nextArray[nextArray.length - 1] ?? null : null);
         return next;
       });
-      setHoveredComponentId(prev => (prev === id ? null : prev));
+
+      setHoveredComponentId(prev => (prev && removalSet.has(prev) ? null : prev));
+      const removedCount = removalSet.size;
+      const removedIds = Array.from(removalSet);
+      setStatus(removedCount === 1 ? `Removed component ${removedIds[0]}` : `Removed ${removedCount} components`);
     },
     []
   );
+
+  const removeComponent = useCallback((id: string) => removeComponents([id]), [removeComponents]);
 
   const simulate = () => {
     const invalidComponent = components.find(component => component.from === component.to);
@@ -1043,10 +1235,18 @@ const [viewport, setViewport] = useState<ViewportState>({
         return;
       }
 
-      if ((event.key === "Backspace" || event.key === "Delete") && selectedComponentId) {
-        event.preventDefault();
-        removeComponent(selectedComponentId);
-        return;
+      if (event.key === "Backspace" || event.key === "Delete") {
+        if (selectedComponentIds.size > 0) {
+          event.preventDefault();
+          removeComponents(selectedComponentIds);
+          return;
+        }
+        if (selectedNodeIds.size > 0) {
+          event.preventDefault();
+          const nodesToRemove = Array.from(selectedNodeIds);
+          nodesToRemove.forEach(nodeId => handleRemoveNode(nodeId));
+          return;
+        }
       }
 
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -1072,7 +1272,10 @@ const [viewport, setViewport] = useState<ViewportState>({
   }, [
     isActive,
     selectedComponentId,
-    removeComponent,
+    selectedComponentIds,
+    selectedNodeIds,
+    removeComponents,
+    handleRemoveNode,
     addComponent,
     selectingNodeField,
     hoveredComponentId,
@@ -1347,6 +1550,47 @@ const [viewport, setViewport] = useState<ViewportState>({
                 <div className="rounded border px-2 py-1 text-[11px] text-muted-foreground">
                   {SNAP_GRID_SIZE}px grid snapping enforced. Overlap nodes to merge connections.
                 </div>
+                <div className="flex items-center gap-1 rounded border bg-muted/40 px-1 py-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Zoom out"
+                    onClick={handleZoomOut}
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Zoom in"
+                    onClick={handleZoomIn}
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Zoom to fit"
+                    onClick={handleZoomToFit}
+                  >
+                    <Scan className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Reset viewport"
+                    onClick={handleResetViewport}
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                  </Button>
+                  <Badge variant="secondary" className="ml-1 font-mono text-[11px]">
+                    {`${Math.round(viewport.scale * 100)}%`}
+                  </Badge>
+                </div>
                 <Button variant="outline" size="sm" onClick={handleAddNode}>
                   Add node
                 </Button>
@@ -1389,10 +1633,11 @@ const [viewport, setViewport] = useState<ViewportState>({
               onNodeDropComponentKind={handleNodeDropKind}
               onNodeDropComponentInstance={handleNodeDropComponentInstance}
               onMarqueeSelection={handleMarqueeSelection}
+              isSpacePressed={isSpacePressed}
             />
             <NodeListEditor
               nodes={circuitNodes}
-              lockedNodes={connectedNodes}
+              connectionCounts={nodeConnectionCounts}
               selectedNodeIds={selectedNodeIds}
               onRename={handleRenameNode}
               onRemove={handleRemoveNode}
@@ -1408,11 +1653,34 @@ const [viewport, setViewport] = useState<ViewportState>({
       <div className="grid flex-1 gap-4 xl:grid-cols-[320px,1fr]">
         <div className="flex flex-col gap-4">
           <Card className="space-y-4 p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Simulation Settings</h3>
-              <Button size="sm" onClick={simulate}>
-                Run
-              </Button>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Load preset
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[260px] space-y-1">
+                    {CIRCUIT_PRESETS.map(preset => (
+                      <DropdownMenuItem
+                        key={preset.id}
+                        className="space-y-1"
+                        onSelect={() => loadPreset(preset.id)}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{preset.label}</span>
+                          <span className="text-xs text-muted-foreground">{preset.description}</span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button size="sm" onClick={simulate}>
+                  Run
+                </Button>
+              </div>
             </div>
             <div className="space-y-3 text-xs">
               <div>
@@ -1579,15 +1847,6 @@ const [viewport, setViewport] = useState<ViewportState>({
               </p>
             )}
           </Card>
-          <Card className="space-y-3 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Symbolic Equations</h3>
-              <Badge variant="outline" className="font-mono text-[11px]">
-                {differentialEquations.length}
-              </Badge>
-            </div>
-            <DifferentialEquationList equations={differentialEquations} />
-          </Card>
         </div>
         <div className="flex flex-col gap-4">
           <Card className="flex-1 space-y-4 p-4 overflow-hidden">
@@ -1657,6 +1916,28 @@ const [viewport, setViewport] = useState<ViewportState>({
                 Run a simulation to inspect node voltages and currents.
               </div>
             )}
+          </Card>
+          <Card className="space-y-3 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Circuit Analysis</h3>
+              <Badge variant="outline" className="font-mono text-[11px]">
+                {differentialEquations.length}
+              </Badge>
+            </div>
+            {metrics ? (
+              <div className="grid gap-1 font-mono text-[11px] text-muted-foreground">
+                <span>Steps: {metrics.steps}</span>
+                <span>Assembly: {metrics.assemblyMs.toFixed(2)} ms</span>
+                <span>Solve: {metrics.solveMs.toFixed(2)} ms</span>
+                <span>Matrix size: {metrics.matrixSize}</span>
+                <span>Components: {metrics.componentCount}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Run a simulation to populate timing metrics and symbolic equations.
+              </p>
+            )}
+            <DifferentialEquationList equations={differentialEquations} />
           </Card>
           <Card className="flex-1 p-4">
             {selectedNode ? (

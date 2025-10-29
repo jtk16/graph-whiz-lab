@@ -129,10 +129,29 @@
    - Full keyboard parity, visible focus, skip-to-canvas shortcut.
    - ARIA roles/labels, state announcements, high-contrast options.
    - Locale-aware numbers and shortcuts.
-   - **Acceptance:** Meets WCAG AA; automated axe audits show zero critical issues.
+ - **Acceptance:** Meets WCAG AA; automated axe audits show zero critical issues.
 
 10. **Delivery and size**
     - Code-split editor vs runtime; lazy-load heavy dependencies.
     - Tree-shake to keep initial bundle <300 KB gz.
     - Asset caching/prefetch for library nodes and examples.
     - **Acceptance:** TTI <2 s on 4G; warm reload <500 ms.
+
+## Latest User Feedback (2025-10-28)
+- Duplicate tool instances (e.g., “2D graph #1”) must surface their indices in the toolbar, not only in expression selectors.
+- Circuit tool UX remains confusing: improve keyboard shortcuts (e.g., `W` for wire), deletion via Backspace, drag/drop from palette, and overall component manipulation.
+- Comprehensive functionality list for circuit editor should drive corresponding unit tests—iterate until all pass.
+- Complex plane tool needs clearer axis overlays and ensure real/imaginary plots fit within the viewport.
+- Audit signal processing (FFT, Z-transform, Laplace) for real/complex list signals; extend tests.
+- Expand interpreter/tokenizer/parser coverage to 100+ expressions with type/accuracy verification—do not drop tests to gain passing status.
+- Circuit updates: allow disconnected components with grid-only snapping, add ground as regular component, warn on invalid circuits, permit deleting final node, add time-stepping + symbolic diff eq support, and profile performance.
+- Address runtime ReferenceErrors such as `circuitNodes`/`connectedNodes`/`ShortcutLegend` and scan for similar regressions.
+- Improve circuit panels: smoother pan/zoom akin to Graph tools, draggable nodes, visible analysis outputs, scrollable component palette, deletable ground, presets for quick testing.
+- Continue executing the multi-phase circuit plan until complete; keep iterating and testing after each milestone.
+
+## 2025-10-28 Progress
+- Patched circuit runtime to avoid transient `ReferenceError` crashes by reordering memo definitions and normalizing preset strings.
+- Added zoom controls (in/out, reset, fit) with status messaging plus improved wheel zoom anchoring across the canvas.
+- Refreshed node list with connection counts, editable rows, and destructive delete affordances; ground nodes can now be removed directly.
+- Component palette now scrolls within a bounded panel for long libraries; presets remain accessible via dropdown.
+- Delete hotkey now removes multi-selection of components or nodes; viewport reset/fit actions surface in the workspace header.

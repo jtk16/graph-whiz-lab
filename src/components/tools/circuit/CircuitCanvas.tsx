@@ -48,6 +48,7 @@ export interface CircuitCanvasProps {
     components: string[];
     additive: boolean;
   }) => void;
+  isSpacePressed?: boolean;
 }
 
 type OrthogonalOrientation = "horizontal" | "vertical";
@@ -193,6 +194,7 @@ export const CircuitCanvas = ({
   onNodeDropComponentKind,
   onNodeDropComponentInstance,
   onMarqueeSelection,
+  isSpacePressed = false,
 }: CircuitCanvasProps) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragMovedRef = useRef(false);
@@ -206,6 +208,15 @@ export const CircuitCanvas = ({
   const pendingDragPosition = useRef<NodePosition | null>(null);
   const panStateRef = useRef<{ pointerX: number; pointerY: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    if (isPanning) {
+      svg.style.cursor = "grabbing";
+      return;
+    }
+    svg.style.cursor = isSpacePressed ? "grab" : "default";
+  }, [isPanning, isSpacePressed]);
   const marqueeStateRef = useRef<{
     pointerId: number;
     origin: NodePosition;
@@ -394,9 +405,14 @@ export const CircuitCanvas = ({
     const nodeId = getNodeIdFromEvent(event);
     const componentId = getComponentIdFromEvent(event.nativeEvent);
     const additive = event.shiftKey || event.metaKey || event.ctrlKey;
-    const wantsPan = isSpacePressed || event.button === 1 || (!nodeId && !componentId && event.button === 2);
+    const shouldPan =
+      isSpacePressed ||
+      event.button === 1 ||
+      event.button === 2 ||
+      (!nodeId && !componentId && event.button === 0 && !additive);
+    const shouldMarquee = !nodeId && !componentId && event.button === 0 && additive;
 
-    if (wantsPan) {
+    if (shouldPan) {
       if (!onViewportPan) return;
       event.preventDefault();
       panStateRef.current = { pointerX: event.clientX, pointerY: event.clientY };
@@ -417,7 +433,7 @@ export const CircuitCanvas = ({
       return;
     }
 
-    if (event.button === 0) {
+    if (shouldMarquee) {
       const origin = pointerToCanvas(event.clientX, event.clientY);
       if (!origin) return;
       marqueeStateRef.current = {
@@ -760,46 +776,63 @@ export const CircuitCanvas = ({
             const isActive =
               (selectingField === "from" && highlightedFrom === nodeId) ||
               (selectingField === "to" && highlightedTo === nodeId);
-            const isHighlighted = highlightedNodes?.has(nodeId);
-            const isHovered = hoveredNodeId === nodeId;
-            const ringColor =
-              isActive || isHovered
-                ? "hsl(var(--primary))"
-                : isHighlighted
-                ? "hsl(var(--primary) / 0.7)"
-                : "rgba(148,163,184,0.8)";
-            const strokeWidth = isActive || isHovered ? 3 : isHighlighted ? 2.4 : 1.5;
-            const coordinate = `${Math.round(position.x)}, ${Math.round(position.y)}`;
-            return (
-              <g key={nodeId} data-node-id={nodeId}>
-                <title>{`${nodeId} \u2022 (${coordinate})`}</title>
+          const isHighlighted = highlightedNodes?.has(nodeId);
+          const isHovered = hoveredNodeId === nodeId;
+          const isDraggingNode = dragState?.nodeId === nodeId;
+          const ringColor =
+            isDraggingNode
+              ? "hsl(var(--primary))"
+              : isActive || isHovered
+              ? "hsl(var(--primary))"
+              : isHighlighted
+              ? "hsl(var(--primary) / 0.7)"
+              : "rgba(148,163,184,0.8)";
+          const strokeWidth = isDraggingNode ? 3.6 : isActive || isHovered ? 3 : isHighlighted ? 2.4 : 1.5;
+          const coordinate = `${Math.round(position.x)}, ${Math.round(position.y)}`;
+          return (
+            <g key={nodeId} data-node-id={nodeId}>
+              <title>{`${nodeId} \u2022 (${coordinate})`}</title>
+              {isDraggingNode && (
                 <circle
-                  data-node-id={nodeId}
                   cx={position.x}
                   cy={position.y}
-                  r={14}
-                  fill={
-                    isGround
-                      ? "#0f172a"
-                      : isActive || isHovered
-                      ? "hsl(var(--primary) / 0.22)"
-                      : isHighlighted
-                      ? "hsl(var(--primary) / 0.12)"
-                      : "#1e293b"
-                  }
-                  opacity={isActive || isHovered || isHighlighted ? 0.55 : 0.25}
+                  r={18}
+                  fill="none"
+                  stroke="hsl(var(--primary) / 0.45)"
+                  strokeWidth={1.5}
+                  strokeDasharray="6 6"
+                  pointerEvents="none"
                 />
-                <circle
-                  data-node-id={nodeId}
-                  cx={position.x}
-                  cy={position.y}
-                  r={10}
-                  fill={isGround ? "#0f172a" : "#020817"}
-                  stroke={ringColor}
-                  strokeWidth={strokeWidth}
-                  onDragOver={handleNodeDragOver}
-                  onDrop={event => handleNodeDrop(nodeId, event)}
-                />
+              )}
+              <circle
+                data-node-id={nodeId}
+                cx={position.x}
+                cy={position.y}
+                r={14}
+                fill={
+                  isGround
+                    ? "#0f172a"
+                    : isDraggingNode
+                    ? "hsl(var(--primary) / 0.28)"
+                    : isActive || isHovered
+                    ? "hsl(var(--primary) / 0.22)"
+                    : isHighlighted
+                    ? "hsl(var(--primary) / 0.12)"
+                    : "#1e293b"
+                }
+                opacity={isDraggingNode || isActive || isHovered || isHighlighted ? 0.6 : 0.25}
+              />
+              <circle
+                data-node-id={nodeId}
+                cx={position.x}
+                cy={position.y}
+                r={10}
+                fill={isGround ? "#0f172a" : isDraggingNode ? "hsl(var(--primary) / 0.2)" : "#020817"}
+                stroke={ringColor}
+                strokeWidth={strokeWidth}
+                onDragOver={handleNodeDragOver}
+                onDrop={event => handleNodeDrop(nodeId, event)}
+              />
                 <text
                   x={position.x}
                   y={position.y + 24}
