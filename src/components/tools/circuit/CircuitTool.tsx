@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import type { DragEvent } from "react";
 import { ToolProps } from "@/lib/tools/types";
 import {
@@ -268,6 +268,12 @@ export function CircuitTool({ isActive }: ToolProps) {
     scale: 1,
   });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId?: string;
+    componentId?: string;
+  } | null>(null);
   const [activeTool, setActiveTool] = useState<ActiveTool>("select");
   const [wireDraft, setWireDraft] = useState<WireDraft | null>(null);
   const [wirePreview, setWirePreview] = useState<NodePosition | null>(null);
@@ -1582,7 +1588,7 @@ export function CircuitTool({ isActive }: ToolProps) {
     <div className="flex h-full flex-col gap-4 overflow-hidden p-4">
       <Card className="space-y-6 p-4">
         <div className="grid gap-6 xl:grid-cols-[280px,1fr]">
-          <div className="flex flex-col gap-4">
+          <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
             <ComponentPalette
               selectedKind={newComponent.kind}
               onSelect={handleComponentKindSelect}
@@ -1791,8 +1797,8 @@ export function CircuitTool({ isActive }: ToolProps) {
                     />
                   </div>
                 )}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
                 <Button size="sm" onClick={() => addComponent()}>
                   Place component
                 </Button>
@@ -1877,6 +1883,11 @@ export function CircuitTool({ isActive }: ToolProps) {
                 </Button>
               </div>
             </div>
+            {components.length === 0 && (
+              <div className="rounded border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+                Empty sheet — drag a component from the palette, or press R/C/L/V to place a part. Press W to draw wires.
+              </div>
+            )}
             <CircuitCanvas
               nodes={allNodes}
               components={components}
@@ -1922,6 +1933,9 @@ export function CircuitTool({ isActive }: ToolProps) {
               onWireComplete={handleWireComplete}
               onWireCancel={handleWireCancel}
               onCreateJunction={createJunctionAt}
+              onContextMenuRequest={({ clientX, clientY, nodeId, componentId }) => {
+                setContextMenu({ x: clientX, y: clientY, nodeId: nodeId ?? undefined, componentId: componentId ?? undefined });
+              }}
               probes={probeDisplays}
               onProbeOffsetChange={updateProbeOffset}
               onRemoveProbe={removeProbe}
@@ -1930,6 +1944,69 @@ export function CircuitTool({ isActive }: ToolProps) {
               voltageScale={voltageScale}
               isSpacePressed={isSpacePressed}
             />
+            {contextMenu && (
+              <div
+                className="absolute z-50 rounded border bg-background/95 p-1 shadow"
+                style={{ left: contextMenu.x + 4, top: contextMenu.y + 4 }}
+                onMouseLeave={() => setContextMenu(null)}
+              >
+                <div className="flex flex-col text-sm">
+                  {contextMenu.nodeId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const nodeId = contextMenu.nodeId!;
+                        const pos = nodePositions[nodeId] ?? defaultNodePosition(0);
+                        setActiveTool("wire");
+                        setWireDraft({ startNodeId: nodeId, startPosition: pos, startWasNew: false });
+                        setWirePreview(pos);
+                        setContextMenu(null);
+                        setStatus(`Wire tool active – starting at ${nodeId}`);
+                      }}
+                    >
+                      Start wire here
+                    </Button>
+                  )}
+                  {contextMenu.nodeId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        addProbe(contextMenu.nodeId!);
+                        setContextMenu(null);
+                      }}
+                    >
+                      Add probe on node
+                    </Button>
+                  )}
+                  {contextMenu.componentId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        removeComponent(contextMenu.componentId!);
+                        setContextMenu(null);
+                      }}
+                    >
+                      Delete component
+                    </Button>
+                  )}
+                  {!contextMenu.componentId && !contextMenu.nodeId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        handleZoomToFit();
+                        setContextMenu(null);
+                      }}
+                    >
+                      Zoom to fit
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             <Card className="bg-slate-900/60 p-3 text-xs text-slate-300">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-200">
@@ -1991,7 +2068,7 @@ export function CircuitTool({ isActive }: ToolProps) {
         </div>
       </Card>
       <div className="grid flex-1 gap-4 xl:grid-cols-[320px,1fr]">
-        <div className="flex flex-col gap-4">
+        <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
           <Card className="space-y-4 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Simulation Settings</h3>
@@ -2192,7 +2269,7 @@ export function CircuitTool({ isActive }: ToolProps) {
             )}
           </Card>
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
           <Card className="flex-1 space-y-4 p-4 overflow-hidden">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Node Observations</h3>
@@ -2338,3 +2415,4 @@ export function CircuitTool({ isActive }: ToolProps) {
     </div>
   );
 }
+

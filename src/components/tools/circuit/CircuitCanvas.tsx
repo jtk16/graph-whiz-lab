@@ -134,6 +134,8 @@ export interface CircuitCanvasProps {
 
   isSpacePressed?: boolean;
 
+  onContextMenuRequest?: (info: { clientX: number; clientY: number; nodeId?: string; componentId?: string }) => void;
+
 }
 
 type OrthogonalOrientation = "horizontal" | "vertical";
@@ -1557,6 +1559,17 @@ export const CircuitCanvas = ({
         onPointerLeave={() => onNodeHover?.(null)}
 
         onWheel={handleCanvasWheel}
+        onContextMenu={event => {
+          event.preventDefault();
+          const componentId = getComponentIdFromEvent(event as any) || undefined;
+          const nodeId = getNodeIdFromEvent(event as any) || undefined;
+          if (typeof onContextMenuRequest === "function") {
+            const anyEvent = event as any;
+            const cx = anyEvent.clientX ?? anyEvent.nativeEvent?.clientX;
+            const cy = anyEvent.clientY ?? anyEvent.nativeEvent?.clientY;
+            onContextMenuRequest({ clientX: cx, clientY: cy, nodeId, componentId });
+          }
+        }}
 
       >
 
