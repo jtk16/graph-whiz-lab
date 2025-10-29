@@ -2102,7 +2102,7 @@ export const CircuitCanvas = ({
 
       </svg>
 
-      <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-1 rounded bg-slate-900/70 px-2 py-1 text-[11px] font-mono text-slate-200/90 shadow-sm">
+      <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-1 rounded border border-slate-200 bg-white/85 px-2 py-1 text-[11px] font-mono text-slate-600 shadow-sm">
 
         <span>{zoomPercent}% - origin ({Math.round(viewport.origin.x)}, {Math.round(viewport.origin.y)})</span>
 

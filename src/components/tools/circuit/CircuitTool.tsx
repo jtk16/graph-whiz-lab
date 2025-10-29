@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
-import { Pause, Play, Upload, Trash2, ZoomIn, ZoomOut, Scan, RefreshCcw, ChevronDown, Target } from "lucide-react";
+import { Pause, Play, Upload, Trash2, ZoomIn, ZoomOut, Scan, RefreshCcw, ChevronDown, Target, MousePointer, PenTool, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { solveSymbolicCircuit } from "@/lib/circuits/symbolic";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -530,6 +530,73 @@ export function CircuitTool({ isActive }: ToolProps) {
     });
     setStatus("Framed circuit to fit viewport");
   }, [allNodes, nodePositions, clampScale]);
+
+  const handleZoomSelection = useCallback(() => {
+    const nodes = new Set<string>();
+    selectedNodeIds.forEach(node => nodes.add(node));
+    if (selectedComponentIds.size) {
+      components.forEach(component => {
+        if (selectedComponentIds.has(component.id)) {
+          nodes.add(component.from);
+          nodes.add(component.to);
+        }
+      });
+    }
+    if (nodes.size === 0) {
+      handleZoomToFit();
+      return;
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    nodes.forEach(nodeId => {
+      const position = nodePositions[nodeId];
+      if (!position) return;
+      minX = Math.min(minX, position.x);
+      minY = Math.min(minY, position.y);
+      maxX = Math.max(maxX, position.x);
+      maxY = Math.max(maxY, position.y);
+    });
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      handleZoomToFit();
+      return;
+    }
+    const padding = NODE_MARGIN * 2;
+    const width = Math.max(maxX - minX, 1);
+    const height = Math.max(maxY - minY, 1);
+    const widthWithPadding = width + padding;
+    const heightWithPadding = height + padding;
+    const scaleX = CANVAS_WIDTH / widthWithPadding;
+    const scaleY = CANVAS_HEIGHT / heightWithPadding;
+    const nextScale = clampScale(Math.min(scaleX, scaleY));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    setViewport({
+      origin: {
+        x: centerX - CANVAS_WIDTH / (2 * nextScale),
+        y: centerY - CANVAS_HEIGHT / (2 * nextScale),
+      },
+      scale: nextScale,
+    });
+  }, [
+    selectedNodeIds,
+    selectedComponentIds,
+    components,
+    nodePositions,
+    clampScale,
+    handleZoomToFit,
+  ]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedComponentIds(() => new Set());
+    setSelectedComponentId(null);
+    setSelectedNode(null);
+    setSelectedNodeIds(() => new Set());
+    setSelectingNodeField(null);
+    setHoveredComponentId(null);
+    setHoveredNodeId(null);
+  }, []);
 
   useEffect(() => {
     if (!components.length) return;
@@ -1584,20 +1651,67 @@ export function CircuitTool({ isActive }: ToolProps) {
     setSelectedNode(nodeId);
   };
 
+  const displayedStatus = status && status.trim().length ? status : "Workspace ready.";
+
   return (
-    <div className="flex h-full flex-col gap-4 overflow-hidden p-4">
-      <Card className="space-y-6 p-4">
+    <div className="flex h-full flex-col gap-3 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="min-w-[220px]">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Circuit workspace</p>
+          <p className="text-sm font-medium text-slate-800">{displayedStatus}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                Load preset
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[260px] space-y-1">
+              {CIRCUIT_PRESETS.map(preset => (
+                <DropdownMenuItem
+                  key={preset.id}
+                  className="space-y-1"
+                  onSelect={() => loadPreset(preset.id)}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{preset.label}</span>
+                    <span className="text-xs text-slate-600">{preset.description}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={clearSelection}>
+            <Eraser className="mr-2 h-4 w-4" />
+            Clear selection
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleZoomSelection}>
+            <Target className="mr-2 h-4 w-4" />
+            Zoom selection
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleZoomToFit}>
+            <Scan className="mr-2 h-4 w-4" />
+            Frame all
+          </Button>
+          <Button size="sm" onClick={simulate}>
+            <Play className="mr-2 h-4 w-4" />
+            Run
+          </Button>
+        </div>
+      </div>
+      <Card className="space-y-6 border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-6 xl:grid-cols-[280px,1fr]">
           <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
             <ComponentPalette
               selectedKind={newComponent.kind}
               onSelect={handleComponentKindSelect}
             />
-            <div className="space-y-4 rounded-lg border bg-muted/30 p-3 text-xs">
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold">Placement</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-slate-600">
                     Drop or place components to auto-create nodes. Snap overlapping nodes to connect nets.
                   </p>
                 </div>
@@ -1605,14 +1719,14 @@ export function CircuitTool({ isActive }: ToolProps) {
                   {getComponentGlyph(newComponent.kind)}
                 </Badge>
               </div>
-              <div className="rounded border bg-background/80 px-3 py-2 font-mono text-[11px]">
-                {`${newComponent.from || "auto"} &rarr; ${newComponent.to || "auto"}`}
+              <div className="rounded border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] text-slate-700">
+                {`${newComponent.from || "auto"} → ${newComponent.to || "auto"}`}
               </div>
               <div className="space-y-3 text-xs">
                 <div className="flex items-center gap-2">
                   <Label className="w-20">Type</Label>
                   <Select value={newComponent.kind} onValueChange={value => handleComponentKindSelect(value as CircuitKind)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1635,9 +1749,9 @@ export function CircuitTool({ isActive }: ToolProps) {
                       }))
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Auto" />
-                    </SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Auto" />
+                  </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={AUTO_NODE_VALUE}>Auto</SelectItem>
                       {allNodes.map(node => (
@@ -1666,7 +1780,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                       }))
                     }
                   >
-                    <SelectTrigger>
+                   <SelectTrigger className="w-full">
                       <SelectValue placeholder="Auto" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1696,7 +1810,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                           setNewComponent(prev => ({ ...prev, waveform: value as "dc" | "ac" }))
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1802,69 +1916,31 @@ export function CircuitTool({ isActive }: ToolProps) {
                 <Button size="sm" onClick={() => addComponent()}>
                   Place component
                 </Button>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-slate-600">
                   Drop components onto the sheet, then draw wires with W or by clicking junctions.
                 </span>
               </div>
             </div>
           </div>
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold">Visual circuit workspace</h3>
-                <p className="text-xs text-muted-foreground">
-                  Pan with space-drag, zoom with the wheel, and snap wires to the orthogonal grid.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="rounded border px-2 py-1 text-[11px] text-muted-foreground">
-                  {SNAP_GRID_SIZE}px grid snapping enforced. Overlap nodes to merge connections.
-                </div>
-                <div className="flex items-center gap-1 rounded border bg-muted/40 px-1 py-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label="Zoom out"
-                    onClick={handleZoomOut}
-                  >
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label="Zoom in"
-                    onClick={handleZoomIn}
-                  >
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label="Zoom to fit"
-                    onClick={handleZoomToFit}
-                  >
-                    <Scan className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label="Reset viewport"
-                    onClick={handleResetViewport}
-                  >
-                    <RefreshCcw className="h-4 w-4" />
-                  </Button>
-                  <Badge variant="secondary" className="ml-1 font-mono text-[11px]">
-                    {`${Math.round(viewport.scale * 100)}%`}
-                  </Badge>
-                </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  type="button"
+                  variant={activeTool === "select" ? "default" : "outline"}
                   size="sm"
+                  onClick={() => {
+                    if (activeTool !== "select") {
+                      cancelWireDraft();
+                      setActiveTool("select");
+                    }
+                  }}
+                >
+                  <MousePointer className="mr-2 h-4 w-4" />
+                  Select
+                </Button>
+                <Button
                   variant={activeTool === "wire" ? "default" : "outline"}
+                  size="sm"
                   onClick={() => {
                     if (activeTool === "wire") {
                       cancelWireDraft();
@@ -1876,15 +1952,39 @@ export function CircuitTool({ isActive }: ToolProps) {
                     }
                   }}
                 >
-                  Wire tool
+                  <PenTool className="mr-2 h-4 w-4" />
+                  Wire
                 </Button>
+                <Badge variant="outline" className="font-mono text-[11px] text-slate-600">
+                  Pan: hold Space
+                </Badge>
+                <Badge variant="outline" className="font-mono text-[11px] text-slate-600">
+                  {SNAP_GRID_SIZE}px grid
+                </Badge>
                 <Button variant="outline" size="sm" onClick={handleAddNode}>
                   Add junction
                 </Button>
               </div>
+              <div className="flex items-center gap-1">
+                <Button type="button" size="icon" variant="ghost" aria-label="Zoom out" onClick={handleZoomOut}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" aria-label="Zoom in" onClick={handleZoomIn}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" aria-label="Zoom to fit" onClick={handleZoomToFit}>
+                  <Scan className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" aria-label="Reset viewport" onClick={handleResetViewport}>
+                  <RefreshCcw className="h-4 w-4" />
+                </Button>
+                <Badge variant="secondary" className="ml-2 font-mono text-[11px]">
+                  {`${Math.round(viewport.scale * 100)}%`}
+                </Badge>
+              </div>
             </div>
             {components.length === 0 && (
-              <div className="rounded border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+              <div className="rounded border border-dashed border-slate-300 bg-white/90 p-3 text-xs text-slate-600">
                 Empty sheet — drag a component from the palette, or press R/C/L/V to place a part. Press W to draw wires.
               </div>
             )}
@@ -1946,21 +2046,22 @@ export function CircuitTool({ isActive }: ToolProps) {
             />
             {contextMenu && (
               <div
-                className="absolute z-50 rounded border bg-background/95 p-1 shadow"
+                className="fixed z-50 min-w-[180px] rounded-md border border-slate-200 bg-white p-2 text-sm shadow-lg"
                 style={{ left: contextMenu.x + 4, top: contextMenu.y + 4 }}
                 onMouseLeave={() => setContextMenu(null)}
               >
-                <div className="flex flex-col text-sm">
+                <div className="flex flex-col gap-1">
                   {contextMenu.nodeId && (
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="justify-start"
                       onClick={() => {
                         const nodeId = contextMenu.nodeId!;
-                        const pos = nodePositions[nodeId] ?? defaultNodePosition(0);
+                        const position = nodePositions[nodeId] ?? defaultNodePosition(0);
                         setActiveTool("wire");
-                        setWireDraft({ startNodeId: nodeId, startPosition: pos, startWasNew: false });
-                        setWirePreview(pos);
+                        setWireDraft({ startNodeId: nodeId, startPosition: position, startWasNew: false });
+                        setWirePreview(position);
                         setContextMenu(null);
                         setStatus(`Wire tool active – starting at ${nodeId}`);
                       }}
@@ -1972,6 +2073,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="justify-start"
                       onClick={() => {
                         addProbe(contextMenu.nodeId!);
                         setContextMenu(null);
@@ -1984,6 +2086,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="justify-start text-red-600 hover:text-red-600"
                       onClick={() => {
                         removeComponent(contextMenu.componentId!);
                         setContextMenu(null);
@@ -1996,6 +2099,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="justify-start"
                       onClick={() => {
                         handleZoomToFit();
                         setContextMenu(null);
@@ -2009,7 +2113,7 @@ export function CircuitTool({ isActive }: ToolProps) {
             )}
             <Card className="bg-white p-3 text-xs text-slate-700">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
                   Symbolic differential equations
                 </h4>
                 <Badge variant="outline" className="font-mono text-[10px]">
@@ -2021,26 +2125,26 @@ export function CircuitTool({ isActive }: ToolProps) {
                   {differentialEquations.slice(0, 3).map(eq => (
                     <div
                       key={eq.id}
-                      className="rounded border border-slate-800/60 bg-slate-950/60 px-2 py-1 text-slate-200"
+                      className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700"
                     >
-                      <p className="font-semibold text-primary/80">{eq.label}</p>
+                      <p className="font-semibold text-slate-800">{eq.label}</p>
                       <p>{eq.plain}</p>
                     </div>
                   ))}
                   {differentialEquations.length > 3 && (
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-500">
                       View the full system in the analysis panel below.
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="mt-2 text-[11px] text-muted-foreground">
+                <p className="mt-2 text-[11px] text-slate-500">
                   Run a simulation to derive the Laplace-domain model of this circuit.
                 </p>
               )}
             </Card>
             <Collapsible open={showNodePanel} onOpenChange={setShowNodePanel}>
-              <CollapsibleTrigger className="flex w-full items-center justify-between rounded border border-slate-800/70 bg-slate-900/50 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary">
+            <CollapsibleTrigger className="flex w-full items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-300">
                 <span>Nets & junctions ({allNodes.length})</span>
                 <ChevronDown
                   className={cn(
@@ -2069,35 +2173,13 @@ export function CircuitTool({ isActive }: ToolProps) {
       </Card>
       <div className="grid flex-1 gap-4 xl:grid-cols-[320px,1fr]">
         <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Simulation Settings</h3>
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Load preset
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[260px] space-y-1">
-                    {CIRCUIT_PRESETS.map(preset => (
-                      <DropdownMenuItem
-                        key={preset.id}
-                        className="space-y-1"
-                        onSelect={() => loadPreset(preset.id)}
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{preset.label}</span>
-                          <span className="text-xs text-muted-foreground">{preset.description}</span>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button size="sm" onClick={simulate}>
-                  Run
-                </Button>
-              </div>
+              <h3 className="text-sm font-semibold text-slate-800">Simulation Settings</h3>
+              <Button size="sm" onClick={simulate}>
+                <Play className="mr-2 h-4 w-4" />
+                Run
+              </Button>
             </div>
             <div className="space-y-3 text-xs">
               <div>
@@ -2147,20 +2229,20 @@ export function CircuitTool({ isActive }: ToolProps) {
                     disabled={!result}
                     onValueChange={([value]) => setPlayhead(value)}
                   />
-                  <span className="min-w-[60px] text-right text-xs text-muted-foreground">
+                  <span className="min-w-[60px] text-right text-xs text-slate-600">
                     {currentTime.toFixed(4)}s
                   </span>
                 </div>
               </div>
-              {status && <p className="text-muted-foreground">{status}</p>}
+              {status && <p className="text-slate-600">{status}</p>}
             </div>
           </Card>
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold">Workflow Tips</h3>
             <ShortcutLegend items={HOTKEY_HINTS} />
             <TipsList tips={EDITOR_TIPS} />
           </Card>
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-4 border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Netlist ({components.length})</h3>
             </div>
@@ -2218,18 +2300,18 @@ export function CircuitTool({ isActive }: ToolProps) {
                           <span className="font-mono text-[11px] text-primary/80">{valueLabel}</span>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-600">
                         <Badge variant="outline" className="font-mono text-[10px] uppercase">
                           {fromLabel}
                         </Badge>
-                        <span aria-hidden="true" className="text-muted-foreground">
+                        <span aria-hidden="true" className="text-slate-600">
                           {"\u2192"}
                         </span>
                         <Badge variant="outline" className="font-mono text-[10px] uppercase">
                           {toLabel}
                         </Badge>
                       </div>
-                      <span className="text-muted-foreground">{describeComponent(component)}</span>
+                      <span className="text-slate-600">{describeComponent(component)}</span>
                     </div>
                     <Button
                       size="icon"
@@ -2246,7 +2328,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 );
               })}
               {components.length === 0 && (
-                <p className="py-6 text-center text-xs text-muted-foreground">
+                <p className="py-6 text-center text-xs text-slate-600">
                   Add components to build a circuit.
                 </p>
               )}
@@ -2263,24 +2345,24 @@ export function CircuitTool({ isActive }: ToolProps) {
                 onRemove={() => removeComponent(selectedComponent.id)}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-600">
                 Select a component to inspect and tweak its parameters.
               </p>
             )}
           </Card>
         </div>
         <div className="flex max-h-[60vh] flex-col gap-4 overflow-auto pr-1">
-          <Card className="flex-1 space-y-4 p-4 overflow-hidden">
+          <Card className="flex-1 space-y-4 overflow-hidden border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Node Observations</h3>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-slate-600">
                 {result ? `${result.time.length} samples` : "Simulate to view data"}
               </span>
             </div>
             {result ? (
               <div className="space-y-3 overflow-auto pr-1">
                 {nodeList.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No non-ground nodes detected.</p>
+                  <p className="text-xs text-slate-600">No non-ground nodes detected.</p>
                 )}
                 {nodeList.map(node => {
                   const voltages = result?.nodeVoltages[node];
@@ -2307,7 +2389,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                             </Badge>
                           )}
                         </span>
-                        <span className="text-muted-foreground">
+                        <span className="text-slate-600">
                           V = {voltages ? vNow.toFixed(4) : "n/a"} V, I = {currents ? iNow.toExponential(3) : "n/a"} A
                         </span>
                       </div>
@@ -2357,7 +2439,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 })}
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-sm text-slate-600">
                 Run a simulation to inspect node voltages and currents.
               </div>
             )}
@@ -2370,7 +2452,7 @@ export function CircuitTool({ isActive }: ToolProps) {
               </Badge>
             </div>
             {metrics ? (
-              <div className="grid gap-1 font-mono text-[11px] text-muted-foreground">
+              <div className="grid gap-1 font-mono text-[11px] text-slate-600">
                 <span>Steps: {metrics.steps}</span>
                 <span>Assembly: {metrics.assemblyMs.toFixed(2)} ms</span>
                 <span>Solve: {metrics.solveMs.toFixed(2)} ms</span>
@@ -2378,7 +2460,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 <span>Components: {metrics.componentCount}</span>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-600">
                 Run a simulation to populate timing metrics and symbolic equations.
               </p>
             )}
@@ -2386,7 +2468,7 @@ export function CircuitTool({ isActive }: ToolProps) {
               <DifferentialEquationList equations={differentialEquations} />
             </div>
           </Card>
-          <Card className="flex-1 p-4">
+          <Card className="flex-1 border border-slate-200 bg-white p-4 shadow-sm">
             {selectedNode ? (
               <NodeDetailPanel
                 node={selectedNode}
@@ -2407,7 +2489,7 @@ export function CircuitTool({ isActive }: ToolProps) {
                 }}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-sm text-slate-600">
                 Click a node to inspect numeric and symbolic details.
               </div>
             )}
@@ -2417,4 +2499,6 @@ export function CircuitTool({ isActive }: ToolProps) {
     </div>
   );
 }
+
+
 
