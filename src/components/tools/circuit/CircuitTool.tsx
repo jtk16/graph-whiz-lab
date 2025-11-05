@@ -32,6 +32,7 @@ import {
   stageComponentForNodeDrop,
   retargetComponentToNode,
 } from "@/lib/circuits/editorModel";
+import { CIRCUIT_PRESETS, DEFAULT_SIM_CONFIG } from "@/lib/circuits/presets";
 import {
   buildDifferentialEquations,
   DifferentialEquation,
@@ -71,6 +72,7 @@ import {
 } from "./NodeDetailPanel";
 import type { ShortcutHint } from "./NodeDetailPanel";
 import { NodeListEditor } from "./NodeListEditor";
+import { CircuitStatusBar } from "./CircuitStatusBar";
 import { DRAG_DATA_COMPONENT, DRAG_DATA_KIND } from "./constants";
 import { buildPiecewiseExpression, describeComponent, componentValueLabel } from "./utils";
 import type { ViewportState } from "./types";
@@ -145,11 +147,6 @@ const DEFAULT_COMPONENTS: CircuitComponent[] = [
   },
 ];
 
-const DEFAULT_SIM = {
-  dt: 0.0005,
-  duration: 0.1,
-};
-
 const DEFAULT_NODE_NAMES = extractCircuitNodes(DEFAULT_COMPONENTS);
 
 const HOTKEY_HINTS: ShortcutHint[] = [
@@ -165,78 +162,6 @@ const HOTKEY_HINTS: ShortcutHint[] = [
   { combo: "Esc", action: "Clear selections and node picking" },
 ];
 
-const CIRCUIT_PRESETS: Array<{ id: string; label: string; description: string; components: CircuitComponent[] }> = [
-  {
-    id: "starter-supply",
-    label: "Starter (Grounded source)",
-    description: "Baseline DC source with a single load resistor.",
-    components: [
-      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
-      { id: "vs1", kind: "voltage-source", from: "vin", to: "n0", waveform: "dc", value: 5 },
-      { id: "r1", kind: "resistor", from: "vin", to: "n0", value: 1000 },
-    ],
-  },
-  {
-    id: "rc-lowpass",
-    label: "RC Low-Pass Filter",
-    description: "First-order filter with 10 kOhm / 1 uF corner (~15.9 Hz).",
-    components: [
-      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
-      {
-        id: "vs1",
-        kind: "voltage-source",
-        from: "vin",
-        to: "n0",
-        waveform: "ac",
-        value: 0,
-        amplitude: 5,
-        frequency: 1000,
-        phase: 0,
-        offset: 0,
-      },
-      { id: "r1", kind: "resistor", from: "vin", to: "vout", value: 10000 },
-      { id: "c1", kind: "capacitor", from: "vout", to: "n0", value: 1e-6 },
-    ],
-  },
-  {
-    id: "rlc-series",
-    label: "Series RLC Resonator",
-    description: "Driven ladder with 50 Ohm damping and 10 mH / 1 uF tank.",
-    components: [
-      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
-      {
-        id: "vs1",
-        kind: "voltage-source",
-        from: "vin",
-        to: "n0",
-        waveform: "ac",
-        value: 0,
-        amplitude: 3,
-        frequency: 500,
-        phase: 0,
-        offset: 0,
-      },
-      { id: "r1", kind: "resistor", from: "vin", to: "n1", value: 50 },
-      { id: "l1", kind: "inductor", from: "n1", to: "n2", value: 0.01 },
-      { id: "c1", kind: "capacitor", from: "n2", to: "n0", value: 1e-6 },
-    ],
-  },
-  {
-    id: "wheatstone-bridge",
-    label: "Wheatstone Bridge",
-    description: "Balanced bridge with a 10 kOhm sense resistor across the legs.",
-    components: [
-      { id: "g1", kind: "ground", from: "n0", to: CANONICAL_GROUND },
-      { id: "vs1", kind: "voltage-source", from: "vin", to: "n0", waveform: "dc", value: 12 },
-      { id: "r1", kind: "resistor", from: "vin", to: "n1", value: 1000 },
-      { id: "r2", kind: "resistor", from: "n1", to: "n0", value: 1000 },
-      { id: "r3", kind: "resistor", from: "vin", to: "n2", value: 1000 },
-      { id: "r4", kind: "resistor", from: "n2", to: "n0", value: 1000 },
-      { id: "r5", kind: "resistor", from: "n1", to: "n2", value: 10000 },
-    ],
-  },
-];
-
 const EDITOR_TIPS = [
   "Drag components from the library directly onto the canvas to autoconnect.",
   "Drop a netlist item onto a node to retarget its leads instantly.",
@@ -246,7 +171,7 @@ const EDITOR_TIPS = [
 export function CircuitTool({ isActive }: ToolProps) {
   const [components, setComponents] = useState<CircuitComponent[]>(DEFAULT_COMPONENTS);
   const [newComponent, setNewComponent] = useState<NewComponentState>(DEFAULT_NEW_COMPONENT);
-  const [simConfig, setSimConfig] = useState(DEFAULT_SIM);
+  const [simConfig, setSimConfig] = useState(DEFAULT_SIM_CONFIG);
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [metrics, setMetrics] = useState<SimulationMetrics | null>(null);
   const [status, setStatus] = useState<string>("");
@@ -1649,8 +1574,10 @@ export function CircuitTool({ isActive }: ToolProps) {
   const displayedStatus = status && status.trim().length ? status : "Workspace ready.";
 
   return (
-    <div className="flex h-full flex-col gap-4 bg-slate-100 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="flex h-full flex-col bg-slate-100">
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex h-full flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="min-w-[220px]">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Circuit workspace</p>
           <p className="text-sm font-medium text-slate-800">{displayedStatus}</p>
@@ -2478,6 +2405,15 @@ export function CircuitTool({ isActive }: ToolProps) {
         </div>
       </div>
     </div>
+    <CircuitStatusBar
+      mode={activeTool}
+      gridSize={SNAP_GRID_SIZE}
+      snapEnabled={true}
+      cursorPosition={null}
+      statusMessage={displayedStatus}
+      showWarning={null}
+    />
+  </div>
   );
 }
 
