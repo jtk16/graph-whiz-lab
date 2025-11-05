@@ -1,6 +1,6 @@
 import '../operations'; // Ensure all operations are registered
 import '../runtime'; // Initialize runtime side effects (higher-order, etc.)
-import '../tools'; // Register visualization tools
+// Visualization tools are registered by importing '@/lib/tools' at the app shell (e.g., src/main.tsx).
 import '../toolkits'; // Register toolkits through the store
 
 import { ExpressionEngine, ExpressionModule } from './engine';
